@@ -7,6 +7,8 @@ import re
 
 MIN_WORDS = 5
 OVERLAP = 0.6
+# Every test page carries this line, so repeating it says nothing. Only the exact line is skipped.
+BANNER = "TEST PAGE — Northwind Bank is a fictional brand. Do not enter real data."
 
 
 def words(text):
@@ -19,7 +21,8 @@ def sentences(text):
 
 def repeats(claim, page_texts):
     """[{"claim", "page"}]: each claim sentence that repeats a page sentence, with the first one it repeats."""
-    page = [(s, set(words(s))) for text in page_texts for s in sentences(text)]
+    lines = [line for text in page_texts for line in text.splitlines() if line.strip() != BANNER]
+    page = [(s, set(words(s))) for line in lines for s in sentences(line)]
     page = [(s, w) for s, w in page if len(w) >= MIN_WORDS]
     found = []
     for sentence in sentences(claim):
