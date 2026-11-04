@@ -146,6 +146,8 @@ def clear_cases():
         for table in ("cases", "audit", "model_outputs"):
             c.execute(f"DELETE FROM {table}")
             c.execute("DELETE FROM sqlite_sequence WHERE name = ?", (table,))
+        # Numbers start again, so old spending must not count against a new case with the same number.
+        c.execute("UPDATE llm_usage SET case_id = NULL")
     return count
 
 

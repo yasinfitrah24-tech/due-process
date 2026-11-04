@@ -190,3 +190,14 @@ def test_eval_hosts_are_not_listed_but_still_work(client, monkeypatch):  # noqa:
     monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case: visit_result(json.loads(json.dumps(PAGE_C_EVIDENCE))))
     r = client.post("/api/reports", json={"url": "http://orchard-site.test/p/1042", "claim": "c"})
     assert r.status_code == 202 and r.json()["customer_id"] == "cust-1004"
+
+
+def test_reset_does_not_pass_old_model_calls_to_new_cases(client):  # noqa: F811
+    from app import ledger
+    for _ in range(ledger.MAX_CALLS_PER_CASE):
+        db.record_usage(1, "documents", "m", 0, 0, 0.25, 0)
+    assert db.case_calls(1) == ledger.MAX_CALLS_PER_CASE
+    db.clear_cases()
+    assert db.case_calls(1) == 0 and db.total_cost() == 1.5
+    c = run(client, URL_A)
+    assert c["id"] == 1 and {o["status"] for o in c["outputs"].values()} == {"accepted"}
