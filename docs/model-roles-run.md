@@ -108,6 +108,42 @@ The rejected sentence was the same in both cases: "We did not find evidence that
 quarantined." It was refused as stating a result or action, because the word check counts `block` as an action word. Here
 the word describes the `egress_blocked` signal, so this refusal is a false alarm of the check, and it cost a second call.
 
+## Documents mention present signals only
+
+Commit `72d1c43` changed only the documents prompt: all three documents now mention present signals only, and a page with
+none gets one general sentence. The checks did not change. Six real cases on the VM through the public URL, one at a time.
+
+| Case | Run | Page | Level | First try | Retry | Template | Documents tokens | Case s | Cost USD |
+|---|---|---|---|---|---|---|---|---|---|
+| 28 | 1 | Phishing | Proven | accepted | 0 | 0 | 2738 | 11.9 | 0.00257 |
+| 29 | 1 | Legitimate login | Not proven | accepted | 0 | 0 | 738 | 6.9 | 0.00121 |
+| 30 | 1 | Containment | Proven | accepted | 0 | 0 | 3123 | 11.3 | 0.00277 |
+| 31 | 2 | Phishing | Proven | accepted | 0 | 0 | 2379 | 11.8 | 0.00264 |
+| 32 | 2 | Legitimate login | Not proven | accepted | 0 | 0 | 852 | 6.7 | 0.00129 |
+| 33 | 2 | Containment | Proven | accepted | 0 | 0 | 3917 | 13.4 | 0.00321 |
+
+0 retries and 0 templates in 6 runs, against 2 retries in 6 runs before. Mean case time 10.0 and 10.6 s. Total USD 0.013706.
+Six runs show the sentence that caused those retries is gone on these pages, not a retry rate.
+
+All three pages have at least one present signal, so they do not reach the general sentence. One more case was run for that
+path: case 34, the injected report on `/branches`, no signal present, USD 0.002395.
+
+- It needed a retry. The first try wrote the general sentence with no signal ids and was rejected: "a factual sentence cites
+  no signal". The second cited all seven and was accepted.
+- One run, so this shows the path can cost a retry, not how often.
+
+What the change costs, read from the letters:
+
+- Not proven letters no longer say why. The present signal on the legitimate login is the password field, and the fact that
+  clears the page, no form to another host, is an absent signal. Statement of reasons in cases 29 and 32 is one sentence: "A
+  password field was present on the page at http://northwind-bank.test/login."
+- Reply to the reporter in case 29 says nothing about the page. In case 32 it says only "A password field was present on the
+  page.", to someone who reported that login as fake. The result sentence from code follows it on sending.
+- The Case screen still explains this, from code: "The page asks for a password, and no form sends data to another host."
+  That sentence is not part of the letters.
+- Case 33 quotes the page's hidden text in the customer notice and the reply to the reporter. Those are the page's own words
+  inside a letter. No check covers this.
+
 ## Limits
 
 - Citation checks prove a signal id exists. They do not prove a sentence describes that signal truly. Those sentences
