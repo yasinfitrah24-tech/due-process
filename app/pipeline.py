@@ -10,10 +10,10 @@ from sandbox import launch
 def process(case_id):
     case = db.get_case(case_id)
     try:
-        plan = planner.make_plan(llm.get_client(), case["host"], case["claim"], db.take_llm_call)
+        plan = planner.make_plan(llm.get_client(), case["url"], db.take_llm_call)
         db.update_case(case_id, status="visiting", plan=plan)
         db.audit(case_id, "planner", "plan_created", planner=plan["planner"], steps=plan["steps"],
-                 problem=plan["problem"])
+                 problem=plan["problem"], latency_s=plan["latency_s"])
 
         result = launch.run_visit(case["url"], f"case-{case_id}", plan["steps"])
         launch.save(result, db.case_dir(case_id))

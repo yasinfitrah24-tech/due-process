@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from app import policy, signals
+from app import inventory, policy, signals
 from tests.evidence import PAGE_A_EVIDENCE, PAGE_B_EVIDENCE, PAGE_C_EVIDENCE, dest
 
 
@@ -48,14 +48,60 @@ def test_other_signals_do_not_raise_the_level(change):
 
 def test_observed_form_action_outranks_declared():
     evidence = copy.deepcopy(PAGE_A_EVIDENCE)
-    evidence["destinations"].append(dest("form-action", "observed", "p", "http://x.test/", False))
+    evidence["destinations"].append(dest("form-action", "observed", "http://p.test/", "http://x.test/", False))
     assert by_id(signals.compute(evidence, "http://t.test/"))["form_to_foreign_host"]["kind"] == "observed"
 
 
 def test_foreign_request_outside_a_form_is_not_a_form_signal():
     evidence = copy.deepcopy(PAGE_C_EVIDENCE)
-    evidence["destinations"].append(dest("request:fetch", "observed", "p", "http://cdn.test/x", False, None))
+    evidence["destinations"].append(dest("request:fetch", "observed", "http://p.test/", "http://cdn.test/x", False, None))
     assert by_id(signals.compute(evidence, "http://t.test/"))["form_to_foreign_host"]["value"] is False
+
+
+def login_posting_to(page, destination):
+    evidence = copy.deepcopy(PAGE_B_EVIDENCE)
+    evidence["destinations"] = [dest("form-action", "observed", page, destination, False)]
+    return evidence
+
+
+def test_form_to_a_subdomain_of_the_same_site_is_not_foreign():
+    page = "http://northwind-bank.test/login-subdomain"
+    found = signals.compute(login_posting_to(page, "http://auth.northwind-bank.test/session"), page)
+    assert by_id(found)["form_to_foreign_host"]["value"] is False and signals.level(found) == signals.NOT_PROVEN
+
+
+def test_form_to_another_host_of_the_same_customer_is_not_foreign():
+    page = "http://northwind-verify.test/login"
+    found = signals.compute(login_posting_to(page, "http://tailspin-offers.test/session"), page)
+    assert signals.level(found) == signals.NOT_PROVEN
+
+
+def test_form_to_a_different_customer_is_foreign():
+    page = "http://northwind-verify.test/login"
+    found = signals.compute(login_posting_to(page, "http://northwind-bank.test/session"), page)
+    assert signals.level(found) == signals.PROVEN
+
+
+@pytest.mark.parametrize("page,destination,foreign", [
+    ("auth.example.co.uk", "www.example.co.uk", False),
+    ("example.co.uk", "other.co.uk", True),
+    ("alice.github.io", "bob.github.io", True),
+    ("northwind-bank.test", "northwind-bank.test.evil.test", True),
+    ("northwind-bank.test", "evil-northwind-bank.test", True),
+    ("10.0.0.1", "10.0.0.2", True),
+    ("10.0.0.1", "10.0.0.1", False),
+    ("example.com", None, True),
+    ("unlisted.test", "other-unlisted.test", True),
+])
+def test_is_foreign(page, destination, foreign):
+    assert inventory.is_foreign(page, destination) is foreign
+
+
+def test_final_host_differs_is_per_registrable_domain():
+    evidence = {**copy.deepcopy(PAGE_C_EVIDENCE), "final_url": "http://www.northwind-bank.test/"}
+    assert by_id(signals.compute(evidence, "http://northwind-bank.test/"))["final_host_differs"]["value"] is False
+    evidence["final_url"] = "http://elsewhere.test/"
+    assert by_id(signals.compute(evidence, "http://northwind-bank.test/"))["final_host_differs"]["value"] is True
 
 
 @pytest.mark.parametrize("level,allowed", [

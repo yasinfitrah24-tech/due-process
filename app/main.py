@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from app import db, inventory, pipeline, policy
+from app import db, inventory, pipeline, policy, signals
 from sandbox import launch
 
 HERE = Path(__file__).parent
@@ -92,6 +92,8 @@ def case_context(case_id):
     if case is None:
         raise HTTPException(404, "case not found")
     evidence = pipeline.load_evidence(case_id)
+    for d in evidence.get("destinations", []):
+        d["foreign"] = inventory.is_foreign(signals.host(d["page"]), signals.host(d["url"]))
     return {"case": case, "evidence": evidence, "audit": db.audit_log(case_id),
             "allowed": policy.allowed_actions(case["level"]) if case["status"] == "ready" else ()}
 

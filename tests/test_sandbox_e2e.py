@@ -118,6 +118,13 @@ def test_level_from_real_evidence(fixture, url, level, request):
     assert signals.level(found) == level
 
 
+def test_login_on_a_subdomain_of_the_same_site_is_not_proven():
+    url = "http://northwind-bank.test/login-subdomain"
+    e = launch.run_visit(url, "sub")["evidence"]
+    assert [d["url"] for d in foreign(e)] == ["http://auth.northwind-bank.test/session"] and e["password_fields"]
+    assert signals.level(signals.compute(e, url)) == "Not proven"
+
+
 def test_tampering_page_is_still_proven():
     url = "http://northwind-verify.test/login-tamper"
     assert signals.level(signals.compute(launch.run_visit(url, "tamper")["evidence"], url)) == "Proven"

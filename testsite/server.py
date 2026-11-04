@@ -5,6 +5,7 @@ Pages are routed by Host header, so each simulated customer host serves only its
       login whose submit handler calls fetch() on collector.test (never runs: nothing is submitted)
   (b) http://northwind-bank.test/login    login whose form posts to its own host
   (c) http://northwind-bank.test/branches ordinary page, no form
+  http://northwind-bank.test/login-subdomain login whose form posts to auth.northwind-bank.test
 /hang (any host) never finishes; it exists only to test the sandbox timeout.
 http://northwind-verify.test/login-tamper, -delegated and -inline are variants of (a)'s login for evidence tests.
 """
@@ -85,6 +86,14 @@ OWN_LOGIN = page("Northwind Bank sign in", """
   <button type="submit">Sign in</button>
 </form>""")
 
+# A legitimate split: the form posts to an auth subdomain of the same registrable domain.
+SUBDOMAIN_LOGIN = page("Northwind Bank sign in", """
+<form action="http://auth.northwind-bank.test/session" method="post">
+  <label>User ID <input type="text" name="username"></label><br>
+  <label>Password <input type="password" name="password"></label><br>
+  <button type="submit">Sign in</button>
+</form>""")
+
 BRANCHES = page("Northwind Bank branches", """
 <p>Our fictional branches are open Monday to Friday, 9:00 to 17:00.</p>
 <ul><li>Harbour Street</li><li>Mill Lane</li></ul>""")
@@ -96,6 +105,7 @@ ROUTES = {
     ("northwind-verify.test", "/login-delegated"): DELEGATED_LOGIN,
     ("northwind-verify.test", "/login-inline"): INLINE_LOGIN,
     ("northwind-bank.test", "/login"): OWN_LOGIN,
+    ("northwind-bank.test", "/login-subdomain"): SUBDOMAIN_LOGIN,
     ("northwind-bank.test", "/branches"): BRANCHES,
 }
 

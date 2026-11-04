@@ -48,9 +48,9 @@
   <h2>Destinations</h2>
   {% if evidence.destinations %}
   <table>
-    <thead><tr><th>Kind</th><th>Via</th><th>URL</th><th>Same host as page</th></tr></thead>
+    <thead><tr><th>Kind</th><th>Via</th><th>URL</th><th>Foreign</th></tr></thead>
     {% for d in evidence.destinations %}
-    <tr><td>{{ kind(d.kind) }}</td><td>{{ d.via }}</td><td>{{ d.url }}</td><td>{{ d.same_host_as_page }}</td></tr>
+    <tr><td>{{ kind(d.kind) }}</td><td>{{ d.via }}</td><td>{{ d.url }}</td><td>{{ d.foreign }}</td></tr>
     {% endfor %}
   </table>
   {% else %}<p class="muted">None.</p>{% endif %}
