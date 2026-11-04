@@ -125,6 +125,12 @@ def test_login_on_a_subdomain_of_the_same_site_is_not_proven():
     assert signals.level(signals.compute(e, url)) == "Not proven"
 
 
+def test_login_posting_to_another_customer_on_a_shared_domain_is_proven():
+    url = "http://tailspin.sites-demo.test/login-shared"
+    e = launch.run_visit(url, "shared")["evidence"]
+    assert signals.level(signals.compute(e, url)) == "Proven"
+
+
 def test_tampering_page_is_still_proven():
     url = "http://northwind-verify.test/login-tamper"
     assert signals.level(signals.compute(launch.run_visit(url, "tamper")["evidence"], url)) == "Proven"

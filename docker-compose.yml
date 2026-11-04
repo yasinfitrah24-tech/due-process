@@ -27,7 +27,7 @@ services:
     <<: *locked-down
     networks:
       sandbox:
-        aliases: [tailspin-offers.test, northwind-verify.test, northwind-bank.test]
+        aliases: [tailspin-offers.test, northwind-verify.test, northwind-bank.test, tailspin.sites-demo.test]
 
   collector:
     <<: *locked-down

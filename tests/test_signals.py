@@ -82,7 +82,19 @@ def test_form_to_a_different_customer_is_foreign():
     assert signals.level(found) == signals.PROVEN
 
 
+def test_form_to_another_customer_on_a_shared_domain_is_foreign():
+    page = "http://tailspin.sites-demo.test/login-shared"
+    found = signals.compute(login_posting_to(page, "http://harborlane.sites-demo.test/session"), page)
+    assert inventory.registrable_domain("tailspin.sites-demo.test") == "sites-demo.test"
+    assert by_id(found)["form_to_foreign_host"]["value"] is True and signals.level(found) == signals.PROVEN
+
+
 @pytest.mark.parametrize("page,destination,foreign", [
+    ("tailspin.sites-demo.test", "harborlane.sites-demo.test", True),
+    ("tailspin.sites-demo.test", "auth.harborlane.sites-demo.test", True),
+    ("auth.tailspin.sites-demo.test", "harborlane.sites-demo.test", True),
+    ("tailspin.sites-demo.test", "auth.tailspin.sites-demo.test", False),
+    ("tailspin.sites-demo.test", "tailspin-offers.test", False),
     ("auth.example.co.uk", "www.example.co.uk", False),
     ("example.co.uk", "other.co.uk", True),
     ("alice.github.io", "bob.github.io", True),
@@ -95,6 +107,17 @@ def test_form_to_a_different_customer_is_foreign():
 ])
 def test_is_foreign(page, destination, foreign):
     assert inventory.is_foreign(page, destination) is foreign
+
+
+def test_owner_lookup_walks_up_but_never_matches_a_lookalike():
+    assert inventory.owner_of("auth.northwind-bank.test")["id"] == "cust-1002"
+    assert inventory.owner_of("northwind-bank.test.evil.test") is None
+    assert inventory.owner_of("xnorthwind-bank.test") is None
+    assert inventory.owner_of(None) is None
+
+
+def test_reported_host_lookup_stays_exact():
+    assert inventory.customer_for("auth.northwind-bank.test") is None
 
 
 def test_final_host_differs_is_per_registrable_domain():

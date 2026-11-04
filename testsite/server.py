@@ -6,6 +6,7 @@ Pages are routed by Host header, so each simulated customer host serves only its
   (b) http://northwind-bank.test/login    login whose form posts to its own host
   (c) http://northwind-bank.test/branches ordinary page, no form
   http://northwind-bank.test/login-subdomain login whose form posts to auth.northwind-bank.test
+  http://tailspin.sites-demo.test/login-shared login whose form posts to another customer on the same domain
 /hang (any host) never finishes; it exists only to test the sandbox timeout.
 http://northwind-verify.test/login-tamper, -delegated and -inline are variants of (a)'s login for evidence tests.
 """
@@ -94,6 +95,14 @@ SUBDOMAIN_LOGIN = page("Northwind Bank sign in", """
   <button type="submit">Sign in</button>
 </form>""")
 
+# Two customers on one shared domain: same registrable domain, different owners.
+SHARED_DOMAIN_LOGIN = page("Northwind Bank sign in", """
+<form action="http://harborlane.sites-demo.test/session" method="post">
+  <label>User ID <input type="text" name="username"></label><br>
+  <label>Password <input type="password" name="password"></label><br>
+  <button type="submit">Sign in</button>
+</form>""")
+
 BRANCHES = page("Northwind Bank branches", """
 <p>Our fictional branches are open Monday to Friday, 9:00 to 17:00.</p>
 <ul><li>Harbour Street</li><li>Mill Lane</li></ul>""")
@@ -107,6 +116,7 @@ ROUTES = {
     ("northwind-bank.test", "/login"): OWN_LOGIN,
     ("northwind-bank.test", "/login-subdomain"): SUBDOMAIN_LOGIN,
     ("northwind-bank.test", "/branches"): BRANCHES,
+    ("tailspin.sites-demo.test", "/login-shared"): SHARED_DOMAIN_LOGIN,
 }
 
 

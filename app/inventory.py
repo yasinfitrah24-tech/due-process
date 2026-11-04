@@ -50,11 +50,21 @@ def registrable_domain(host):
         return SUFFIXES.privatesuffix(host) or host
 
 
+def owner_of(host):
+    """The customer whose inventory host is this host or a parent of it."""
+    while host:
+        if host in BY_HOST:
+            return BY_HOST[host]
+        host = host.partition(".")[2]
+    return None
+
+
 def is_foreign(page_host, destination_host):
-    """Foreign unless both hosts share a registrable domain or belong to the same customer."""
+    """Two customers are always foreign to each other, and one customer never is to itself, even across
+    registrable domains. Without two known owners, hosts are foreign unless they share a registrable domain."""
     if destination_host is None:
         return True
-    if registrable_domain(page_host) == registrable_domain(destination_host):
-        return False
-    owner = customer_for(page_host)
-    return owner is None or owner is not customer_for(destination_host)
+    page_owner, destination_owner = owner_of(page_host), owner_of(destination_host)
+    if page_owner and destination_owner:
+        return page_owner is not destination_owner
+    return registrable_domain(page_host) != registrable_domain(destination_host)
