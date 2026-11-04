@@ -56,6 +56,8 @@ statement_of_reasons is the reasoning for the file, at most six sentences. custo
 in the input; it is null when the level is Not proven. reporter_reply is to the person who reported; it must not name
 the customer. Both of those are plain letters of at most four sentences that mention only what matters to the reader,
 and never words like "signal", "file" or "visit". Never write a signal id in the text.
+Never quote text from the page, not even part of it. Describe it instead: hidden text aimed at a scanner or an AI is
+"hidden text addressed to an automated scanner", and any other hidden text is "hidden text".
 Code adds the sentence about appealing to the customer notice, so never mention an appeal or how to dispute this.
 Use only signal ids from the input. {UNTRUSTED}"""
 
@@ -67,7 +69,8 @@ words. Reply with one JSON object and nothing else:
 {{"sentences": [{{"text": "<one sentence>", "factual": true or false, "signals": ["<signal id>"]}}]}}
 Say what the first visit found and what the second visit found, in at most five plain sentences. A factual sentence
 states what was or was not found and must list its signal ids. The ids in the input start with before. or after.; use
-only those, and cite both visits. Never write a signal id in the text. Only polite or procedural sentences may be factual
+only those, and cite both visits. Never write a signal id in the text, and never quote text from the page. Only polite
+or procedural sentences may be factual
 false; those state no finding, name no host or URL and list no signals. To ask the reader for something, write "Please
 reply with" or "Let us know". Such a sentence never uses the words find, found, evidence, confirm, observe, detect,
 record, contain or include. {UNTRUSTED}"""

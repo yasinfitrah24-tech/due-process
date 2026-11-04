@@ -4,7 +4,7 @@
 <p class="error">Claim {{ o.status }}: {{ o.problem }}</p>
 {% if o.raw %}<details><summary>Model output (not used)</summary><blockquote>{{ o.raw }}</blockquote></details>{% endif %}
 {% endif %}{% endmacro %}
-{% macro by(o) %}<span class="chip model_claim">model_claim</span> <span class="chip">{{ o.model }}</span>{% endmacro %}
+{% macro by(o) %}{% if o.status == 'template' %}<span class="chip">template (code)</span>{% else %}<span class="chip model_claim">model_claim</span> <span class="chip">{{ o.model }}</span>{% endif %}{% endmacro %}
 {% macro progress(rows) %}
   <table>
     <thead><tr><th>Seconds</th><th>Source</th><th>What happened</th></tr></thead>
@@ -66,6 +66,7 @@
   {% if case.mode == 'demo' %}
   <h2>Reporter alleges vs evidence shows</h2>
   <p>{{ case.url }}</p>
+  <p class="muted">Reporter's claim — untrusted. It cannot move the verdict.</p>
   <blockquote>{{ case.claim }}</blockquote>
   {% if extraction %}
   <p>{{ by(extraction) }}</p>
@@ -103,7 +104,7 @@
   {% if drafts %}
   <h2>Drafts</h2>
   {% if drafts.status == 'template' %}<p class="error">Template, model unavailable: {{ drafts.problem }}</p>{% endif %}
-  <p>{{ by(drafts) }} Nothing is sent until an analyst sends it. The result sentence comes from code on sending, and signal ids are removed.</p>
+  <p>{{ by(drafts) }} Nothing is sent until an analyst sends it. The result sentence comes from code on sending, and signal ids are removed.{% if case.level == 'Not proven' %} A sentence from code on what the visit found goes before it.{% endif %}</p>
   {{ problem(drafts) }}
   {% if drafts.output %}
   {% for name, title in documents.items() if drafts.output[name] %}
@@ -139,7 +140,7 @@
   {% if a.shot %}<p>{{ kind('observed') }} Second visit</p><img src="/cases/{{ case.ref }}/appeals/{{ a.id }}/shots/{{ a.shot }}" alt="Screenshot of the second visit">{% endif %}
   {% if a.letter %}
   <h3>Letter to the customer</h3>
-  <p>{% if a.letter.status == 'template' %}<span class="error">Template, model unavailable: {{ a.letter.problem }}</span>{% else %}{{ by(a.letter) }}{% endif %}</p>
+  <p>{{ by(a.letter) }}{% if a.letter.status == 'template' %} <span class="error">Template, model unavailable: {{ a.letter.problem }}</span>{% endif %}</p>
   {% if a.letter.output %}{{ sentences(a.letter.output.sentences) }}{% endif %}
   {% endif %}
   {% if a.allowed %}

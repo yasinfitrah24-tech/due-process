@@ -6,6 +6,9 @@ looks for page sentences whose words are mostly present in a sentence of the cla
 import re
 
 MIN_WORDS = 5
+QUOTE_WORDS = 5
+URL = re.compile(r"https?://\S+")
+WORD = re.compile(r"[^\W_][\w-]*")
 OVERLAP = 0.6
 # Every test page carries this line, so repeating it says nothing. Only the exact line is skipped.
 BANNER = "TEST PAGE — Northwind Bank is a fictional brand. Do not enter real data."
@@ -17,6 +20,17 @@ def words(text):
 
 def sentences(text):
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", text) if s.strip()]
+
+
+def quotes(sentence, page_texts):
+    """Does the sentence have QUOTE_WORDS words in a row that the page also has in a row? URLs do not count: a letter
+    must be able to name the address it is about."""
+    def runs(text):
+        found = WORD.findall(URL.sub(" ", text).lower())
+        return {tuple(found[i:i + QUOTE_WORDS]) for i in range(len(found) - QUOTE_WORDS + 1)}
+
+    page = set().union(*map(runs, page_texts)) if page_texts else set()
+    return bool(runs(sentence) & page)
 
 
 def repeats(claim, page_texts):

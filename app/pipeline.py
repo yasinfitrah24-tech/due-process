@@ -117,6 +117,26 @@ def page_texts(evidence):
             + [h["text"] for h in evidence.get("hidden_text", [])])
 
 
+def refuse_page_quotes(sentences, evidence_files):
+    """Words a page supplied must not reach a reader through a letter. The reason names no words: it goes back to the
+    model, and page text is never put to a model as part of an instruction."""
+    sources = [t for e in evidence_files for t in page_texts(e) + [p["title"] for p in e.get("pages", []) if p.get("title")]]
+    if any(echo.quotes(s["text"], sources) for s in sentences):
+        raise roles.Rejected(f"quotes {echo.QUOTE_WORDS} or more words in a row from the page; describe it, do not quote it")
+
+
+def check_documents(text, level, ids, evidence):
+    docs = roles.check_documents(text, level, ids)
+    refuse_page_quotes([s for part in docs.values() for s in part or []], [evidence])
+    return docs
+
+
+def check_appeal_letter(text, before, after, evidence_files):
+    letter = roles.check_appeal_letter(text, before, after)
+    refuse_page_quotes(letter["sentences"], evidence_files)
+    return letter
+
+
 def check_vision(text, evidence):
     claim = roles.check_vision(text)
     return {**claim, "repeats_page_text": echo.repeats(claim["description"], page_texts(evidence))}
@@ -127,10 +147,10 @@ def last_screenshot(case_id, evidence):
     return (db.case_dir(case_id) / files[-1]).read_bytes() if files else None
 
 
-def draft_documents(case_id, case, found, facts):
+def draft_documents(case_id, case, found, facts, evidence):
     level, ids, allowed = case["level"], [s["id"] for s in found], policy.allowed_for(case)
     last = run_role(case_id, "documents", roles.document_messages(level, allowed, case["customer_name"], found, facts),
-                    lambda text: roles.check_documents(text, level, ids), retries=DOCUMENT_RETRIES)
+                    lambda text: check_documents(text, level, ids, evidence), retries=DOCUMENT_RETRIES)
     if last["status"] != "accepted":
         db.save_output(case_id, "documents", letters.TEMPLATE_MODEL, {
             "status": "template", "output": letters.template_documents(level, found), "raw": None,
@@ -155,7 +175,7 @@ def draft(case_id, evidence):
         jobs.append(lambda: run_role(case_id, "verdict_claim", roles.verdict_messages(level, found, facts),
                                      lambda text: roles.check_verdict(text, level, ids)))
         if case["mode"] == "demo":
-            jobs.append(lambda: draft_documents(case_id, case, found, facts))
+            jobs.append(lambda: draft_documents(case_id, case, found, facts, evidence))
     if jobs:
         with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
             for future in [pool.submit(job) for job in jobs]:
@@ -199,8 +219,9 @@ def draft_appeal_letter(case, appeal_id, found):
     case_id, before, role = case["id"], case["signals"], f"appeal_letter:{appeal_id}"
     last = {"status": "skipped", "problem": "no second visit to compare"}
     if found:
+        visits = [load_evidence(case_id), load_evidence(case_id, appeal_id)]
         last = run_role(case_id, role, roles.appeal_messages(before, found, case["customer_name"]),
-                        lambda text: roles.check_appeal_letter(text, before, found), retries=DOCUMENT_RETRIES)
+                        lambda text: check_appeal_letter(text, before, found, visits), retries=DOCUMENT_RETRIES)
     if last["status"] != "accepted":
         db.save_output(case_id, role, letters.TEMPLATE_MODEL, {
             "status": "template", "output": letters.template_appeal(before, found), "raw": None,
@@ -234,6 +255,6 @@ def process(case_id):
     db.update_case(case_id, status="ready")
 
 
-def load_evidence(case_id):
-    path = db.case_dir(case_id) / "evidence.json"
+def load_evidence(case_id, appeal_id=None):
+    path = db.case_dir(case_id) / (f"appeal-{appeal_id}" if appeal_id else "") / "evidence.json"
     return json.loads(path.read_text()) if path.exists() else {}

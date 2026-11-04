@@ -182,7 +182,8 @@ def send_document(request, ref, name, analyst):
         appeal_url = f"{public_base(request)}/appeal/{case['appeal_token']}"
     # Both versions are kept: the cited draft for the record, the plain text as the reader got it.
     db.audit(case_id, analyst, "document_sent", document=name, simulated=True, cited_draft=draft["output"][name],
-             sent_text=letters.sent_text(draft["output"][name], case["level"], case["decided_action"], appeal_url))
+             sent_text=letters.sent_text(draft["output"][name], case["level"], case["decided_action"], appeal_url,
+                                         explain.why(case["signals"])))
 
 
 def sent_appeal_letters(case_id):

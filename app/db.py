@@ -405,8 +405,9 @@ def case_usage(case_id):
 def save_output(case_id, role, model, entry):
     with connect() as c:
         c.execute("INSERT INTO model_outputs (ts, case_id, role, model, kind, status, output, raw, problem, "
-                  "unknown_citations, latency_s, cost_usd) VALUES (?, ?, ?, ?, 'model_claim', ?, ?, ?, ?, ?, ?, ?)",
-                  (now(), case_id, role, model, entry["status"], json.dumps(entry["output"]), entry["raw"],
+                  "unknown_citations, latency_s, cost_usd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                  (now(), case_id, role, model, "template" if entry["status"] == "template" else "model_claim",
+                   entry["status"], json.dumps(entry["output"]), entry["raw"],
                    entry["problem"], json.dumps(entry["unknown_citations"]), entry["latency_s"], entry["cost_usd"]))
 
 

@@ -62,6 +62,8 @@ def outcome_sentence(level, action):
     return f"Result of our review: {level}. {ACTION_TEXT[action]}"
 
 
-def sent_text(sentences, level, action, appeal_url=None):
-    text = f"{clean(sentences)}\n\n{outcome_sentence(level, action)}"
+def sent_text(sentences, level, action, appeal_url=None, why=None):
+    """At Not proven the draft may name no absent signal, so code says what cleared the page."""
+    reason = f"{why}\n\n" if why and level == "Not proven" else ""
+    text = f"{clean(sentences)}\n\n{reason}{outcome_sentence(level, action)}"
     return f"{text}\n\n{APPEAL_CLOSING}\n{appeal_url}" if appeal_url else text
