@@ -32,7 +32,7 @@ Max parallel sandboxes: 4.
 
 ## Layout
 app/       FastAPI app, templates, DB models, API (POST /api/reports, approvals)
-agent/     Vultr Inference client: planner, verdict claim, document drafts (schemas validated)
+agent/     Vultr Inference client and model roles: claim extraction, vision claim, verdict claim, document drafts (schemas validated)
 sandbox/   Dockerfile, runner (visit), seccomp/, launch + teardown
 egress/    proxy config
 testsite/  fictional-brand test pages (own container)
@@ -44,7 +44,7 @@ docs/      spec.md, architecture.md
 make up / make down / make test / make eval
 
 ## Prior work (disclose in README)
-Non-AI sandbox scaffolding (runner Dockerfile, seccomp profile + chroot patch, run/test scripts) comes from a probe built before the hackathon (Nov 1). Organizers allow pre-existing non-AI scaffolding if disclosed. All AI functionality (planner, verdict claims, document drafts) and the web app are built Nov 3-8.
+Non-AI sandbox scaffolding (runner Dockerfile, seccomp profile + chroot patch, run/test scripts) comes from a probe built before the hackathon (Nov 1). Organizers allow pre-existing non-AI scaffolding if disclosed. All AI functionality (claim extraction, vision claims, verdict claims, document drafts) and the web app are built Nov 3-8.
 
 ## Working rules
 - Commit, do not push. Branch per person and task: y/<task> (Yasin), v/<task> (Vincent). main changes only via PR merged by Yasin.

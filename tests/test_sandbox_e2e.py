@@ -99,18 +99,6 @@ def test_other_ways_of_binding_the_handler(path, source):
     assert [(d["url"], d["source"]) for d in foreign(e)] == [("http://collector.test/submit", source)]
 
 
-def test_plan_steps_run_and_visit_never_leaves_the_url():
-    steps = [{"action": "open"}, {"action": "wait", "ms": 200}, {"action": "scroll"},
-             {"action": "follow_redirects"}, {"action": "screenshot"}]
-    r = launch.run_visit(PAGE_C, "plan", steps)
-    assert r["ok"] and r["evidence"]["steps"] == steps and r["evidence"]["final_url"] == PAGE_C
-
-
-def test_step_outside_the_allowlist_is_refused_by_the_runner():
-    r = launch.run_visit(PAGE_C, "bad", [{"action": "open"}, {"action": "click", "selector": "a"}])
-    assert not r["ok"] and r["receipt"]["exit_code"] == 64
-
-
 @pytest.mark.parametrize("fixture,url,level", [("page_a", PAGE_A, "Proven"), ("page_b", PAGE_B, "Not proven"),
                                                 ("page_c", PAGE_C, "Not proven")])
 def test_level_from_real_evidence(fixture, url, level, request):
@@ -129,6 +117,13 @@ def test_login_posting_to_another_customer_on_a_shared_domain_is_proven():
     url = "http://tailspin.sites-demo.test/login-shared"
     e = launch.run_visit(url, "shared")["evidence"]
     assert signals.level(signals.compute(e, url)) == "Proven"
+
+
+def test_page_d_is_suspicious():
+    url = "http://tailspin-offers.test/verify-account"
+    e = launch.run_visit(url, "d")["evidence"]
+    assert [d["url"] for d in foreign(e)] == ["http://collector.test/verify"] and not e["password_fields"]
+    assert signals.level(signals.compute(e, url)) == "Suspicious"
 
 
 def test_tampering_page_is_still_proven():

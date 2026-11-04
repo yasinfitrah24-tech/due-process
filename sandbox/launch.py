@@ -42,10 +42,9 @@ def docker_args(name, cidfile):
             "--cpus", "1", "--rm", IMAGE]
 
 
-def visit_args(url, steps=None):
+def visit_args(url):
     # "--" so a reported URL can never be read as an option by visit.py.
-    plan = ["--steps", json.dumps(steps)] if steps else []
-    return ["--sandbox", "on", "--timeout", str(VISIT_BUDGET_S), *plan, "--", url]
+    return ["--sandbox", "on", "--timeout", str(VISIT_BUDGET_S), "--", url]
 
 
 def ensure_image():
@@ -89,7 +88,7 @@ def namespace_proof(evidence):
             "isolated_types": sorted({p["type"] for p in isolated})}
 
 
-def run_visit(url, case="case", steps=None):
+def run_visit(url, case="case"):
     """Returns {"ok", "evidence", "receipt"}. ok means: evidence came back, Chromium's sandbox was
     really on (processes in new namespaces), and the container is confirmed gone."""
     check_url(url)
@@ -98,7 +97,7 @@ def run_visit(url, case="case", steps=None):
         cidfile = Path(tmp) / "cid"
         flags = docker_args(name, cidfile)
         started_at, t0, hard_killed = now(), time.monotonic(), False
-        proc = subprocess.Popen(flags + visit_args(url, steps), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen(flags + visit_args(url), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             out, err = proc.communicate(timeout=HARD_TIMEOUT_S)
         except subprocess.TimeoutExpired:

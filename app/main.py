@@ -10,11 +10,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from app import db, inventory, pipeline, policy, signals
+from app import compare, db, inventory, pipeline, policy, signals
 from sandbox import launch
 
 HERE = Path(__file__).parent
 MAX_CLAIM_CHARS = 20000
+DOCUMENTS = {"statement_of_reasons": "Statement of reasons", "customer_notice": "Customer notice",
+             "reporter_reply": "Reporter reply"}
+NEEDS_ENFORCEMENT = ("statement_of_reasons", "customer_notice")
 
 templates = Jinja2Templates(directory=HERE / "templates")
 executor = ThreadPoolExecutor(max_workers=launch.MAX_PARALLEL)
@@ -87,6 +90,28 @@ def apply_action(case_id, action, analyst):
     return db.get_case(case_id)
 
 
+def sent_documents(case_id):
+    return {a["detail"]["document"] for a in db.audit_log(case_id) if a["event"] == "document_sent"}
+
+
+def send_document(case_id, name, analyst):
+    """A draft leaves only by an analyst's hand, after the decision. Sending is simulated."""
+    case = db.get_case(case_id)
+    if case is None or name not in DOCUMENTS:
+        raise HTTPException(404, "no such document")
+    draft = db.model_outputs(case_id).get("documents")
+    if not draft or draft["status"] != "accepted" or not draft["output"][name]:
+        raise HTTPException(409, "no accepted draft of this document")
+    if not case["decided_action"]:
+        raise HTTPException(409, "decide the case first")
+    if name in NEEDS_ENFORCEMENT and case["decided_action"] == "Close":
+        db.audit(case_id, analyst, "document_rejected", document=name, action=case["decided_action"])
+        raise HTTPException(403, f"{name} is not sent when the case is closed")
+    if name in sent_documents(case_id):
+        raise HTTPException(409, "already sent")
+    db.audit(case_id, analyst, "document_sent", document=name, simulated=True)
+
+
 def case_context(case_id):
     case = db.get_case(case_id)
     if case is None:
@@ -94,7 +119,11 @@ def case_context(case_id):
     evidence = pipeline.load_evidence(case_id)
     for d in evidence.get("destinations", []):
         d["foreign"] = inventory.is_foreign(signals.host(d["page"]), signals.host(d["url"]))
-    return {"case": case, "evidence": evidence, "audit": db.audit_log(case_id),
+    outputs = db.model_outputs(case_id)
+    claim, vision = outputs.get("claim_extraction"), outputs.get("vision_claim")
+    return {"case": case, "evidence": evidence, "audit": db.audit_log(case_id), "outputs": outputs,
+            "comparison": compare.rows(claim and claim["output"], case["signals"], evidence, vision and vision["output"]),
+            "usage": db.case_usage(case_id), "documents": DOCUMENTS, "sent": sent_documents(case_id),
             "allowed": policy.allowed_actions(case["level"]) if case["status"] == "ready" else ()}
 
 
@@ -142,6 +171,12 @@ def action_form(case_id: int, action: str = Form(), analyst: str = Form(default=
     return RedirectResponse(f"/cases/{case_id}", status_code=303)
 
 
+@app.post("/cases/{case_id}/documents/{name}/send")
+def document_form(case_id: int, name: str, analyst: str = Form(default="analyst", max_length=100)):
+    send_document(case_id, name, analyst)
+    return RedirectResponse(f"/cases/{case_id}", status_code=303)
+
+
 @app.post("/api/reports", status_code=202)
 def report_api(report: ReportIn):
     try:
@@ -154,7 +189,8 @@ def report_api(report: ReportIn):
 @app.get("/api/cases/{case_id}")
 def case_api(case_id: int):
     ctx = case_context(case_id)
-    return {**ctx["case"], "allowed_actions": ctx["allowed"], "audit": ctx["audit"]}
+    return {**ctx["case"], "allowed_actions": ctx["allowed"], "audit": ctx["audit"], "outputs": ctx["outputs"],
+            "comparison": ctx["comparison"], "usage": ctx["usage"], "sent": sorted(ctx["sent"])}
 
 
 @app.post("/api/cases/{case_id}/actions")

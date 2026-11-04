@@ -30,6 +30,12 @@ PAGE_B_EVIDENCE = {
     "password_fields": [{"page": LOGIN_B, "name": "password", "kind": "observed"}],
     "redirects": [], "hidden_text": [], "pages": [],
 }
+VERIFY_D = "http://tailspin-offers.test/verify-account"
+PAGE_D_EVIDENCE = {
+    "final_url": VERIFY_D,
+    "destinations": [dest("form-action", "observed", VERIFY_D, "http://collector.test/verify", False)],
+    "password_fields": [], "redirects": [], "hidden_text": [], "pages": [],
+}
 PAGE_C_EVIDENCE = {"final_url": PAGE_C, "destinations": [], "password_fields": [], "redirects": [],
                    "hidden_text": [], "pages": []}
 

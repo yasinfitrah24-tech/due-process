@@ -1,7 +1,18 @@
 # Model bakeoff, 2026-11-04
 
 Small test of Vultr Serverless Inference models for two text tasks and one image task. It informs a choice; it does
-not make one. Script: `eval/model_bakeoff.py`. Raw output: `eval/results/bakeoff-2026-11-04.json`.
+not make one. Script: `eval/model_bakeoff.py` at commit `e53b1b6` (removed later with the planner). Raw output:
+`eval/results/bakeoff-2026-11-04.json`.
+
+## Decision after this test
+
+Yasin replaced the planner model call with a fixed visit: open, follow redirects, screenshot. With report text kept out
+of its input (hard rule 1), the model saw only a URL. Its plans were generic waits and scrolls that used nothing about
+the page, extra screenshots on one URL were discarded anyway, and each call added 3 to 4 s and a cost. A fixed visit
+also means no model can shape what the browser does.
+
+`VULTR_MODEL` is `deepseek-v4.1-flash-1017` and `VULTR_VISION_MODEL` is `nemotron-3-nano-omni-30b-a3b-reasoning`.
+The model roles built after this test are measured in `docs/model-roles-run.md`.
 
 ## Setup
 

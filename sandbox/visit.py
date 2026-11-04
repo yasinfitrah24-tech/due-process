@@ -1,7 +1,8 @@
 """Visit one URL in headless Chromium and print one JSON evidence record to stdout.
 
 Never fills, clicks or submits anything on the page. Downloads are saved and hashed, never opened.
-Exit codes: 0 visited, 2 browser failed to launch, 64 bad steps, 124 hard timeout.
+The visit is fixed: open, follow redirects, screenshot. Nothing from a report or a model shapes it.
+Exit codes: 0 visited, 2 browser failed to launch, 124 hard timeout.
 
 Evidence must not depend on anything the page can change, so nothing here runs in the page's JS context:
   - requests come from Playwright's network events (browser side);
@@ -30,9 +31,6 @@ from playwright.sync_api import sync_playwright
 OBSERVED = "observed"
 DECLARED = "declared_in_script"
 
-DEFAULT_STEPS = [{"action": "open"}, {"action": "follow_redirects"}, {"action": "screenshot"}]
-STEP_ACTIONS = {"open", "wait", "follow_redirects", "screenshot", "scroll"}
-MAX_WAIT_MS = 5000
 HANDLER_SOURCE_MAX = 20000
 
 # Runs in an isolated world. A page can still clobber properties of forms and of document with named elements
@@ -246,16 +244,6 @@ class Inspector:
         return out
 
 
-def parse_steps(text):
-    steps = json.loads(text)
-    if not isinstance(steps, list) or not steps or steps[0].get("action") != "open":
-        raise ValueError("steps must start with open")
-    for s in steps:
-        if s.get("action") not in STEP_ACTIONS:
-            raise ValueError(f"step not allowed: {s!r}")
-    return steps
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("url", nargs="?")
@@ -264,22 +252,15 @@ def main():
     ap.add_argument("--sandbox", choices=["on", "off"], default="on", help="Chromium's own sandbox")
     ap.add_argument("--launch-only", action="store_true", help="launch, report sandbox status, exit")
     ap.add_argument("--no-embed", action="store_true", help="omit screenshot base64 from JSON")
-    ap.add_argument("--steps", default=json.dumps(DEFAULT_STEPS), help="visit plan, JSON list of allowed steps")
     ap.add_argument("--workdir", default=os.path.join(tempfile.gettempdir(), "dp"))
     a = ap.parse_args()
-    try:
-        steps = parse_steps(a.steps)
-    except (ValueError, AttributeError) as e:
-        print(f"bad steps: {e}", file=sys.stderr)
-        sys.exit(64)
 
     t0 = time.monotonic()
     rec = {
-        "schema": "dp-visit/3",
+        "schema": "dp-visit/4",
         "input_url": a.url,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "timeout_s": a.timeout,
-        "steps": steps,
         "browser": {"sandbox_requested": a.sandbox},
         "errors": [],
         "env_keys": sorted(os.environ),
@@ -374,25 +355,13 @@ def main():
             return max(1, deadline - time.monotonic()) * 1000
 
         try:
-            for step in steps:
-                if time.monotonic() >= deadline:
+            page.goto(a.url, wait_until="load", timeout=remaining_ms())
+            # Follow client-side redirects until no new main-frame navigation for `settle` seconds.
+            while time.monotonic() < deadline:
+                page.wait_for_timeout(250)
+                if time.monotonic() - last_nav[0] >= a.settle:
                     break
-                action = step["action"]
-                if action == "open":
-                    page.goto(a.url, wait_until="load", timeout=remaining_ms())
-                elif action == "follow_redirects":
-                    # Follow client-side redirects until no new main-frame navigation for `settle` seconds.
-                    while time.monotonic() < deadline:
-                        page.wait_for_timeout(250)
-                        if time.monotonic() - last_nav[0] >= a.settle:
-                            break
-                    page.wait_for_load_state("load", timeout=remaining_ms())
-                elif action == "wait":
-                    page.wait_for_timeout(min(int(step.get("ms", 1000)), MAX_WAIT_MS, remaining_ms()))
-                elif action == "scroll":
-                    page.mouse.wheel(0, 800)
-                elif action == "screenshot":
-                    record(snapshot(page))
+            page.wait_for_load_state("load", timeout=remaining_ms())
         except PWTimeout as e:
             rec["timed_out"] = True
             rec["errors"].append({"stage": "visit", "message": str(e).splitlines()[0][:300]})

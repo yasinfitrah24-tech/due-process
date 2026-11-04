@@ -1,12 +1,11 @@
-"""SQLite storage: cases, audit log, LLM call budget."""
+"""SQLite storage: cases, audit log, model outputs, model usage and prices."""
 import json
 import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-LLM_CALL_LIMIT = 30
-JSON_FIELDS = ("signals", "plan", "receipt")
+JSON_FIELDS = ("signals", "receipt")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS cases (
@@ -21,7 +20,6 @@ CREATE TABLE IF NOT EXISTS cases (
   level TEXT,
   note TEXT,
   signals TEXT,
-  plan TEXT,
   receipt TEXT,
   decided_action TEXT,
   decided_by TEXT,
@@ -35,7 +33,39 @@ CREATE TABLE IF NOT EXISTS audit (
   event TEXT NOT NULL,
   detail TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS llm_calls (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS model_prices (
+  model TEXT PRIMARY KEY,
+  prompt_usd REAL NOT NULL,
+  completion_usd REAL NOT NULL,
+  fetched_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS llm_usage (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT NOT NULL,
+  case_id INTEGER,
+  role TEXT NOT NULL,
+  model TEXT NOT NULL,
+  prompt_tokens INTEGER NOT NULL,
+  completion_tokens INTEGER NOT NULL,
+  cost_usd REAL NOT NULL,
+  latency_s REAL NOT NULL,
+  ok INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS model_outputs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT NOT NULL,
+  case_id INTEGER NOT NULL,
+  role TEXT NOT NULL,
+  model TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL,
+  output TEXT,
+  raw TEXT,
+  problem TEXT,
+  unknown_citations TEXT NOT NULL,
+  latency_s REAL,
+  cost_usd REAL
+);
 """
 
 
@@ -116,23 +146,65 @@ def audit_log(case_id):
     return [{**dict(r), "detail": json.loads(r["detail"])} for r in rows]
 
 
-def take_llm_call():
-    """Counts one real model call against the limit. False once it is used up."""
+def get_price(model):
     with connect() as c:
-        c.execute("BEGIN IMMEDIATE")
-        used = c.execute("SELECT COUNT(*) FROM llm_calls").fetchone()[0]
-        if used >= LLM_CALL_LIMIT:
-            c.execute("ROLLBACK")
-            return False
-        c.execute("INSERT INTO llm_calls (ts) VALUES (?)", (now(),))
-        c.execute("COMMIT")
-        return True
+        row = c.execute("SELECT prompt_usd, completion_usd FROM model_prices WHERE model = ?", (model,)).fetchone()
+    return (row["prompt_usd"], row["completion_usd"]) if row else None
+
+
+def save_price(model, prompt_usd, completion_usd):
+    with connect() as c:
+        c.execute("INSERT OR REPLACE INTO model_prices VALUES (?, ?, ?, ?)", (model, prompt_usd, completion_usd, now()))
+
+
+def record_usage(case_id, role, model, prompt_tokens, completion_tokens, cost_usd, latency_s, ok=True):
+    with connect() as c:
+        c.execute("INSERT INTO llm_usage (ts, case_id, role, model, prompt_tokens, completion_tokens, cost_usd, "
+                  "latency_s, ok) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                  (now(), case_id, role, model, prompt_tokens, completion_tokens, cost_usd, latency_s, int(ok)))
+
+
+def total_cost():
+    with connect() as c:
+        return c.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM llm_usage").fetchone()[0]
+
+
+def case_calls(case_id):
+    with connect() as c:
+        return c.execute("SELECT COUNT(*) FROM llm_usage WHERE case_id = ?", (case_id,)).fetchone()[0]
+
+
+def case_usage(case_id):
+    with connect() as c:
+        row = c.execute("SELECT COUNT(*) AS calls, COALESCE(SUM(cost_usd), 0) AS cost_usd, "
+                        "COALESCE(SUM(latency_s), 0) AS latency_s FROM llm_usage WHERE case_id = ?",
+                        (case_id,)).fetchone()
+    return dict(row)
+
+
+def save_output(case_id, role, model, entry):
+    with connect() as c:
+        c.execute("INSERT INTO model_outputs (ts, case_id, role, model, kind, status, output, raw, problem, "
+                  "unknown_citations, latency_s, cost_usd) VALUES (?, ?, ?, ?, 'model_claim', ?, ?, ?, ?, ?, ?, ?)",
+                  (now(), case_id, role, model, entry["status"], json.dumps(entry["output"]), entry["raw"],
+                   entry["problem"], json.dumps(entry["unknown_citations"]), entry["latency_s"], entry["cost_usd"]))
+
+
+def model_outputs(case_id):
+    """{role: output row}."""
+    with connect() as c:
+        rows = c.execute("SELECT * FROM model_outputs WHERE case_id = ? ORDER BY id", (case_id,)).fetchall()
+    return {r["role"]: {**dict(r), "output": json.loads(r["output"]),
+                        "unknown_citations": json.loads(r["unknown_citations"])} for r in rows}
 
 
 def fail_interrupted():
-    """Cases left mid-visit by a restart can never finish."""
+    """Cases left mid-run by a restart can never finish. A level already computed stands."""
     with connect() as c:
-        rows = c.execute("SELECT id FROM cases WHERE status IN ('queued', 'visiting')").fetchall()
+        rows = c.execute("SELECT id, level FROM cases WHERE status IN ('queued', 'visiting', 'drafting')").fetchall()
     for r in rows:
-        update_case(r["id"], status="ready", level="Not proven", note="Interrupted by a restart; no evidence.")
+        if r["level"]:
+            update_case(r["id"], status="ready")
+        else:
+            update_case(r["id"], status="ready", level="Not proven", note="Interrupted by a restart; no evidence.")
         audit(r["id"], "system", "case_interrupted")

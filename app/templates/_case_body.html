@@ -1,8 +1,14 @@
 {% macro kind(k) %}{% if k %}<span class="chip {{ k }}">{{ k }}</span>{% endif %}{% endmacro %}
-<div id="case"{% if case.status in ('queued', 'visiting') %} hx-get="/partials/cases/{{ case.id }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+{% macro sentences(items) %}{% for s in items %}<p>{{ s.text }}{% for id in s.signals %} <code>[{{ id }}]</code>{% endfor %}</p>{% endfor %}{% endmacro %}
+{% macro problem(o) %}{% if o.status != 'accepted' %}
+<p class="error">Claim {{ o.status }}: {{ o.problem }}</p>
+{% if o.raw %}<details><summary>Model output (not used)</summary><blockquote>{{ o.raw }}</blockquote></details>{% endif %}
+{% endif %}{% endmacro %}
+{% macro by(o) %}<span class="chip model_claim">model_claim</span> <span class="chip">{{ o.model }}</span>{% endmacro %}
+<div id="case"{% if case.status in ('queued', 'visiting', 'drafting') %} hx-get="/partials/cases/{{ case.id }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
   <h1>Case #{{ case.id }}</h1>
   <p>Status: {{ case.status }}
-    {% if case.plan %}&middot; <span class="chip">planner: {{ case.plan.planner }}</span>{% endif %}</p>
+    {% if usage.calls %}&middot; <span class="muted">{{ usage.calls }} model calls, USD {{ '%.5f'|format(usage.cost_usd) }}</span>{% endif %}</p>
 
   <h2>Report (untrusted claim)</h2>
   <p>{{ case.url }}</p>
@@ -11,10 +17,45 @@
   <h2>Target</h2>
   <p>{{ case.customer_name }} ({{ case.customer_id }}), from host <code>{{ case.host }}</code> via the hosting inventory.</p>
 
+  {% set extraction = outputs.get('claim_extraction') %}
+  {% if extraction %}
+  <h2>Reporter alleges vs evidence shows</h2>
+  <p>{{ by(extraction) }}</p>
+  {{ problem(extraction) }}
+  {% if comparison %}
+  <table>
+    <thead><tr><th></th><th>Reporter alleges</th><th>Evidence shows</th></tr></thead>
+    {% for r in comparison %}
+    <tr><th>{{ r.label }}</th><td>{{ r.alleged }}</td><td>{{ kind(r.kind) }} {{ r.shows }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  {% endif %}
+
   {% if case.level %}
   <h2>Verdict</h2>
   <p class="level level-{{ case.level|replace(' ', '') }}">{{ case.level }}</p>
+  <p class="muted">Computed by code from the signals below. No model output can change it.</p>
   {% if case.note %}<p class="error">{{ case.note }}</p>{% endif %}
+  {% endif %}
+
+  {% set verdict = outputs.get('verdict_claim') %}
+  {% if verdict %}
+  <h2>Evidence statement</h2>
+  <p>{{ by(verdict) }}</p>
+  {{ problem(verdict) }}
+  {% if verdict.output %}{{ sentences(verdict.output.sentences) }}{% endif %}
+  {% endif %}
+
+  {% set vision = outputs.get('vision_claim') %}
+  {% if vision %}
+  <h2>What the vision model reads</h2>
+  <p>{{ by(vision) }}</p>
+  {{ problem(vision) }}
+  {% if vision.output %}
+  <blockquote>{{ vision.output.description }}</blockquote>
+  <p>Brand the page shows: {{ vision.output.imitated_brand or 'none named' }}. The model cannot tell whether that brand owns the page.</p>
+  {% endif %}
   {% endif %}
 
   {% if case.signals %}
@@ -86,6 +127,23 @@
     {% for a in allowed %}<button type="submit" name="action" value="{{ a }}">{{ a }}</button>{% endfor %}
   </form>
   {% else %}<p class="muted">Waiting for the verdict.</p>{% endif %}
+
+  {% set drafts = outputs.get('documents') %}
+  {% if drafts %}
+  <h2>Drafts</h2>
+  <p>{{ by(drafts) }} Nothing is sent until an analyst sends it.</p>
+  {{ problem(drafts) }}
+  {% if drafts.output %}
+  {% for name, title in documents.items() if drafts.output[name] %}
+  <h3>{{ title }}</h3>
+  {{ sentences(drafts.output[name]) }}
+  {% if name in sent %}<p class="muted">Sent (simulated).</p>
+  {% elif case.decided_action and not (case.decided_action == 'Close' and name != 'reporter_reply') %}
+  <form method="post" action="/cases/{{ case.id }}/documents/{{ name }}/send"><button type="submit">Send</button></form>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+  {% endif %}
 
   <h2>Audit log</h2>
   <table>
