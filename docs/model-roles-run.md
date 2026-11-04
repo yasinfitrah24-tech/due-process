@@ -144,6 +144,34 @@ What the change costs, read from the letters:
 - Case 33 quotes the page's hidden text in the customer notice and the reply to the reporter. Those are the page's own words
   inside a letter. No check covers this.
 
+## No page words in letters, and a reason at Not proven
+
+Commit `b062073` answers the last two points above. On sending, a Not proven letter gets the sentence from code that says what
+the visit found, before the result sentence. A draft or appeal letter with 5 or more words in a row from the page is rejected,
+then retried, then replaced by the template. Page text here is what the browser read as visible text, hidden text and titles.
+URLs are skipped. The reason sent back to the model holds no page words. The prompt now says to describe hidden text, not quote it.
+
+Six real cases on the VM through the public URL, one at a time.
+
+| Case | Run | Page | Level | Retry | Template | Sentences | Quoted, 5+ words | Longest shared run | Documents tokens | Case s | Cost USD |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 35 | 1 | Phishing | Proven | 0 | 0 | 12 | 0 | 2 | 1663 | 14.1 | 0.00189 |
+| 36 | 1 | Legitimate login | Not proven | 0 | 0 | 3 | 0 | 1 | 1120 | 9.5 | 0.00151 |
+| 37 | 1 | Containment | Proven | 0 | 0 | 13 | 0 | 2 | 3148 | 15.4 | 0.00290 |
+| 38 | 2 | Phishing | Proven | 0 | 0 | 12 | 0 | 2 | 2871 | 14.1 | 0.00263 |
+| 39 | 2 | Legitimate login | Not proven | 0 | 0 | 3 | 0 | 1 | 1200 | 9.5 | 0.00145 |
+| 40 | 2 | Containment | Proven | 0 | 0 | 11 | 0 | 2 | 2622 | 15.2 | 0.00239 |
+
+0 retries, 0 templates, and 0 of 54 sentences quote the page. Total USD 0.012766. All four cases with hidden text used the
+prompt's wording, "hidden text addressed to an automated scanner".
+
+- The check never fired in these runs: the prompt alone kept the quotes out. Its rejection path has run only in tests, with the
+  containment hidden text, banner and title.
+- Mean case time 13.0 and 12.9 s, slower than the 10.0 and 10.6 s of the runs before, though documents used no more tokens. The
+  cause was not looked into. Both sets are six runs.
+- Case 39 was closed and its reply sent through the public URL. The draft says nothing about the page, and the letter now does:
+  "The page asks for a password, and no form sends data to another host." It comes before "Result of our review: Not proven."
+
 ## Limits
 
 - Citation checks prove a signal id exists. They do not prove a sentence describes that signal truly. Those sentences
@@ -152,3 +180,7 @@ What the change costs, read from the letters:
 - Letters can be thin: in case 25 the reply to the reporter says nothing about the page, only the result sentence from
   code does. An analyst must read each draft before sending it.
 - All cases are simple test pages. One or a few runs per page shows no rate of failure for real traffic.
+- The page quote check catches exact runs of 5 words. A shorter quote or a reworded one passes, and so does a language written
+  without spaces. Text that exists only as pixels in a screenshot is not in the page text, but the documents model is not given
+  the screenshot.
+- `eval/documents_trial.py` calls the checks in `agent/roles.py` directly, so it does not run the page quote check.
