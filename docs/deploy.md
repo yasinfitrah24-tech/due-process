@@ -58,3 +58,5 @@ cd /opt/due-process && python3 deploy/vm_netcheck.py 45.76.241.186 45-76-241-186
 - The app has no published port. It trusts `X-Forwarded-For` only from the address of the `caddy` container.
 - `EGRESS_DENY_IPS` holds the VM's public address, so a page in the sandbox cannot reach the public app through the proxy.
 - Do not run `do-release-upgrade`.
+- `docs/FINDINGS.md` explains why Chromium's sandbox works here. Run `deploy/b3_check.py` after any Docker, AppArmor or
+  kernel update.
