@@ -5,41 +5,69 @@
 {% if o.raw %}<details><summary>Model output (not used)</summary><blockquote>{{ o.raw }}</blockquote></details>{% endif %}
 {% endif %}{% endmacro %}
 {% macro by(o) %}<span class="chip model_claim">model_claim</span> <span class="chip">{{ o.model }}</span>{% endmacro %}
-<div id="case"{% if polling %} hx-get="/partials/cases/{{ case.ref }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
-  <h1>{% if case.mode == 'test' %}Test any URL{% elif case.mode == 'twin' %}One report, two pages{% else %}Case #{{ case.id }}{% endif %}</h1>
-  <p>Status: {{ case.status }}
-    {% if usage.calls %}&middot; <span class="muted">{{ usage.calls }} model calls, USD {{ '%.5f'|format(usage.cost_usd) }}</span>{% endif %}</p>
-
-  <h2>Report (untrusted claim)</h2>
-  <p>{{ case.url }}</p>
-  <blockquote>{{ case.claim }}</blockquote>
-
-  {% if case.mode == 'test' %}
-  <h2>Test any URL</h2>
-  <p>Evidence and a verdict only. This page is not a customer of ours: there is no target and no action, and the verdict is not a finding of abuse. Only people with this link can see this page.</p>
-  {% elif case.mode == 'twin' %}
-  <h2>One report, two pages</h2>
-  <p>A fictional test page opened for a comparison. Nothing here can be acted on. Only people with this link can see this page.</p>
-  {% else %}
-  <h2>Target</h2>
-  <p>{{ case.customer_name }} ({{ case.customer_id }}), from host <code>{{ case.host }}</code> via the hosting inventory.</p>
-  {% endif %}
-
-  {% if timeline %}
-  <h2>{% if polling %}Live progress{% else %}Timeline{% endif %}</h2>
+{% macro progress(rows) %}
   <table>
     <thead><tr><th>Seconds</th><th>Source</th><th>What happened</th></tr></thead>
-    {% for t in timeline %}
+    {% for t in rows %}
     <tr><td>{{ '%.1f'|format(t.at) }}{% if t.visit == 'second visit' %} <span class="muted">(second visit)</span>{% endif %}</td>
       <td><span class="chip">{{ t.source }}</span></td>
       <td>{% if t.blocked %}<strong>{{ t.text }}</strong>{% else %}{{ t.text }}{% endif %}</td></tr>
     {% endfor %}
   </table>
+{% endmacro %}
+<div id="case"{% if polling %} hx-get="/partials/cases/{{ case.ref }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
+  <h1>{% if case.mode == 'test' %}Test any URL{% elif case.mode == 'twin' %}One report, two pages{% else %}Case #{{ case.id }}{% endif %}</h1>
+
+  <section class="summary">
+    {% if case.level %}
+    <p><span class="badge badge-{{ case.level|replace(' ', '') }}">{{ case.level }}</span> <span class="muted">Computed by code. No model output can change it.</span></p>
+    {% else %}
+    <p class="muted">Status: {{ case.status }}</p>
+    {% endif %}
+    {% if case.mode == 'test' %}
+    <p>{{ case.url }}</p>
+    <p>Evidence and a verdict only. This page is not a customer of ours: there is no target and no action, and the verdict is not a finding of abuse. Only people with this link can see this page.</p>
+    {% elif case.mode == 'twin' %}
+    <p>{{ case.url }}</p>
+    <p>A fictional test page opened for a comparison. Nothing here can be acted on. Only people with this link can see this page.</p>
+    {% else %}
+    <p>Target: <strong>{{ case.customer_name }}</strong> ({{ case.customer_id }}), from host <code>{{ case.host }}</code> via the hosting inventory.</p>
+    {% endif %}
+    {% if why %}<p>{{ why }}</p>{% endif %}
+    {% if case.note %}<p class="error">{{ case.note }}</p>{% endif %}
+    {% if case.mode == 'demo' %}
+    {% if case.decided_action %}
+    <p>{{ case.decided_action }} by {{ case.decided_by }} at {{ case.decided_at }} (simulated).</p>
+    {% if case.appeal_token %}<p><a href="/appeal/{{ case.appeal_token }}">Customer view</a>: the link in the customer notice. Demo: anyone with the case link can act as the customer.</p>{% endif %}
+    {% elif allowed %}
+    <form method="post" action="/cases/{{ case.ref }}/actions" class="actions">
+      <input type="text" name="analyst" value="analyst" aria-label="Analyst" style="width: 110px">
+      {% for a in allowed %}<button type="submit" name="action" value="{{ a }}">{{ a }}</button>{% endfor %}
+    </form>
+    {% else %}<p class="muted">Actions open when the case is ready.</p>{% endif %}
+    {% endif %}
+    {% if usage.calls %}<p class="muted">Status: {{ case.status }}. {{ usage.calls }} model calls, USD {{ '%.5f'|format(usage.cost_usd) }}.</p>{% endif %}
+  </section>
+
+  {% if polling and timeline %}
+  <h2>Live progress</h2>
+  {{ progress(timeline) }}
+  {% endif %}
+
+  {% set verdict = outputs.get('verdict_claim') %}
+  {% if verdict %}
+  <h2>Evidence statement</h2>
+  <p>{{ by(verdict) }}</p>
+  {{ problem(verdict) }}
+  {% if verdict.output %}{{ sentences(verdict.output.sentences) }}{% endif %}
   {% endif %}
 
   {% set extraction = outputs.get('claim_extraction') %}
-  {% if extraction %}
+  {% if case.mode == 'demo' %}
   <h2>Reporter alleges vs evidence shows</h2>
+  <p>{{ case.url }}</p>
+  <blockquote>{{ case.claim }}</blockquote>
+  {% if extraction %}
   <p>{{ by(extraction) }}</p>
   {{ problem(extraction) }}
   {% if comparison %}
@@ -51,20 +79,6 @@
   </table>
   {% endif %}
   {% endif %}
-
-  {% if case.level %}
-  <h2>Verdict</h2>
-  <p class="level level-{{ case.level|replace(' ', '') }}">{{ case.level }}</p>
-  <p class="muted">Computed by code from the signals below. No model output can change it.</p>
-  {% if case.note %}<p class="error">{{ case.note }}</p>{% endif %}
-  {% endif %}
-
-  {% set verdict = outputs.get('verdict_claim') %}
-  {% if verdict %}
-  <h2>Evidence statement</h2>
-  <p>{{ by(verdict) }}</p>
-  {{ problem(verdict) }}
-  {% if verdict.output %}{{ sentences(verdict.output.sentences) }}{% endif %}
   {% endif %}
 
   {% set vision = outputs.get('vision_claim') %}
@@ -84,6 +98,65 @@
   {% endif %}
   {% endif %}
   {% endif %}
+
+  {% set drafts = outputs.get('documents') %}
+  {% if drafts %}
+  <h2>Drafts</h2>
+  {% if drafts.status == 'template' %}<p class="error">Template, model unavailable: {{ drafts.problem }}</p>{% endif %}
+  <p>{{ by(drafts) }} Nothing is sent until an analyst sends it. The result sentence comes from code on sending, and signal ids are removed.</p>
+  {{ problem(drafts) }}
+  {% if drafts.output %}
+  {% for name, title in documents.items() if drafts.output[name] %}
+  <h3>{{ title }}</h3>
+  {{ sentences(drafts.output[name]) }}
+  {% if name in sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ sent[name] }}</blockquote>
+  {% elif case.decided_action and not (case.decided_action == 'Close' and name != 'reporter_reply') %}
+  <form method="post" action="/cases/{{ case.ref }}/documents/{{ name }}/send"><button type="submit">Send</button></form>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+  {% endif %}
+
+  {% for a in appeals %}
+  <h2>Appeal {{ loop.index }}</h2>
+  <p>{{ choices[a.choice] }}. Status: {{ a.status }}.</p>
+  {% if a.text %}<p class="muted">Customer says (untrusted, moves nothing):</p><blockquote>{{ a.text }}</blockquote>{% endif %}
+  {% if a.note %}<p class="error">{{ a.note }}</p>{% endif %}
+  {% if a.not_reproduced %}<p><strong>Re-visit did not reproduce the original evidence.</strong> A page can also show a clean version only to this browser.</p>{% endif %}
+  {% if a.status in ('drafting', 'ready', 'decided') %}
+  <table>
+    <thead><tr><th></th><th>First visit</th><th>Second visit</th></tr></thead>
+    <tr><th>Level</th><td><span class="level level-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></td>
+      <td><span class="level level-{{ (a.level or '')|replace(' ', '') }}">{{ a.level or 'No result' }}</span></td></tr>
+    {% for r in a.rows %}
+    <tr><td><code>{{ r.id }}</code> {{ kind(r.kind) }}</td><td>{{ r.before }}</td><td>{{ r.after if r.after is not none else 'No result' }}</td></tr>
+    {% endfor %}
+    {% if a.receipt %}
+    <tr><th>Container</th><td><code>{{ (case.receipt.container_id or '')[:12] }}</code></td><td><code>{{ (a.receipt.container_id or '')[:12] }}</code>{% if a.receipt.teardown.container_gone %}, gone{% endif %}</td></tr>
+    {% endif %}
+  </table>
+  {% endif %}
+  {% if a.shot %}<p>{{ kind('observed') }} Second visit</p><img src="/cases/{{ case.ref }}/appeals/{{ a.id }}/shots/{{ a.shot }}" alt="Screenshot of the second visit">{% endif %}
+  {% if a.letter %}
+  <h3>Letter to the customer</h3>
+  <p>{% if a.letter.status == 'template' %}<span class="error">Template, model unavailable: {{ a.letter.problem }}</span>{% else %}{{ by(a.letter) }}{% endif %}</p>
+  {% if a.letter.output %}{{ sentences(a.letter.output.sentences) }}{% endif %}
+  {% endif %}
+  {% if a.allowed %}
+  <form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/decide" class="actions">
+    <input type="text" name="analyst" value="analyst" aria-label="Analyst" style="width: 110px">
+    {% for d in a.allowed %}<button type="submit" name="decision" value="{{ d }}">{{ d }}</button>{% endfor %}
+  </form>
+  {% if 'Reinstate' not in a.allowed %}<p class="muted">Reinstate needs a second visit with a lower level than at the action.</p>{% endif %}
+  {% elif a.decision %}
+  <p>{{ a.decision }} by {{ a.decided_by }} at {{ a.decided_at }} (simulated).</p>
+  {% if a.sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ a.sent }}</blockquote>
+  {% elif a.letter %}<form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/send"><button type="submit">Send letter</button></form>{% endif %}
+  {% endif %}
+  {% endfor %}
+
+  <details class="technical">
+  <summary>Technical evidence</summary>
 
   {% if case.signals %}
   <h2>Signals</h2>
@@ -160,74 +233,10 @@
   </table>
   {% endif %}
 
-  {% if case.mode == 'demo' %}
-  <h2>Decision</h2>
-  {% if case.decided_action %}
-  <p>{{ case.decided_action }} by {{ case.decided_by }} at {{ case.decided_at }} (simulated).</p>
-  {% if case.appeal_token %}<p><a href="/appeal/{{ case.appeal_token }}">Customer view</a>: the link in the customer notice. Demo: anyone with the case link can act as the customer.</p>{% endif %}
-  {% elif allowed %}
-  <form method="post" action="/cases/{{ case.ref }}/actions" class="actions">
-    <input type="text" name="analyst" value="analyst" aria-label="Analyst" style="width: 160px">
-    {% for a in allowed %}<button type="submit" name="action" value="{{ a }}">{{ a }}</button>{% endfor %}
-  </form>
-  {% else %}<p class="muted">Waiting for the verdict.</p>{% endif %}
+  {% if timeline and not polling %}
+  <h2>Timeline</h2>
+  {{ progress(timeline) }}
   {% endif %}
-
-  {% set drafts = outputs.get('documents') %}
-  {% if drafts %}
-  <h2>Drafts</h2>
-  {% if drafts.status == 'template' %}<p class="error">Template, model unavailable: {{ drafts.problem }}</p>{% endif %}
-  <p>{{ by(drafts) }} Nothing is sent until an analyst sends it. The result sentence comes from code on sending, and signal ids are removed.</p>
-  {{ problem(drafts) }}
-  {% if drafts.output %}
-  {% for name, title in documents.items() if drafts.output[name] %}
-  <h3>{{ title }}</h3>
-  {{ sentences(drafts.output[name]) }}
-  {% if name in sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ sent[name] }}</blockquote>
-  {% elif case.decided_action and not (case.decided_action == 'Close' and name != 'reporter_reply') %}
-  <form method="post" action="/cases/{{ case.ref }}/documents/{{ name }}/send"><button type="submit">Send</button></form>
-  {% endif %}
-  {% endfor %}
-  {% endif %}
-  {% endif %}
-
-  {% for a in appeals %}
-  <h2>Appeal {{ loop.index }}</h2>
-  <p>{{ choices[a.choice] }}. Status: {{ a.status }}.</p>
-  {% if a.text %}<p class="muted">Customer says (untrusted, moves nothing):</p><blockquote>{{ a.text }}</blockquote>{% endif %}
-  {% if a.note %}<p class="error">{{ a.note }}</p>{% endif %}
-  {% if a.not_reproduced %}<p><strong>Re-visit did not reproduce the original evidence.</strong> A page can also show a clean version only to this browser.</p>{% endif %}
-  {% if a.status in ('drafting', 'ready', 'decided') %}
-  <table>
-    <thead><tr><th></th><th>First visit</th><th>Second visit</th></tr></thead>
-    <tr><th>Level</th><td><span class="level level-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></td>
-      <td><span class="level level-{{ (a.level or '')|replace(' ', '') }}">{{ a.level or 'No result' }}</span></td></tr>
-    {% for r in a.rows %}
-    <tr><td><code>{{ r.id }}</code> {{ kind(r.kind) }}</td><td>{{ r.before }}</td><td>{{ r.after if r.after is not none else 'No result' }}</td></tr>
-    {% endfor %}
-    {% if a.receipt %}
-    <tr><th>Container</th><td><code>{{ (case.receipt.container_id or '')[:12] }}</code></td><td><code>{{ (a.receipt.container_id or '')[:12] }}</code>{% if a.receipt.teardown.container_gone %}, gone{% endif %}</td></tr>
-    {% endif %}
-  </table>
-  {% endif %}
-  {% if a.shot %}<p>{{ kind('observed') }} Second visit</p><img src="/cases/{{ case.ref }}/appeals/{{ a.id }}/shots/{{ a.shot }}" alt="Screenshot of the second visit">{% endif %}
-  {% if a.letter %}
-  <h3>Letter to the customer</h3>
-  <p>{% if a.letter.status == 'template' %}<span class="error">Template, model unavailable: {{ a.letter.problem }}</span>{% else %}{{ by(a.letter) }}{% endif %}</p>
-  {% if a.letter.output %}{{ sentences(a.letter.output.sentences) }}{% endif %}
-  {% endif %}
-  {% if a.allowed %}
-  <form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/decide" class="actions">
-    <input type="text" name="analyst" value="analyst" aria-label="Analyst" style="width: 160px">
-    {% for d in a.allowed %}<button type="submit" name="decision" value="{{ d }}">{{ d }}</button>{% endfor %}
-  </form>
-  {% if 'Reinstate' not in a.allowed %}<p class="muted">Reinstate needs a second visit with a lower level than at the action.</p>{% endif %}
-  {% elif a.decision %}
-  <p>{{ a.decision }} by {{ a.decided_by }} at {{ a.decided_at }} (simulated).</p>
-  {% if a.sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ a.sent }}</blockquote>
-  {% elif a.letter %}<form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/send"><button type="submit">Send letter</button></form>{% endif %}
-  {% endif %}
-  {% endfor %}
 
   <h2>Audit log</h2>
   <table>
@@ -235,4 +244,5 @@
     <tr><td>{{ a.ts }}</td><td>{{ a.actor }}</td><td>{{ a.event }}</td><td><code>{{ a.detail|tojson }}</code></td></tr>
     {% endfor %}
   </table>
+  </details>
 </div>

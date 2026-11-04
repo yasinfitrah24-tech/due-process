@@ -17,7 +17,7 @@ def mock_reply(role, messages):
     if role == "vision_claim":
         return {"description": "Mock description.", "imitated_brand": None}
     if role == "text_triage":
-        return {"action": "suspend", "customer_id": None}
+        return {"action": "suspend", "customer_id": None, "reason": "Mock reason."}
     data = json.loads(messages[1]["content"])  # a retry adds messages after the data
     if role.startswith("appeal_letter"):
         ids = [data["first_visit"][0]["id"], data["second_visit"][0]["id"]]

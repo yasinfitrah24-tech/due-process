@@ -339,6 +339,39 @@ def record_usage(case_id, role, model, prompt_tokens, completion_tokens, cost_us
                   (now(), case_id, role, model, prompt_tokens, completion_tokens, cost_usd, latency_s, int(ok)))
 
 
+def reserve_usage(case_id, role, model, worst_cost, case_limit, role_limit, total_limit, daily_limit):
+    """Takes a place for one model call, in one transaction, so calls running side by side cannot pass a limit together.
+    The row counts at its worst cost until finish_usage. Returns (row id, None) or (None, the limit that stopped it)."""
+    with connect() as c:
+        c.execute("BEGIN IMMEDIATE")
+        try:
+            def scalar(sql, *args):
+                return c.execute(sql, args).fetchone()[0]
+
+            if role_limit is not None and scalar("SELECT COUNT(*) FROM llm_usage WHERE case_id = ? AND role = ?",
+                                                 case_id, role) >= role_limit:
+                return None, f"appeal limit of {role_limit} model calls reached"
+            if case_limit is not None and scalar("SELECT COUNT(*) FROM llm_usage WHERE case_id = ? AND role NOT LIKE "
+                                                 "'appeal_letter%'", case_id) >= case_limit:
+                return None, f"case limit of {case_limit} model calls reached"
+            if total_limit is not None and scalar("SELECT COALESCE(SUM(cost_usd), 0) FROM llm_usage") + worst_cost > total_limit:
+                return None, f"cost limit of USD {total_limit} reached"
+            if daily_limit is not None and scalar("SELECT COALESCE(SUM(cost_usd), 0) FROM llm_usage WHERE substr(ts, 1, 10) = ?",
+                                                  now()[:10]) + worst_cost > daily_limit:
+                return None, f"daily cost limit of USD {daily_limit} reached"
+            row = c.execute("INSERT INTO llm_usage (ts, case_id, role, model, prompt_tokens, completion_tokens, cost_usd, "
+                            "latency_s, ok) VALUES (?, ?, ?, ?, 0, 0, ?, 0, 1)", (now(), case_id, role, model, worst_cost))
+            return row.lastrowid, None
+        finally:
+            c.execute("COMMIT")
+
+
+def finish_usage(usage_id, prompt_tokens, completion_tokens, cost_usd, latency_s, ok=True):
+    with connect() as c:
+        c.execute("UPDATE llm_usage SET prompt_tokens = ?, completion_tokens = ?, cost_usd = ?, latency_s = ?, ok = ? "
+                  "WHERE id = ?", (prompt_tokens, completion_tokens, cost_usd, latency_s, int(ok), usage_id))
+
+
 def total_cost():
     with connect() as c:
         return c.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM llm_usage").fetchone()[0]

@@ -277,7 +277,14 @@ ROUTES = {
 FIXABLE_HOST = "harborlane-shop.test"
 FIXABLE_PATH = re.compile(r"/shop/([a-z0-9]{8,32})")
 FIXED_LIMIT = 5000
-CLEAN_SHOP = page("Harbor Lane Books", "<p>A fictional bookshop. This site was cleaned up.</p>")
+# The clean version keeps a real login: it posts to its own host. A clean shop still has customers who sign in.
+CLEAN_SHOP = page("Harbor Lane Books sign in", """
+<p>A fictional bookshop.</p>
+<form action="/session" method="post">
+  <label>User ID <input type="text" name="username"></label><br>
+  <label>Password <input type="password" name="password"></label><br>
+  <button type="submit">Sign in</button>
+</form>""")
 fixed = set()
 fixed_lock = threading.Lock()
 

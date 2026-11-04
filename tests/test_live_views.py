@@ -220,4 +220,5 @@ def test_page_says_what_it_is_not(twins):
 
 
 def test_parse_baseline():
-    assert baseline.parse('```json\n{"action": "warn", "customer_id": "c"}\n```') == {"action": "Warn", "target": "c"}
+    assert baseline.parse('```json\n{"action": "warn", "customer_id": "c"}\n```') == {"action": "Warn", "target": "c",
+                                                                                     "reason": ""}

@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from app import appeals, compare, db, inventory, letters, pipeline, policy, ratelimit, signals, timeline, visitor
+from app import appeals, compare, db, explain, inventory, letters, pipeline, policy, ratelimit, signals, timeline, visitor
 from app.examples import EXAMPLES, FIXABLE_EXAMPLE
 from app.twins import TWINS
 
@@ -216,6 +216,7 @@ def case_context(ref):
     polling = case["status"] in ("queued", "visiting", "drafting") or any(a["status"] in appeals.PENDING for a in views)
     return {"case": case, "evidence": evidence, "audit": db.audit_log(case_id), "outputs": outputs, "appeals": views,
             "polling": polling, "choices": appeals.CHOICES, "timeline": timeline.rows(db.case_events(case_id)),
+            "why": explain.why(case["signals"]),
             "comparison": compare.rows(claim and claim["output"], case["signals"], evidence, vision and vision["output"]),
             "usage": db.case_usage(case_id), "documents": DOCUMENTS, "sent": sent_documents(case_id),
             "allowed": policy.allowed_for(case) if case["status"] == "ready" else ()}
@@ -318,8 +319,13 @@ def customer_context(token):
     notice = draft["output"]["customer_notice"] if draft and draft["output"] else None
     return {"case": case, "appeals": views, "choices": appeals.CHOICES, "closed": appeals.closed_reason(case, views),
             "polling": any(a["status"] in appeals.PENDING for a in views), "slug": appeals.fixable_slug(case),
+            "fixed": fix_simulated(case["id"]),
             "notice": letters.clean(notice) if notice else None,
             "action_text": letters.outcome_sentence(case["level"], case["decided_action"])}
+
+
+def fix_simulated(case_id):
+    return any(a["event"] == "customer_fix_simulated" for a in db.audit_log(case_id))
 
 
 def appeal_guard(request):
@@ -361,9 +367,10 @@ def simulate_fix(request: Request, token: str):
     slug = appeals.fixable_slug(case)
     if slug is None:
         raise HTTPException(404, "this page cannot be changed")
-    appeal_guard(request)
-    visitor.simulate_fix(slug)
-    db.audit(case["id"], "customer", "customer_fix_simulated", url=case["url"])
+    if not fix_simulated(case["id"]):
+        appeal_guard(request)
+        visitor.simulate_fix(slug)
+        db.audit(case["id"], "customer", "customer_fix_simulated", url=case["url"])
     return RedirectResponse(f"/appeal/{token}", status_code=303)
 
 

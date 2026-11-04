@@ -89,7 +89,7 @@ def sent_text(entry):
 
 def test_all_four_roles_run_and_are_labelled(client, log):
     c = run(client, URL_A)
-    assert [e["role"] for e in log] == ["claim_extraction", "vision_claim", "verdict_claim", "documents"]
+    assert sorted(e["role"] for e in log) == ["claim_extraction", "documents", "verdict_claim", "vision_claim"]
     assert {o["status"] for o in c["outputs"].values()} == {"accepted"}
     assert {o["kind"] for o in c["outputs"].values()} == {"model_claim"}
     assert {o["model"] for o in c["outputs"].values()} == {"mock"}
@@ -102,14 +102,16 @@ def test_level_is_stored_before_the_first_model_call(client, log):
 
 def test_report_text_reaches_claim_extraction_only(client, log):
     run(client, URL_A, INJECTION)
-    assert INJECTION in sent_text(log[0])
-    for entry in log[1:]:
+    by_role = {e["role"]: e for e in log}
+    assert INJECTION in sent_text(by_role.pop("claim_extraction"))
+    assert len(by_role) == 3
+    for entry in by_role.values():
         assert "ignore previous" not in sent_text(entry) and "cust-1003" not in sent_text(entry)
 
 
 def test_vision_gets_the_screenshot_and_nothing_from_the_report(client, log):
     run(client, URL_A, INJECTION)
-    parts = log[1]["messages"][0]["content"]
+    parts = next(e for e in log if e["role"] == "vision_claim")["messages"][0]["content"]
     assert parts[1]["image_url"]["url"] == "data:image/jpeg;base64," + base64.b64encode(b"jpeg").decode()
 
 
@@ -207,7 +209,7 @@ def test_template_at_not_proven_has_no_customer_notice(client, replies):
 
 
 def test_template_is_used_when_the_budget_refuses(client, monkeypatch):
-    monkeypatch.setattr(ledger, "MAX_CALLS_PER_CASE", 1)
+    monkeypatch.setattr(ledger, "MAX_CALLS_PER_CASE", 0)
     assert run(client, URL_A)["outputs"]["documents"]["status"] == "template"
 
 
@@ -351,8 +353,8 @@ def test_case_limit_refuses_the_seventh_call(client):
 def test_refused_role_is_visible_and_the_case_goes_on(client, monkeypatch):
     monkeypatch.setattr(ledger, "MAX_CALLS_PER_CASE", 1)
     c = run(client, URL_A)
-    assert c["outputs"]["claim_extraction"]["status"] == "accepted"
-    assert c["outputs"]["verdict_claim"]["status"] == "skipped" and outcome(c) == EXPECTED[URL_A]
+    statuses = [o["status"] for o in c["outputs"].values()]
+    assert statuses.count("accepted") == 1 and "skipped" in statuses and outcome(c) == EXPECTED[URL_A]
 
 
 def test_mock_costs_nothing(client):

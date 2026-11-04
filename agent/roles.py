@@ -54,6 +54,7 @@ statement_of_reasons is the reasoning for the file, at most six sentences. custo
 in the input; it is null when the level is Not proven. reporter_reply is to the person who reported; it must not name
 the customer. Both of those are plain letters of at most four sentences that mention only what matters to the reader:
 never signals that were not found, or words like "signal", "file" or "visit". Never write a signal id in the text.
+Code adds the sentence about appealing to the customer notice, so never mention an appeal or how to dispute this.
 Use only signal ids from the input. {UNTRUSTED}"""
 
 
@@ -200,6 +201,9 @@ def check_documents(text, level, signal_ids):
         raise Rejected("customer_notice is missing")
     sentences = docs.statement_of_reasons + (docs.customer_notice or []) + docs.reporter_reply
     check_sentences(sentences, signal_ids, signal_ids)
+    for s in sentences:
+        if re.search(r"\b(?:appeal|dispute)", s.text, re.I):
+            raise Rejected(f"mentions an appeal, which only code may write: {s.text!r}")
     return docs.model_dump()
 
 

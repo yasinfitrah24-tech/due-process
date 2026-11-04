@@ -1,5 +1,5 @@
 <div id="compare"{% if polling %} hx-get="/partials/compare/{{ comparison.token }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
-  <h1>One report, two pages</h1>
+  <h1>Same report text, different pages</h1>
   <p>The same report went to both pages:</p>
   <blockquote>{{ twin.report }}</blockquote>
   <div class="columns">
@@ -15,6 +15,7 @@
       <h3>baseline: reads report text only</h3>
       {% if side.baseline %}
       <p>Decision: <strong>{{ side.baseline.action }}</strong></p>
+      {% if side.baseline.reason %}<p class="muted">Reason given by the baseline: {{ side.baseline.reason }}</p>{% endif %}
       {% else %}<p class="muted">Waiting for the model.</p>{% endif %}
     </section>
     {% endfor %}

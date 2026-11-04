@@ -1,4 +1,5 @@
 """Puts what the reporter alleges next to what the evidence shows. For display only: nothing reads this back."""
+from app import explain
 
 FORM_CATEGORIES = ("phishing", "impersonation")
 
@@ -27,8 +28,7 @@ def rows(claim, found, evidence, vision):
     else:
         brand_shows = ("Not seen in page titles.", None)
 
-    present = [k for k, v in values.items() if v]
-    behavior = (", ".join(present) if present else "No signal present.", "observed" if values else None)
+    behavior = (explain.why(found) or "Nothing reproduced.", "observed" if values else None)
     return [
         {"label": "Category", "alleged": claim["category"], "shows": category[0], "kind": category[1]},
         {"label": "Brand", "alleged": brand or "none named", "shows": brand_shows[0], "kind": brand_shows[1]},

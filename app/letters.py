@@ -9,6 +9,7 @@ ACTION_TEXT = {
     "Warn": "The customer was warned.",
     "Close": "The report was closed with no action.",
 }
+APPEAL_CLOSING = "If you have fixed this or believe it is wrong, use the appeal link below."
 CITATION = re.compile(r"\s*\[[A-Za-z0-9_.-]+\]")
 
 
@@ -63,4 +64,4 @@ def outcome_sentence(level, action):
 
 def sent_text(sentences, level, action, appeal_url=None):
     text = f"{clean(sentences)}\n\n{outcome_sentence(level, action)}"
-    return f"{text}\n\nIf you fixed this or disagree: {appeal_url}" if appeal_url else text
+    return f"{text}\n\n{APPEAL_CLOSING}\n{appeal_url}" if appeal_url else text

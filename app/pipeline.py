@@ -3,6 +3,7 @@
 The level is stored before the first model call, so no model output can reach it.
 """
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 from agent import baseline
 from agent import client as llm
@@ -126,31 +127,39 @@ def last_screenshot(case_id, evidence):
     return (db.case_dir(case_id) / files[-1]).read_bytes() if files else None
 
 
-def draft(case_id, evidence):
-    case = db.get_case(case_id)
-    if case["mode"] == "demo":
-        run_role(case_id, "claim_extraction", roles.claim_messages(case["claim"]), roles.check_claim)
-    if evidence is None or not case["signals"]:
-        return
-    image = last_screenshot(case_id, evidence)
-    if image:
-        run_role(case_id, "vision_claim", roles.vision_messages(image), lambda text: check_vision(text, evidence))
+def draft_documents(case_id, case, found, facts):
+    level, ids, allowed = case["level"], [s["id"] for s in found], policy.allowed_for(case)
+    last = run_role(case_id, "documents", roles.document_messages(level, allowed, case["customer_name"], found, facts),
+                    lambda text: roles.check_documents(text, level, ids), retries=DOCUMENT_RETRIES)
+    if last["status"] != "accepted":
+        db.save_output(case_id, "documents", letters.TEMPLATE_MODEL, {
+            "status": "template", "output": letters.template_documents(level, found), "raw": None,
+            "problem": last["problem"], "unknown_citations": [], "latency_s": None, "cost_usd": None})
+        db.audit(case_id, "system", "documents_template", reason=last["problem"])
 
-    level, found = case["level"], case["signals"]
-    ids = [s["id"] for s in found]
-    allowed = policy.allowed_for(case)
-    facts = evidence_facts(evidence)
-    run_role(case_id, "verdict_claim", roles.verdict_messages(level, found, facts),
-             lambda text: roles.check_verdict(text, level, ids))
+
+def draft(case_id, evidence):
+    """Every role reads only what is already stored and none reads another, so they run side by side."""
+    case = db.get_case(case_id)
+    jobs = []
     if case["mode"] == "demo":
-        last = run_role(case_id, "documents",
-                        roles.document_messages(level, allowed, case["customer_name"], found, facts),
-                        lambda text: roles.check_documents(text, level, ids), retries=DOCUMENT_RETRIES)
-        if last["status"] != "accepted":
-            db.save_output(case_id, "documents", letters.TEMPLATE_MODEL, {
-                "status": "template", "output": letters.template_documents(level, found), "raw": None,
-                "problem": last["problem"], "unknown_citations": [], "latency_s": None, "cost_usd": None})
-            db.audit(case_id, "system", "documents_template", reason=last["problem"])
+        jobs.append(lambda: run_role(case_id, "claim_extraction", roles.claim_messages(case["claim"]), roles.check_claim))
+    if evidence is not None and case["signals"]:
+        level, found = case["level"], case["signals"]
+        ids = [s["id"] for s in found]
+        facts = evidence_facts(evidence)
+        image = last_screenshot(case_id, evidence)
+        if image:
+            jobs.append(lambda: run_role(case_id, "vision_claim", roles.vision_messages(image),
+                                         lambda text: check_vision(text, evidence)))
+        jobs.append(lambda: run_role(case_id, "verdict_claim", roles.verdict_messages(level, found, facts),
+                                     lambda text: roles.check_verdict(text, level, ids)))
+        if case["mode"] == "demo":
+            jobs.append(lambda: draft_documents(case_id, case, found, facts))
+    if jobs:
+        with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+            for future in [pool.submit(job) for job in jobs]:
+                future.result()
 
 
 def revisit(appeal_id):
@@ -207,12 +216,12 @@ def run_baseline(token):
         client = llm.get_client("text_triage")
         try:
             call = ledger.call(client, case["id"], "text_triage",
-                               baseline.messages(case["url"], case["claim"], inventory.CUSTOMERS))
+                               baseline.messages(case["url"], case["claim"], inventory.CUSTOMERS, explain=True))
             result = baseline.parse(call["text"])
         except ledger.Refused:
-            result = {"action": "Not run: model limit reached", "target": None}
+            result = {"action": "Not run: model limit reached", "target": None, "reason": ""}
         except Exception:
-            result = {"action": "No valid answer", "target": None}
+            result = {"action": "No valid answer", "target": None, "reason": ""}
         db.set_baseline(token, side, result)
 
 

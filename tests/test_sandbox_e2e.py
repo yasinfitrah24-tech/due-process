@@ -240,7 +240,7 @@ def test_fixable_page_changes_only_for_its_own_id():
     r = subprocess.run(["docker", "compose", "exec", "-T", "app", "python", "-c", script], capture_output=True, text=True)
     assert r.stdout.strip() == "204", r.stderr
     after = launch.run_visit(fixed, "fix-after")["evidence"]
-    assert signals.level(signals.compute(after, fixed)) == "Not proven"
+    assert signals.level(signals.compute(after, fixed)) == "Not proven" and after["password_fields"]
     assert signals.level(signals.compute(launch.run_visit(other, "fix-other")["evidence"], other)) == "Proven"
 
 

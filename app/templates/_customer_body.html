@@ -8,10 +8,15 @@
 
   {% if slug %}
   <h2>Demo</h2>
+  {% if fixed %}
+  <p><strong>Fix applied.</strong> This test page now shows a clean version. Send an appeal to have it checked again.</p>
+  <button type="button" disabled>Customer fix simulated</button>
+  {% else %}
   <form method="post" action="/appeal/{{ case.appeal_token }}/simulate-fix">
     <button type="submit">Simulate customer fix</button>
   </form>
   <p class="muted">Changes this one test page to a clean version, as a customer's cleanup would.</p>
+  {% endif %}
   {% endif %}
 
   <h2>Appeal</h2>
@@ -30,8 +35,12 @@
 
   {% for a in appeals %}
   <h2>Appeal {{ loop.index }}</h2>
-  <p>{{ choices[a.choice] }}. Status: {{ a.status }}.
-    {% if a.decision == 'Reinstate' %}Reinstated (simulated).{% elif a.decision == 'Keep' %}The action stays in place.{% endif %}</p>
-  {% if a.sent %}<blockquote>{{ a.sent }}</blockquote>{% endif %}
+  <p>{{ choices[a.choice] }}. Status: {{ a.status }}.</p>
+  {% if a.decision == 'Reinstate' %}<p><strong>Decision: Reinstated</strong> (simulated).</p>
+  {% elif a.decision == 'Keep' %}<p><strong>Decision: Kept.</strong> The action stays in place.</p>{% endif %}
+  {% if a.sent %}<blockquote>{{ a.sent }}</blockquote>
+  {% elif a.decision %}<p class="muted">The analyst has not sent the letter yet.</p>{% endif %}
   {% endfor %}
+
+  <p class="muted">Demo: <a href="/cases/{{ case.id }}">Back to the analyst view (case #{{ case.id }})</a></p>
 </div>

@@ -18,13 +18,13 @@ FIXABLE_PATH = re.compile(r"/shop/([a-z0-9]{8,32})")
 def closed_reason(case, appeals):
     """Why this case cannot be appealed now, or None."""
     if any(a["status"] in PENDING for a in appeals):
-        return "an appeal is already being checked"
+        return "An appeal is already being checked"
     if any(a["status"] == "ready" for a in appeals):
-        return "an analyst is reviewing the last appeal"
+        return "An analyst is reviewing the last appeal"
     if any(a["decision"] == "Reinstate" for a in appeals):
-        return "this case was reinstated"
+        return "This case was reinstated"
     if len(appeals) >= MAX_PER_CASE:
-        return f"this case has reached the limit of {MAX_PER_CASE} appeals"
+        return f"This case has reached the limit of {MAX_PER_CASE} appeals"
     return None
 
 
