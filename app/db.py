@@ -11,6 +11,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS cases (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'demo',
   url TEXT NOT NULL,
   host TEXT NOT NULL,
   claim TEXT NOT NULL,
@@ -91,6 +92,8 @@ def init():
     data_dir().mkdir(parents=True, exist_ok=True)
     with connect() as c:
         c.executescript(SCHEMA)
+        if "mode" not in [r["name"] for r in c.execute("PRAGMA table_info(cases)")]:
+            c.execute("ALTER TABLE cases ADD COLUMN mode TEXT NOT NULL DEFAULT 'demo'")
 
 
 def as_case(row):
@@ -102,11 +105,17 @@ def as_case(row):
     return case
 
 
-def create_case(url, host, claim, customer):
+def create_case(url, host, claim, customer, mode="demo"):
     with connect() as c:
-        cur = c.execute("INSERT INTO cases (created_at, url, host, claim, customer_id, customer_name, status) "
-                        "VALUES (?, ?, ?, ?, ?, ?, 'queued')", (now(), url, host, claim, customer["id"], customer["name"]))
+        cur = c.execute("INSERT INTO cases (created_at, mode, url, host, claim, customer_id, customer_name, status) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, 'queued')",
+                        (now(), mode, url, host, claim, customer["id"], customer["name"]))
         return cur.lastrowid
+
+
+def waiting_cases():
+    with connect() as c:
+        return c.execute("SELECT COUNT(*) FROM cases WHERE status IN ('queued', 'visiting')").fetchone()[0]
 
 
 def update_case(case_id, **fields):

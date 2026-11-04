@@ -25,7 +25,7 @@ def visits(monkeypatch, tmp_path):
         seen.append(url)
         return visit_result(copy.deepcopy(EVIDENCE[url]))
 
-    monkeypatch.setattr(pipeline.launch, "run_visit", fake_visit)
+    monkeypatch.setattr(pipeline.visitor, "run_visit", fake_visit)
     monkeypatch.setattr(main, "submit", pipeline.process)
     return seen
 
@@ -108,7 +108,7 @@ def test_host_lookup_is_case_insensitive_and_exact():
 
 
 def test_failed_visit_is_not_proven_even_with_damning_evidence(client, monkeypatch):
-    monkeypatch.setattr(pipeline.launch, "run_visit", lambda *a: visit_result(PAGE_A_EVIDENCE, ok=False))
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda *a: visit_result(PAGE_A_EVIDENCE, ok=False))
     c = case(client, report(client, URL_A))
     assert c["level"] == "Not proven" and c["allowed_actions"] == ["Close"] and c["note"]
 
@@ -116,7 +116,7 @@ def test_failed_visit_is_not_proven_even_with_damning_evidence(client, monkeypat
 def test_crash_in_the_visit_is_not_proven(client, monkeypatch):
     def boom(*a):
         raise RuntimeError("docker is down")
-    monkeypatch.setattr(pipeline.launch, "run_visit", boom)
+    monkeypatch.setattr(pipeline.visitor, "run_visit", boom)
     c = case(client, report(client, URL_A))
     assert c["level"] == "Not proven" and c["status"] == "ready"
 

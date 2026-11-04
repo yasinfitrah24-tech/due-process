@@ -4,7 +4,6 @@ CLI: python -m sandbox.launch <url> [--case NAME] [--out DIR]
 The flags in docker_args() are the sandbox contract in CLAUDE.md: don't change them without being asked.
 """
 import argparse
-import base64
 import json
 import os
 import re
@@ -14,13 +13,15 @@ import tempfile
 import threading
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
 PW_VERSION = "v1.64.1"
 IMAGE = f"due-process-sandbox:{PW_VERSION}"
 NETWORK = "dp-sandbox"
+EGRESS_PROXY = "http://egress:3128"
+EGRESS_CONTAINER = "dp-egress"
 SECCOMP = Path(__file__).resolve().parent / "seccomp" / f"playwright-{PW_VERSION}-chroot.json"
 HARD_TIMEOUT_S = 60
 VISIT_BUDGET_S = 53  # + visit.py's 5 s alarm margin + container start stays under HARD_TIMEOUT_S
@@ -44,7 +45,7 @@ def docker_args(name, cidfile):
 
 def visit_args(url):
     # "--" so a reported URL can never be read as an option by visit.py.
-    return ["--sandbox", "on", "--timeout", str(VISIT_BUDGET_S), "--", url]
+    return ["--sandbox", "on", "--timeout", str(VISIT_BUDGET_S), "--proxy", EGRESS_PROXY, "--", url]
 
 
 def ensure_image():
@@ -79,6 +80,24 @@ def teardown(cid):
     return {"container_gone": not container_exists(cid), "forced_removal": True, "checked_at": now()}
 
 
+def egress_log(client_ip, since, started_at):
+    """This visit's lines from the proxy log, or None if the log cannot be read. A later container can get the same
+    address, so lines count only from the moment this visit started. The sandbox and the proxy share one clock."""
+    not_before = datetime.fromisoformat(started_at).timestamp()
+    r = subprocess.run(["docker", "logs", "--since", since, EGRESS_CONTAINER], capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    entries = []
+    for line in r.stdout.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if entry.get("client") == client_ip and entry.get("ts", 0) >= not_before:
+            entries.append({**entry, "kind": "observed"})
+    return entries
+
+
 def namespace_proof(evidence):
     ev = (evidence or {}).get("browser", {}).get("sandbox_evidence") or {}
     isolated = [p for p in ev.get("processes", [])
@@ -89,14 +108,15 @@ def namespace_proof(evidence):
 
 
 def run_visit(url, case="case"):
-    """Returns {"ok", "evidence", "receipt"}. ok means: evidence came back, Chromium's sandbox was
-    really on (processes in new namespaces), and the container is confirmed gone."""
+    """Returns {"ok", "evidence", "receipt"}. ok means: evidence came back, Chromium's sandbox was really on
+    (processes in new namespaces), the proxy logged the visit, and the container is confirmed gone."""
     check_url(url)
     name = f"dp-case-{re.sub(r'[^a-z0-9-]', '-', case.lower())[:40]}-{uuid.uuid4().hex[:8]}"
     with _slots, tempfile.TemporaryDirectory() as tmp:
         cidfile = Path(tmp) / "cid"
         flags = docker_args(name, cidfile)
         started_at, t0, hard_killed = now(), time.monotonic(), False
+        log_since = (datetime.now(timezone.utc) - timedelta(seconds=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
         proc = subprocess.Popen(flags + visit_args(url), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             out, err = proc.communicate(timeout=HARD_TIMEOUT_S)
@@ -113,6 +133,11 @@ def run_visit(url, case="case"):
     except ValueError:
         evidence = None
     proof = namespace_proof(evidence)
+    # The proxy's record of the visit comes from the proxy, not from anything the sandbox reports about itself.
+    egress = egress_log(evidence["client_ip"], log_since, evidence["started_at"]) if evidence else None
+    if evidence:
+        evidence["egress"] = egress or []
+    downloads = (evidence or {}).get("downloads", [])
     receipt = {
         "container_id": cid,
         "container_name": name,
@@ -123,32 +148,23 @@ def run_visit(url, case="case"):
         "exit_code": proc.returncode,
         "hard_killed": hard_killed,
         "chromium_sandbox": proof,
+        "egress_requests": None if egress is None else len(egress),
+        "quarantined_downloads": [{"name": d.get("suggested_filename"), "sha256": d.get("sha256"),
+                                   "bytes": d.get("bytes")} for d in downloads],
         "teardown": gone,
     }
     if evidence is None:
         receipt["stderr_tail"] = err.decode("utf-8", "replace")[-1000:]
-    ok = evidence is not None and proof["in_new_user_pid_net_ns"] > 0 and gone["container_gone"]
+    ok = evidence is not None and proof["in_new_user_pid_net_ns"] > 0 and gone["container_gone"] and bool(egress)
     return {"ok": ok, "evidence": evidence, "receipt": receipt}
-
-
-def save(result, out_dir):
-    """Writes evidence.json, receipt.json and shot-N.jpg. Screenshots leave the JSON here."""
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    evidence = result["evidence"] or {}
-    for i, page in enumerate(evidence.get("pages", [])):
-        b64 = (page.get("screenshot") or {}).pop("jpeg_b64", None)
-        if b64:
-            (out_dir / f"shot-{i}.jpg").write_bytes(base64.b64decode(b64))
-            page["screenshot"]["file"] = f"shot-{i}.jpg"
-    (out_dir / "evidence.json").write_text(json.dumps(evidence, indent=2))
-    (out_dir / "receipt.json").write_text(json.dumps(result["receipt"], indent=2))
 
 
 def summary(result):
     e, r = result["evidence"] or {}, result["receipt"]
     ns = r["chromium_sandbox"]
     lines = [f"final url    {e.get('final_url')}",
+             *[f"egress       {x.get('decision')}: {x.get('method')} {x.get('host')}:{x.get('port')} "
+               f"{x.get('reason') or ''}" for x in e.get("egress", [])],
              f"timed out    {e.get('timed_out')}  errors {len(e.get('errors', []))}"]
     lines += [f"redirect     {x['type']}: {x['from']} -> {x['to']}" for x in e.get("redirects", [])]
     lines += [f"destination  {d['via']} [{d['kind']}]: {d['url']} (same host: {d['same_host_as_page']})"
@@ -168,10 +184,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("url")
     ap.add_argument("--case", default="cli")
-    ap.add_argument("--out", default="out")
     a = ap.parse_args()
     result = run_visit(a.url, a.case)
-    save(result, Path(a.out) / a.case)
     print(summary(result))
     sys.exit(0 if result["ok"] else 1)
 

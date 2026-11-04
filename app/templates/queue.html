@@ -1,12 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Queue - Due Process{% endblock %}
 {% block content %}
-<h2>New report</h2>
+<h2>New report (demo customers)</h2>
 {% if error %}<p class="error">Rejected: {{ error }}</p>{% endif %}
 <form method="post" action="/reports">
   <label>Reported URL <input type="text" name="url" required placeholder="http://tailspin-offers.test/start"></label>
   <label>Claim <textarea name="claim" rows="3" required></textarea></label>
   <button type="submit">Submit report</button>
+</form>
+
+<h2>Test any URL</h2>
+<p class="muted">Opens an internet URL in a disposable browser, through the egress proxy. Evidence and a verdict only: no target, no action, and not a finding of abuse.</p>
+<form method="post" action="/test-url">
+  <label>URL <input type="text" name="url" required placeholder="https://example.com/"></label>
+  <button type="submit">Test URL</button>
 </form>
 
 <h2>Queue</h2>

@@ -14,8 +14,13 @@
   <p>{{ case.url }}</p>
   <blockquote>{{ case.claim }}</blockquote>
 
+  {% if case.mode == 'test' %}
+  <h2>Test any URL</h2>
+  <p>Evidence and a verdict only. This page is not a customer of ours: there is no target and no action, and the verdict is not a finding of abuse.</p>
+  {% else %}
   <h2>Target</h2>
   <p>{{ case.customer_name }} ({{ case.customer_id }}), from host <code>{{ case.host }}</code> via the hosting inventory.</p>
+  {% endif %}
 
   {% set extraction = outputs.get('claim_extraction') %}
   {% if extraction %}
@@ -96,6 +101,17 @@
   </table>
   {% else %}<p class="muted">None.</p>{% endif %}
 
+  <h2>Egress (from the proxy log)</h2>
+  {% if evidence.egress %}
+  <table>
+    <thead><tr><th>Kind</th><th>Decision</th><th>Request</th><th>Reason</th></tr></thead>
+    {% for e in evidence.egress %}
+    <tr><td>{{ kind(e.kind) }}</td><td>{% if e.decision == 'blocked' %}<strong>blocked</strong>{% else %}{{ e.decision }}{% endif %}</td>
+      <td>{{ e.method }} {{ e.host }}:{{ e.port }}{{ e.path or '' }}</td><td>{{ e.reason or '' }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">None recorded.</p>{% endif %}
+
   <h2>Password fields and hidden text</h2>
   <table>
     {% for p in evidence.password_fields %}
@@ -114,10 +130,15 @@
     <tr><th>Container</th><td><code>{{ case.receipt.container_id }}</code></td></tr>
     <tr><th>Chromium sandbox</th><td>{{ case.receipt.chromium_sandbox.in_new_user_pid_net_ns }} of {{ case.receipt.chromium_sandbox.chromium_processes }} processes in new user, pid and net namespaces ({{ case.receipt.chromium_sandbox.isolated_types|join(', ') }})</td></tr>
     <tr><th>Run time</th><td>{{ case.receipt.wall_s }} s, exit {{ case.receipt.exit_code }}</td></tr>
+    <tr><th>Egress</th><td>{{ case.receipt.egress_requests }} requests logged by the proxy</td></tr>
+    {% for d in case.receipt.quarantined_downloads %}
+    <tr><th>Quarantined download</th><td>{{ d.name }}, {{ d.bytes }} bytes, sha256 <code>{{ d.sha256 }}</code>. Never opened. Only the hash left the container; the file went with it.</td></tr>
+    {% endfor %}
     <tr><th>Teardown</th><td>{% if case.receipt.teardown.container_gone %}Container gone, checked {{ case.receipt.teardown.checked_at }}{% else %}<span class="error">Container still present</span>{% endif %}</td></tr>
   </table>
   {% endif %}
 
+  {% if case.mode != 'test' %}
   <h2>Decision</h2>
   {% if case.decided_action %}
   <p>{{ case.decided_action }} by {{ case.decided_by }} at {{ case.decided_at }} (simulated).</p>
@@ -127,17 +148,18 @@
     {% for a in allowed %}<button type="submit" name="action" value="{{ a }}">{{ a }}</button>{% endfor %}
   </form>
   {% else %}<p class="muted">Waiting for the verdict.</p>{% endif %}
+  {% endif %}
 
   {% set drafts = outputs.get('documents') %}
   {% if drafts %}
   <h2>Drafts</h2>
-  <p>{{ by(drafts) }} Nothing is sent until an analyst sends it.</p>
+  <p>{{ by(drafts) }} Nothing is sent until an analyst sends it. The result sentence comes from code on sending, and signal ids are removed.</p>
   {{ problem(drafts) }}
   {% if drafts.output %}
   {% for name, title in documents.items() if drafts.output[name] %}
   <h3>{{ title }}</h3>
   {{ sentences(drafts.output[name]) }}
-  {% if name in sent %}<p class="muted">Sent (simulated).</p>
+  {% if name in sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ sent[name] }}</blockquote>
   {% elif case.decided_action and not (case.decided_action == 'Close' and name != 'reporter_reply') %}
   <form method="post" action="/cases/{{ case.id }}/documents/{{ name }}/send"><button type="submit">Send</button></form>
   {% endif %}

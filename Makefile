@@ -12,7 +12,7 @@ endif
 .PHONY: up down sandbox-image test test-docker
 
 up: sandbox-image
-	$(DOCKER) compose up -d --build
+	$(DOCKER) compose up -d --build --wait
 
 down:
 	$(DOCKER) compose down

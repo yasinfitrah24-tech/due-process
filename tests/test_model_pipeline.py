@@ -32,6 +32,10 @@ class Fake(llm.MockClient):
         self.log.append({"role": role, "messages": messages, "level": seen_level()})
         if role in self.replies:
             reply = self.replies[role]
+            if isinstance(reply, list):  # one reply per call, then the mock
+                if not reply:
+                    return super().complete(messages, role)
+                reply = reply.pop(0)
             if isinstance(reply, Exception):
                 raise reply
             return {"text": reply, "prompt_tokens": 0, "completion_tokens": 0}
@@ -63,7 +67,7 @@ def client(monkeypatch, tmp_path, log, replies):
                               "screenshot": {"kind": "observed", "jpeg_b64": base64.b64encode(b"jpeg").decode()}}]
         return visit_result(evidence)
 
-    monkeypatch.setattr(pipeline.launch, "run_visit", fake_visit)
+    monkeypatch.setattr(pipeline.visitor, "run_visit", fake_visit)
     monkeypatch.setattr(main, "submit", pipeline.process)
     monkeypatch.setattr(pipeline.llm, "get_client", lambda role: Fake(log, replies, role))
     return TestClient(main.app)
@@ -180,7 +184,7 @@ def test_failing_model_leaves_the_case_usable(client, replies):
 
 
 def test_failed_visit_gets_no_verdict_claim_or_documents(client, monkeypatch, log):
-    monkeypatch.setattr(pipeline.launch, "run_visit", lambda *a: visit_result(copy.deepcopy(PAGE_A_EVIDENCE), ok=False))
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda *a: visit_result(copy.deepcopy(PAGE_A_EVIDENCE), ok=False))
     c = run(client, URL_A)
     assert [e["role"] for e in log] == ["claim_extraction"] and c["level"] == "Not proven"
 
@@ -207,7 +211,7 @@ def test_document_is_sent_by_an_analyst_after_the_decision(client):
     client.post(f"/api/cases/{c['id']}/actions", json={"action": "Suspend"})
     assert client.post(send, follow_redirects=False).status_code == 303
     assert client.post(send).status_code == 409
-    assert client.get(f"/api/cases/{c['id']}").json()["sent"] == ["customer_notice"]
+    assert list(client.get(f"/api/cases/{c['id']}").json()["sent"]) == ["customer_notice"]
 
 
 def test_closed_case_sends_only_the_reporter_reply(client):

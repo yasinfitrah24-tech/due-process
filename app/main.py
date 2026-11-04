@@ -10,8 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from app import compare, db, inventory, pipeline, policy, signals
-from sandbox import launch
+from app import compare, db, inventory, letters, pipeline, policy, ratelimit, signals, visitor
 
 HERE = Path(__file__).parent
 MAX_CLAIM_CHARS = 20000
@@ -20,7 +19,7 @@ DOCUMENTS = {"statement_of_reasons": "Statement of reasons", "customer_notice": 
 NEEDS_ENFORCEMENT = ("statement_of_reasons", "customer_notice")
 
 templates = Jinja2Templates(directory=HERE / "templates")
-executor = ThreadPoolExecutor(max_workers=launch.MAX_PARALLEL)
+executor = ThreadPoolExecutor(max_workers=visitor.MAX_PARALLEL)
 
 
 def submit(case_id):
@@ -31,7 +30,6 @@ def submit(case_id):
 async def lifespan(_):
     db.init()
     db.fail_interrupted()
-    launch.ensure_image()
     yield
 
 
@@ -49,9 +47,33 @@ class ReportIn(BaseModel):
     claim: str = Field(max_length=MAX_CLAIM_CHARS)
 
 
+class TestUrlIn(BaseModel):
+    url: str = Field(max_length=2000)
+
+
 class ActionIn(BaseModel):
     action: str
     analyst: str = Field(default="analyst", min_length=1, max_length=100)
+
+
+def guard(request):
+    """Limits for anything public that starts a sandbox. Uses the socket address: a header could be forged."""
+    if not ratelimit.allow(request.client.host if request.client else "unknown"):
+        raise HTTPException(429, "too many reports from this address, try again later")
+    if db.waiting_cases() >= ratelimit.MAX_WAITING:
+        raise HTTPException(503, "the queue is full, try again later")
+
+
+def create_test(url):
+    """Test any URL: evidence and a verdict only. No customer, so no target and no action."""
+    try:
+        host = inventory.reported_host(url)
+    except inventory.BadUrl as e:
+        raise Rejected(str(e)) from None
+    case_id = db.create_case(url, host, "", {"id": "", "name": ""}, mode="test")
+    db.audit(case_id, "public", "test_url_received", url=url)
+    submit(case_id)
+    return case_id
 
 
 def create_report(url, claim):
@@ -78,7 +100,7 @@ def apply_action(case_id, action, analyst):
         raise HTTPException(404, "case not found")
     if case["status"] not in ("ready", "decided"):
         raise HTTPException(409, "case has no verdict yet")
-    allowed = policy.allowed_actions(case["level"])
+    allowed = policy.allowed_for(case)
     if action not in allowed:
         db.audit(case_id, analyst, "action_rejected", action=action, level=case["level"], allowed=allowed)
         raise HTTPException(403, f"{action!r} is not allowed at level {case['level']}")
@@ -91,7 +113,9 @@ def apply_action(case_id, action, analyst):
 
 
 def sent_documents(case_id):
-    return {a["detail"]["document"] for a in db.audit_log(case_id) if a["event"] == "document_sent"}
+    """{document: text as sent}."""
+    return {a["detail"]["document"]: a["detail"]["sent_text"] for a in db.audit_log(case_id)
+            if a["event"] == "document_sent"}
 
 
 def send_document(case_id, name, analyst):
@@ -109,7 +133,9 @@ def send_document(case_id, name, analyst):
         raise HTTPException(403, f"{name} is not sent when the case is closed")
     if name in sent_documents(case_id):
         raise HTTPException(409, "already sent")
-    db.audit(case_id, analyst, "document_sent", document=name, simulated=True)
+    # Both versions are kept: the cited draft for the record, the plain text as the reader got it.
+    db.audit(case_id, analyst, "document_sent", document=name, simulated=True, cited_draft=draft["output"][name],
+             sent_text=letters.sent_text(draft["output"][name], case["level"], case["decided_action"]))
 
 
 def case_context(case_id):
@@ -124,7 +150,7 @@ def case_context(case_id):
     return {"case": case, "evidence": evidence, "audit": db.audit_log(case_id), "outputs": outputs,
             "comparison": compare.rows(claim and claim["output"], case["signals"], evidence, vision and vision["output"]),
             "usage": db.case_usage(case_id), "documents": DOCUMENTS, "sent": sent_documents(case_id),
-            "allowed": policy.allowed_actions(case["level"]) if case["status"] == "ready" else ()}
+            "allowed": policy.allowed_for(case) if case["status"] == "ready" else ()}
 
 
 @app.get("/")
@@ -139,8 +165,20 @@ def queue_rows(request: Request):
 
 @app.post("/reports")
 def report_form(request: Request, url: str = Form(max_length=2000), claim: str = Form(max_length=MAX_CLAIM_CHARS)):
+    guard(request)
     try:
         case_id = create_report(url, claim)
+    except Rejected as e:
+        return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": e.message},
+                                           status_code=422)
+    return RedirectResponse(f"/cases/{case_id}", status_code=303)
+
+
+@app.post("/test-url")
+def test_url_form(request: Request, url: str = Form(max_length=2000)):
+    guard(request)
+    try:
+        case_id = create_test(url)
     except Rejected as e:
         return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": e.message},
                                            status_code=422)
@@ -177,8 +215,18 @@ def document_form(case_id: int, name: str, analyst: str = Form(default="analyst"
     return RedirectResponse(f"/cases/{case_id}", status_code=303)
 
 
+@app.post("/api/test-url", status_code=202)
+def test_url_api(request: Request, body: TestUrlIn):
+    guard(request)
+    try:
+        return {"case_id": create_test(body.url)}
+    except Rejected as e:
+        return JSONResponse({"error": e.message}, status_code=422)
+
+
 @app.post("/api/reports", status_code=202)
-def report_api(report: ReportIn):
+def report_api(request: Request, report: ReportIn):
+    guard(request)
     try:
         case_id = create_report(report.url, report.claim)
     except Rejected as e:
@@ -190,7 +238,7 @@ def report_api(report: ReportIn):
 def case_api(case_id: int):
     ctx = case_context(case_id)
     return {**ctx["case"], "allowed_actions": ctx["allowed"], "audit": ctx["audit"], "outputs": ctx["outputs"],
-            "comparison": ctx["comparison"], "usage": ctx["usage"], "sent": sorted(ctx["sent"])}
+            "comparison": ctx["comparison"], "usage": ctx["usage"], "sent": ctx["sent"]}
 
 
 @app.post("/api/cases/{case_id}/actions")

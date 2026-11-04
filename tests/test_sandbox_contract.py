@@ -1,4 +1,8 @@
 """The docker flags and URL handling, without running Docker."""
+import json
+import subprocess
+from datetime import datetime, timezone
+
 import pytest
 
 from sandbox import launch
@@ -47,6 +51,11 @@ def test_chromium_sandbox_stays_on():
     assert launch.visit_args("http://x.test/")[:2] == ["--sandbox", "on"]
 
 
+def test_chromium_goes_through_the_proxy():
+    args = launch.visit_args("http://x.test/")
+    assert args[args.index("--proxy") + 1] == "http://egress:3128"
+
+
 def test_url_cannot_become_an_option():
     args = launch.visit_args("--sandbox=off")
     assert args[-2:] == ["--", "--sandbox=off"]
@@ -60,6 +69,21 @@ def test_only_http_urls_are_visited(url):
 
 def test_visit_budget_ends_before_the_hard_kill():
     assert launch.VISIT_BUDGET_S + 5 < launch.HARD_TIMEOUT_S
+
+
+def test_proxy_log_counts_only_this_visit(monkeypatch):
+    lines = [{"ts": 1000.0, "client": "172.20.0.3", "host": "earlier-container.test"},
+             {"ts": 2000.0, "client": "172.20.0.4", "host": "other-container.test"},
+             {"ts": 2000.0, "client": "172.20.0.3", "host": "this-visit.test"}]
+    out = "\n".join([json.dumps(x) for x in lines] + ["not json"])
+    monkeypatch.setattr(launch.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout=out))
+    started = datetime.fromtimestamp(1500, timezone.utc).isoformat()
+    assert [e["host"] for e in launch.egress_log("172.20.0.3", "since", started)] == ["this-visit.test"]
+
+
+def test_unreadable_proxy_log_is_none(monkeypatch):
+    monkeypatch.setattr(launch.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 1, stdout=""))
+    assert launch.egress_log("172.20.0.3", "since", "2026-11-04T00:00:00+00:00") is None
 
 
 def test_not_ok_without_namespace_proof():

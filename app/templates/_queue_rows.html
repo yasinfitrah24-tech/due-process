@@ -2,7 +2,7 @@
 <tr>
   <td><a href="/cases/{{ c.id }}">#{{ c.id }}</a></td>
   <td>{{ c.url }}</td>
-  <td>{{ c.customer_name }}</td>
+  <td>{{ c.customer_name or 'Test any URL' }}</td>
   <td>{{ c.status }}</td>
   <td><span class="level level-{{ (c.level or '')|replace(' ', '') }}">{{ c.level or '...' }}</span></td>
   <td>{{ c.decided_action or '' }}</td>

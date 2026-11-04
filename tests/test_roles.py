@@ -6,7 +6,6 @@ from agent import client as llm
 from agent import roles
 
 IDS = ["form_to_foreign_host", "password_field", "redirect_count", "final_host_differs", "hidden_text_present"]
-PROVEN_ACTIONS = ("Suspend", "Warn", "Close")
 
 
 def verdict(level="Proven", *sentences):
@@ -78,18 +77,18 @@ def test_claim_that_changes_the_level_is_rejected():
 
 
 def test_documents_accepted():
-    assert roles.check_documents(documents(), "Proven", PROVEN_ACTIONS, IDS)["customer_notice"]
+    assert roles.check_documents(documents(), "Proven", IDS)["customer_notice"]
 
 
 def test_customer_notice_is_dropped_at_not_proven():
     text = documents(statement_of_reasons=[sentence("Nothing was found.", ["password_field"])],
                      customer_notice=[sentence()])
-    assert roles.check_documents(text, "Not proven", ("Close",), IDS)["customer_notice"] is None
+    assert roles.check_documents(text, "Not proven", IDS)["customer_notice"] is None
 
 
 def test_customer_notice_is_required_otherwise():
     with pytest.raises(roles.Rejected):
-        roles.check_documents(documents(customer_notice=None), "Proven", PROVEN_ACTIONS, IDS)
+        roles.check_documents(documents(customer_notice=None), "Proven", IDS)
 
 
 @pytest.mark.parametrize("bad", [
@@ -104,24 +103,17 @@ def test_customer_notice_is_required_otherwise():
 ])
 def test_documents_reject_bad_sentences(bad):
     with pytest.raises(roles.Rejected):
-        roles.check_documents(documents(reporter_reply=[bad]), "Proven", PROVEN_ACTIONS, IDS)
+        roles.check_documents(documents(reporter_reply=[bad]), "Proven", IDS)
 
 
 def test_procedural_sentence_needs_no_citation():
     text = documents(reporter_reply=[sentence("Thank you for your report.", [], False)])
-    assert roles.check_documents(text, "Proven", PROVEN_ACTIONS, IDS)
-
-
-@pytest.mark.parametrize("level,allowed", [("Not proven", ("Close",)), ("Suspicious", ("Warn", "Close"))])
-def test_documents_may_not_mention_suspension_when_not_allowed(level, allowed):
-    text = documents(statement_of_reasons=[sentence("We will suspend the customer.")])
-    with pytest.raises(roles.Rejected):
-        roles.check_documents(text, level, allowed, IDS)
+    assert roles.check_documents(text, "Proven", IDS)
 
 
 def test_verdict_and_documents_inputs_have_no_report_field():
     for messages in (roles.verdict_messages("Proven", [], {}),
-                     roles.document_messages("Proven", PROVEN_ACTIONS, "Tailspin", [], {})):
+                     roles.document_messages("Proven", ("Close",), "Tailspin", [], {})):
         assert "report" not in json.loads(messages[1]["content"])
 
 

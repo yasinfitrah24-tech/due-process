@@ -16,7 +16,7 @@ def mock_reply(role, messages):
         return {"category": "other", "alleged_brand": None, "alleged_behavior": "Mock extraction."}
     if role == "vision_claim":
         return {"description": "Mock description.", "imitated_brand": None}
-    data = json.loads(messages[-1]["content"])
+    data = json.loads(messages[1]["content"])  # a retry adds messages after the data
     ids = [s["id"] for s in data["signals"] if s["value"]] or [data["signals"][0]["id"]]
     sentence = {"text": "Mock statement.", "signals": ids, "factual": True}
     if role == "verdict_claim":

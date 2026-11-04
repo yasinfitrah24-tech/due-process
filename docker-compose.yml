@@ -10,37 +10,86 @@ x-locked-down: &locked-down
   restart: unless-stopped
 
 services:
+  # Holds no Docker socket. It reaches sandboxes only through the launcher's visit(url).
   app:
     build: .
     image: due-process-app
-    ports: ["127.0.0.1:8000:8000"]
+    ports: ["${APP_BIND:-127.0.0.1}:8000:8000"]
     env_file:
       - path: .env
         required: false
     volumes:
       - appdata:/data
+    networks: [default, control]
+    depends_on:
+      launcher:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # The only container with the Docker socket. No port, no internet, reachable by the app alone.
+  launcher:
+    build:
+      context: .
+      dockerfile: launcher/Dockerfile
+    image: due-process-launcher
+    volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks: [control]
+    depends_on: [egress]
+    # Healthy only once the sandbox image exists: the server starts after building it.
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8100/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 200
+    restart: unless-stopped
+
+  # The sandbox network holds only this. Everything a sandbox reaches, it reaches through here.
+  egress:
+    build: ./egress
+    image: due-process-egress
+    container_name: dp-egress
+    user: "65534"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges]
+    environment:
+      EGRESS_ALLOW_PRIVATE_HOSTS: tailspin-offers.test,northwind-verify.test,northwind-bank.test,tailspin.sites-demo.test,collector.test
+      EGRESS_DENY_IPS: ${EGRESS_DENY_IPS:-}
+    networks:
+      sandbox:
+        aliases: [egress]
+      testnet:
+      outbound:
     depends_on: [testsite, collector]
     restart: unless-stopped
 
   testsite:
     <<: *locked-down
     networks:
-      sandbox:
+      testnet:
         aliases: [tailspin-offers.test, northwind-verify.test, northwind-bank.test, tailspin.sites-demo.test]
 
   collector:
     <<: *locked-down
     command: ["python3", "-u", "/app/collector.py"]
     networks:
-      sandbox:
+      testnet:
         aliases: [collector.test]
 
 volumes:
   appdata:
 
 networks:
-  # Sandbox containers join this network from sandbox/launch.py. Internal: no route to the internet.
+  # Sandbox containers join this from sandbox/launch.py. Internal: no route out, and only the proxy is on it.
   sandbox:
     name: dp-sandbox
     internal: true
+  testnet:
+    name: dp-testnet
+    internal: true
+  control:
+    name: dp-control
+    internal: true
+  outbound:
+    name: dp-outbound

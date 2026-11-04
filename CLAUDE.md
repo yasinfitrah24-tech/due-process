@@ -17,8 +17,9 @@ Principle: "A report is a claim. Only evidence reproduced in a disposable browse
 ## Stack
 - Python 3.12, FastAPI, SQLite, Jinja2 + HTMX (server-rendered, 3 screens: Queue, Case, Approval)
 - Sandbox: one Docker container per case from `sandbox/` image (Playwright Python on mcr.microsoft.com/playwright/python; the image does NOT include the Python `playwright` package, so the Dockerfile installs a pinned version)
+- Launcher: separate container, the only one holding the Docker socket; its whole API is POST /visit. The app has no socket and no Docker client
 - Egress: separate proxy container; sandbox reaches the outside only through it; proxy logs all requests and blocks private ranges and 169.254.169.254
-- Deploy: one Vultr VM (app + Docker sandbox + proxy + test site) via docker compose
+- Deploy: one Vultr VM (app + launcher + Docker sandbox + proxy + test site) via docker compose
 
 ## Sandbox contract (mode B3, proven in probe 1 Nov)
 docker run flags per case:
@@ -34,7 +35,8 @@ Max parallel sandboxes: 4.
 app/       FastAPI app, templates, DB models, API (POST /api/reports, approvals)
 agent/     Vultr Inference client and model roles: claim extraction, vision claim, verdict claim, document drafts (schemas validated)
 sandbox/   Dockerfile, runner (visit), seccomp/, launch + teardown
-egress/    proxy config
+launcher/  internal visit(url) service around sandbox/launch.py
+egress/    egress proxy
 testsite/  fictional-brand test pages (own container)
 corpus/    labeled reports + page list for eval
 eval/      baselines (text-only triage, fetch-without-browser) + run_eval.py

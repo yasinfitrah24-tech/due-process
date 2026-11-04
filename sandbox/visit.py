@@ -18,6 +18,7 @@ import json
 import os
 import re
 import signal
+import socket
 import sys
 import tempfile
 import time
@@ -252,12 +253,14 @@ def main():
     ap.add_argument("--sandbox", choices=["on", "off"], default="on", help="Chromium's own sandbox")
     ap.add_argument("--launch-only", action="store_true", help="launch, report sandbox status, exit")
     ap.add_argument("--no-embed", action="store_true", help="omit screenshot base64 from JSON")
+    ap.add_argument("--proxy", help="egress proxy; the sandbox network has no other way out")
     ap.add_argument("--workdir", default=os.path.join(tempfile.gettempdir(), "dp"))
     a = ap.parse_args()
 
     t0 = time.monotonic()
     rec = {
-        "schema": "dp-visit/4",
+        "schema": "dp-visit/5",
+        "client_ip": socket.gethostbyname(socket.gethostname()),
         "input_url": a.url,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "timeout_s": a.timeout,
@@ -287,7 +290,8 @@ def main():
 
     with sync_playwright() as pw:
         try:
-            browser = pw.chromium.launch(headless=True, chromium_sandbox=(a.sandbox == "on"))
+            browser = pw.chromium.launch(headless=True, chromium_sandbox=(a.sandbox == "on"),
+                                         proxy={"server": a.proxy} if a.proxy else None)
         except PWError as e:
             rec["browser"]["launch_error"] = str(e)[:4000]
             emit_and_exit(2)

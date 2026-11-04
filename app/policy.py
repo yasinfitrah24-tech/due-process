@@ -10,3 +10,8 @@ ALLOWED_ACTIONS = {
 
 def allowed_actions(level):
     return ALLOWED_ACTIONS.get(level, ())
+
+
+def allowed_for(case):
+    """A "Test any URL" case has no target, so no action exists for it."""
+    return () if case["mode"] == "test" else allowed_actions(case["level"])

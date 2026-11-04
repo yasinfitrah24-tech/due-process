@@ -1,9 +1,13 @@
 """Real visits in real sandbox containers. Needs `make up`; run with `make test-docker`."""
+import hashlib
+import json
 import os
 import subprocess
 import threading
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 
@@ -159,9 +163,133 @@ def test_host_env_does_not_reach_the_sandbox(monkeypatch):
     assert set(e["env_keys"]) == IMAGE_ENV
 
 
-def test_no_internet():
-    e = launch.run_visit("http://example.com/", "net")["evidence"]
-    assert e["errors"] and not [n for n in e["network"] if n["status"]]
+def compose_exec(service, command):
+    return subprocess.run(["docker", "compose", "exec", "-T", service, "sh", "-c", command],
+                          capture_output=True, text=True)
+
+
+@pytest.fixture(scope="module")
+def netcheck(tmp_path_factory):
+    """Run inside a real sandbox container with the contract flags."""
+    args = launch.docker_args(f"dp-case-net-{uuid.uuid4().hex[:8]}", tmp_path_factory.mktemp("c") / "cid")
+    args[-1:-1] = ["-i", "--entrypoint", "python3"]
+    script = Path(__file__).with_name("sandbox_netcheck.py").read_text()
+    r = subprocess.run(args + ["-"], input=script, capture_output=True, text=True, timeout=90)
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout)
+
+
+def test_from_the_sandbox_only_the_proxy_is_reachable(netcheck):
+    direct = netcheck["direct"]
+    assert direct.pop("egress:3128") == "connected"
+    assert direct and "connected" not in direct.values()
+
+
+@pytest.mark.parametrize("name", ["metadata", "metadata_decimal", "metadata_connect", "private_10", "private_192",
+                                  "loopback", "launcher", "launcher_port80", "app", "docker_host"])
+def test_from_the_sandbox_the_proxy_blocks(netcheck, name):
+    assert netcheck["proxy"][name] == 403
+
+
+def test_from_the_sandbox_the_proxy_passes_a_demo_host(netcheck):
+    assert netcheck["proxy"]["demo_host"] == 302
+
+
+def test_every_browser_request_is_in_the_proxy_log(page_a):
+    e = page_a["evidence"]
+    logged = {(x["host"], x["path"]) for x in e["egress"] if x["decision"] == "allowed"}
+    assert ("tailspin-offers.test", "/start") in logged and ("northwind-verify.test", "/login") in logged
+    assert page_a["receipt"]["egress_requests"] == len(e["egress"]) > 0
+
+
+@pytest.fixture(scope="module")
+def containment():
+    return launch.run_visit("http://northwind-verify.test/containment", "containment")
+
+
+def test_containment_metadata_is_blocked_and_recorded(containment):
+    blocked = [x for x in containment["evidence"]["egress"] if x["decision"] == "blocked"]
+    assert [(x["host"], x["reason"]) for x in blocked] == [("169.254.169.254", "cloud metadata address")]
+    assert blocked[0]["kind"] == "observed"
+
+
+def test_containment_download_stays_in_the_container(containment):
+    e, r = containment["evidence"], containment["receipt"]
+    sha = hashlib.sha256(b"TEST PAGE sample download. Fictional brand, harmless text.\n").hexdigest()
+    assert [(d["suggested_filename"], d["sha256"]) for d in e["downloads"]] == [("northwind-statement.txt", sha)]
+    assert r["quarantined_downloads"][0]["sha256"] == sha
+    assert "harmless text" not in json.dumps({k: v for k, v in e.items() if k != "pages"})
+    assert r["teardown"]["container_gone"] and containment["ok"]
+
+
+def test_containment_does_not_move_the_level(containment, page_a):
+    url = "http://northwind-verify.test/containment"
+    found = signals.compute(containment["evidence"], url)
+    values = {s["id"]: s["value"] for s in found}
+    assert values["egress_blocked"] and values["download_quarantined"]
+    assert signals.level(found) == "Proven"
+    assert signals.level(signals.compute(page_a["evidence"], PAGE_A)) == "Proven"
+
+
+def test_app_has_no_docker():
+    r = compose_exec("app", "test -e /var/run/docker.sock; echo socket=$?; command -v docker; echo client=$?")
+    assert "socket=1" in r.stdout and "client=1" in r.stdout
+
+
+def test_app_cannot_reach_docker_or_the_sandbox_networks():
+    script = """
+import socket
+for host, port in [('egress', 3128), ('tailspin-offers.test', 80), ('collector.test', 80),
+                   ('host.docker.internal', 2375), ('host.docker.internal', 2376)]:
+    try:
+        socket.create_connection((host, port), timeout=3).close()
+        print('REACHED', host, port)
+    except OSError:
+        pass
+print('done')
+"""
+    r = subprocess.run(["docker", "compose", "exec", "-T", "app", "python", "-c", script],
+                       capture_output=True, text=True)
+    assert r.stdout.strip() == "done", r.stdout + r.stderr
+
+
+def launcher_call(method, path, body=None):
+    script = f"""
+import httpx
+r = httpx.request({method!r}, 'http://launcher:8100{path}', json={body!r}, timeout=90)
+print(r.status_code)
+"""
+    r = subprocess.run(["docker", "compose", "exec", "-T", "app", "python", "-c", script],
+                       capture_output=True, text=True)
+    return int(r.stdout.strip())
+
+
+@pytest.mark.parametrize("method,path,body", [
+    ("GET", "/containers/json", None),
+    ("POST", "/containers/create", {"Image": "alpine"}),
+    ("POST", "/run", {"image": "alpine"}),
+    ("POST", "/visit", {"url": "file:///etc/passwd"}),
+    ("POST", "/visit", {"url": "--sandbox=off"}),
+    ("POST", "/visit", {"case": "x"}),
+])
+def test_launcher_offers_visit_and_nothing_else(method, path, body):
+    assert launcher_call(method, path, body) in (400, 404)
+
+
+def test_extra_fields_cannot_change_the_flags():
+    assert launcher_call("POST", "/visit", {"url": PAGE_C, "image": "alpine", "flags": ["--privileged"]}) == 200
+    assert leftovers() == []
+
+
+def test_only_the_launcher_holds_the_socket():
+    out = subprocess.run(["docker", "compose", "ps", "-q"], capture_output=True, text=True).stdout.split()
+    holders = []
+    for cid in out:
+        mounts = subprocess.run(["docker", "inspect", "-f", "{{.Name}} {{json .Mounts}}", cid],
+                                capture_output=True, text=True).stdout
+        if "docker.sock" in mounts:
+            holders.append(mounts.split()[0])
+    assert holders == ["/due-process-launcher-1"]
 
 
 def test_hang_stops_inside_the_hard_timeout():

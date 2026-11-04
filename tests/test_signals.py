@@ -46,6 +46,17 @@ def test_other_signals_do_not_raise_the_level(change):
     assert signals.level(signals.compute(evidence, "http://northwind-bank.test/login")) == signals.NOT_PROVEN
 
 
+@pytest.mark.parametrize("evidence", [PAGE_A_EVIDENCE, PAGE_B_EVIDENCE, PAGE_C_EVIDENCE])
+def test_blocked_egress_and_downloads_are_recorded_and_do_not_move_the_level(evidence):
+    url = "http://northwind-bank.test/login"
+    hostile = {**copy.deepcopy(evidence),
+               "egress": [{"host": "169.254.169.254", "decision": "blocked", "reason": "cloud metadata address"}],
+               "downloads": [{"suggested_filename": "a.exe"}]}
+    found = signals.compute(hostile, url)
+    assert by_id(found)["egress_blocked"]["value"] and by_id(found)["download_quarantined"]["value"]
+    assert signals.level(found) == signals.level(signals.compute(evidence, url))
+
+
 def test_observed_form_action_outranks_declared():
     evidence = copy.deepcopy(PAGE_A_EVIDENCE)
     evidence["destinations"].append(dest("form-action", "observed", "http://p.test/", "http://x.test/", False))

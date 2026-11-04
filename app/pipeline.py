@@ -6,8 +6,10 @@ import json
 
 from agent import client as llm
 from agent import roles
-from app import db, inventory, ledger, policy, signals
-from sandbox import launch
+from app import db, inventory, ledger, policy, signals, visitor
+
+
+DOCUMENT_RETRIES = 1
 
 
 def visit_and_judge(case):
@@ -15,8 +17,8 @@ def visit_and_judge(case):
     case_id = case["id"]
     db.update_case(case_id, status="visiting")
     try:
-        result = launch.run_visit(case["url"], f"case-{case_id}")
-        launch.save(result, db.case_dir(case_id))
+        result = visitor.run_visit(case["url"], f"case-{case_id}")
+        visitor.save(result, db.case_dir(case_id))
         receipt = result["receipt"]
         db.audit(case_id, "sandbox", "sandbox_visit", ok=result["ok"], container_id=receipt["container_id"],
                  container_gone=receipt["teardown"]["container_gone"])
@@ -38,8 +40,18 @@ def visit_and_judge(case):
         return None
 
 
-def run_role(case_id, role, messages, check):
-    """One model call. Whatever happens is kept, so a refused or rejected claim stays visible."""
+def run_role(case_id, role, messages, check, retries=0):
+    """A model call, repeated up to `retries` times if its output is rejected, with the reason. Whatever happens is
+    kept, so a refused or rejected claim stays visible."""
+    for _ in range(retries + 1):
+        entry = call_role(case_id, role, messages, check)
+        if entry["status"] != "rejected":
+            break
+        messages = messages + [{"role": "user", "content": f"Your reply was rejected: {entry['problem']}. "
+                                                           "Reply again with corrected JSON only."}]
+
+
+def call_role(case_id, role, messages, check):
     client = llm.get_client(role)
     entry = {"status": "accepted", "output": None, "raw": None, "problem": None, "unknown_citations": [],
              "latency_s": None, "cost_usd": None}
@@ -58,6 +70,7 @@ def run_role(case_id, role, messages, check):
     db.save_output(case_id, role, client.model, entry)
     db.audit(case_id, "model", "model_output", role=role, model=client.model, status=entry["status"],
              problem=entry["problem"])
+    return entry
 
 
 def evidence_facts(evidence):
@@ -81,7 +94,8 @@ def last_screenshot(case_id, evidence):
 
 def draft(case_id, evidence):
     case = db.get_case(case_id)
-    run_role(case_id, "claim_extraction", roles.claim_messages(case["claim"]), roles.check_claim)
+    if case["mode"] == "demo":
+        run_role(case_id, "claim_extraction", roles.claim_messages(case["claim"]), roles.check_claim)
     if evidence is None or not case["signals"]:
         return
     image = last_screenshot(case_id, evidence)
@@ -90,12 +104,13 @@ def draft(case_id, evidence):
 
     level, found = case["level"], case["signals"]
     ids = [s["id"] for s in found]
-    allowed = policy.allowed_actions(level)
+    allowed = policy.allowed_for(case)
     facts = evidence_facts(evidence)
     run_role(case_id, "verdict_claim", roles.verdict_messages(level, found, facts),
              lambda text: roles.check_verdict(text, level, ids))
-    run_role(case_id, "documents", roles.document_messages(level, allowed, case["customer_name"], found, facts),
-             lambda text: roles.check_documents(text, level, allowed, ids))
+    if case["mode"] == "demo":
+        run_role(case_id, "documents", roles.document_messages(level, allowed, case["customer_name"], found, facts),
+                 lambda text: roles.check_documents(text, level, ids), retries=DOCUMENT_RETRIES)
 
 
 def process(case_id):

@@ -20,6 +20,8 @@ def compute(evidence, reported_url):
     passwords = evidence.get("password_fields", [])
     redirects = evidence.get("redirects", [])
     hidden = evidence.get("hidden_text", [])
+    blocked = [e for e in evidence.get("egress", []) if e.get("decision") == "blocked"]
+    downloads = evidence.get("downloads", [])
     final_host = host(evidence.get("final_url"))
     same_site = inventory.registrable_domain(final_host) == inventory.registrable_domain(host(reported_url))
     return [
@@ -34,6 +36,10 @@ def compute(evidence, reported_url):
          "kind": "observed", "detail": final_host},
         {"id": "hidden_text_present", "value": bool(hidden), "kind": "observed" if hidden else None,
          "detail": [h["text"] for h in hidden]},
+        {"id": "egress_blocked", "value": bool(blocked), "kind": "observed" if blocked else None,
+         "detail": sorted({f"{e.get('host')}: {e.get('reason')}" for e in blocked})},
+        {"id": "download_quarantined", "value": bool(downloads), "kind": "observed" if downloads else None,
+         "detail": [d.get("suggested_filename") for d in downloads]},
     ]
 
 
