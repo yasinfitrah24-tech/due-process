@@ -7,8 +7,8 @@ import httpx
 DEFAULT_BASE_URL = "https://api.vultrinference.com/v1"
 TIMEOUT_S = 90
 MAX_TOKENS = 6000
-# Left at its default, reasoning on the documents role used up all of MAX_TOKENS and returned no text.
-REASONING_EFFORT = {"documents": "low"}
+# Left at its default, reasoning on the documents role used up all of MAX_TOKENS and returned no text. See docs/eval.md.
+REASONING_EFFORT = {"documents": "minimal"}
 
 
 def mock_reply(role, messages):

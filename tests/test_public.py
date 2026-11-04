@@ -132,3 +132,51 @@ def test_full_queue_refuses_new_work(client, monkeypatch):  # noqa: F811
         db.create_case(URL_A, "tailspin-offers.test", "c", {"id": "cust-1001", "name": "T"})
     assert client.post("/api/reports", json={"url": URL_A, "claim": "c"}).status_code == 503
     assert client.post("/api/test-url", json={"url": INTERNET}).status_code == 503
+
+
+def test_front_page_explains_and_offers_every_example(client):  # noqa: F811
+    from app.examples import EXAMPLES
+    page = client.get("/").text
+    assert "throwaway browser" in page and "no access code" in page and 'action="/reports"' in page
+    for key in EXAMPLES:
+        assert f'action="/try/{key}"' in page
+
+
+def test_example_button_opens_a_case(client):  # noqa: F811
+    r = client.post("/try/phishing", follow_redirects=False)
+    assert r.status_code == 303 and db.get_case(1)["url"] == URL_A
+    assert client.post("/try/nothing").status_code == 404
+
+
+def test_example_button_counts_against_the_rate_limit(client):  # noqa: F811
+    for _ in range(ratelimit.REPORTS_PER_WINDOW):
+        client.post("/api/reports", json={"url": "http://example.com/", "claim": "c"})
+    assert client.post("/try/phishing").status_code == 429
+
+
+def test_examples_are_all_on_the_inventory_and_the_test_site():
+    from pathlib import Path
+
+    from app import inventory
+    from app.examples import EXAMPLES
+    server = (Path(__file__).parent.parent / "testsite" / "server.py").read_text(encoding="utf-8")
+    for e in EXAMPLES.values():
+        assert inventory.customer_for(inventory.reported_host(e["url"]))
+        assert '"' + e["url"].split("/", 3)[3].join(["/", ""]) + '"' in server
+
+
+def test_reset_demo_replaces_every_case_and_keeps_the_ledger(client, monkeypatch):  # noqa: F811
+    from app import pipeline, reset_demo
+    from app.examples import EXAMPLES
+    from tests.evidence import PAGE_C_EVIDENCE, visit_result
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case: visit_result(json.loads(json.dumps(PAGE_C_EVIDENCE))))
+    run(client, URL_A)
+    db.record_usage(None, "seed", "m", 0, 0, 1.5, 0)
+    client.post("/api/test-url", json={"url": INTERNET})
+    reset_demo.main()
+    cases = db.list_cases()
+    assert sorted(c["id"] for c in cases) == list(range(1, len(EXAMPLES) + 1))
+    assert [c["url"] for c in reversed(cases)] == [e["url"] for e in EXAMPLES.values()]
+    assert {c["status"] for c in cases} == {"ready"} and db.total_cost() == 1.5
+    with db.connect() as c:
+        assert c.execute("SELECT COUNT(*) FROM cases WHERE mode = 'test'").fetchone()[0] == 0

@@ -139,6 +139,16 @@ def get_case(case_id):
         return as_case(c.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone())
 
 
+def clear_cases():
+    """Deletes every case and restarts the numbering. The cost ledger stays. Returns how many went."""
+    with connect() as c:
+        count = c.execute("SELECT COUNT(*) FROM cases").fetchone()[0]
+        for table in ("cases", "audit", "model_outputs"):
+            c.execute(f"DELETE FROM {table}")
+            c.execute("DELETE FROM sqlite_sequence WHERE name = ?", (table,))
+    return count
+
+
 def get_case_by_ref(ref):
     """A demo case by number, a Test any URL case only by its random token: those are never listed or guessable."""
     with connect() as c:

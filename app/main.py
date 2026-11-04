@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from app import compare, db, inventory, letters, pipeline, policy, ratelimit, signals, visitor
+from app.examples import EXAMPLES
 
 HERE = Path(__file__).parent
 MAX_CLAIM_CHARS = 20000
@@ -179,9 +180,24 @@ def case_context(ref):
             "allowed": policy.allowed_for(case) if case["status"] == "ready" else ()}
 
 
+def front_page(request, error=None, status_code=200):
+    hosts = [h for c in inventory.CUSTOMERS for h in c["hosts"]]
+    return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": error, "hosts": hosts,
+                                                              "examples": EXAMPLES}, status_code=status_code)
+
+
 @app.get("/")
 def queue(request: Request):
-    return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": None})
+    return front_page(request)
+
+
+@app.post("/try/{key}")
+def try_example(request: Request, key: str):
+    if key not in EXAMPLES:
+        raise HTTPException(404, "no such example")
+    guard(request)
+    case_id = create_report(EXAMPLES[key]["url"], EXAMPLES[key]["claim"])
+    return RedirectResponse(f"/cases/{case_id}", status_code=303)
 
 
 @app.get("/partials/queue")
@@ -195,8 +211,7 @@ def report_form(request: Request, url: str = Form(max_length=2000), claim: str =
     try:
         case_id = create_report(url, claim)
     except Rejected as e:
-        return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": e.message},
-                                           status_code=422)
+        return front_page(request, e.message, 422)
     return RedirectResponse(f"/cases/{case_id}", status_code=303)
 
 
@@ -206,8 +221,7 @@ def test_url_form(request: Request, url: str = Form(max_length=2000)):
     try:
         ref = create_test(url)
     except Rejected as e:
-        return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": e.message},
-                                           status_code=422)
+        return front_page(request, e.message, 422)
     return RedirectResponse(f"/cases/{ref}", status_code=303)
 
 

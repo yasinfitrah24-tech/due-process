@@ -167,13 +167,13 @@ def check_documents(text, level, signal_ids):
     check_citations(sentences, signal_ids)
     for s in sentences:
         if s.factual and not s.signals:
-            raise Rejected("a factual sentence cites no signal")
+            raise Rejected(f"a factual sentence cites no signal: {s.text!r}")
         if not s.factual and HOST_OR_URL.search(s.text):
-            raise Rejected("a sentence marked not factual names a host or URL")
+            raise Rejected(f"a sentence marked not factual names a host or URL: {s.text!r}")
         if not s.factual and FINDING_WORD.search(s.text):
-            raise Rejected("a sentence marked not factual states a finding without citing a signal")
+            raise Rejected(f"a sentence marked not factual states a finding without citing a signal: {s.text!r}")
         if OUTCOME_WORD.search(s.text):
-            raise Rejected("states a result or action, which only code may write")
+            raise Rejected(f"states a result or action, which only code may write: {s.text!r}")
         if any(i in s.text for i in signal_ids):
-            raise Rejected("writes a signal id in the text")
+            raise Rejected(f"writes a signal id in the text: {s.text!r}")
     return docs.model_dump()
