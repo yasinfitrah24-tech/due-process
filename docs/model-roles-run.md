@@ -82,7 +82,6 @@ output: `eval/results/live-run-slice3-2026-11-04.json`. The ledger stands at USD
 - Citation checks prove a signal id exists. They do not prove a sentence describes that signal truly. Those sentences
   were read by hand here, and no false statement was found; code does not check this.
 - The finding-word check is a word list. A finding phrased in other words can still pass as not factual.
-- Letters can be thin: in case 19 the reply to the reporter mentions the password field and not that the report was not
-  proven. An analyst must read each draft before sending it.
-- Signal ids such as `[password_field]` appear in the drafts and are not removed before sending.
+- Letters can be thin: in case 25 the reply to the reporter says nothing about the page, only the result sentence from
+  code does. An analyst must read each draft before sending it.
 - All cases are simple test pages. One or a few runs per page shows no rate of failure for real traffic.
