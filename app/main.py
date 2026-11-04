@@ -193,6 +193,7 @@ def appeal_views(case, outputs):
         pages = json.loads(evidence_file.read_text()).get("pages", []) if evidence_file.exists() else []
         shots = [p["screenshot"]["file"] for p in pages if (p.get("screenshot") or {}).get("file")]
         views.append({**a, "allowed": appeals.allowed(case, a), "rows": appeals.comparison(case, a),
+                      "not_reproduced": appeals.lower_level(case, a),
                       "letter": outputs.get(f"appeal_letter:{a['id']}"), "sent": sent.get(a["id"]),
                       "shot": shots[-1] if shots else None})
     return views

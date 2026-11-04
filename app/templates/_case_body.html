@@ -149,7 +149,7 @@
   <h2>Decision</h2>
   {% if case.decided_action %}
   <p>{{ case.decided_action }} by {{ case.decided_by }} at {{ case.decided_at }} (simulated).</p>
-  {% if case.appeal_token %}<p><a href="/appeal/{{ case.appeal_token }}">Customer view</a>: the link in the customer notice.</p>{% endif %}
+  {% if case.appeal_token %}<p><a href="/appeal/{{ case.appeal_token }}">Customer view</a>: the link in the customer notice. Demo: anyone with the case link can act as the customer.</p>{% endif %}
   {% elif allowed %}
   <form method="post" action="/cases/{{ case.ref }}/actions" class="actions">
     <input type="text" name="analyst" value="analyst" aria-label="Analyst" style="width: 160px">
@@ -181,6 +181,7 @@
   <p>{{ choices[a.choice] }}. Status: {{ a.status }}.</p>
   {% if a.text %}<p class="muted">Customer says (untrusted, moves nothing):</p><blockquote>{{ a.text }}</blockquote>{% endif %}
   {% if a.note %}<p class="error">{{ a.note }}</p>{% endif %}
+  {% if a.not_reproduced %}<p><strong>Re-visit did not reproduce the original evidence.</strong> A page can also show a clean version only to this browser.</p>{% endif %}
   {% if a.status in ('drafting', 'ready', 'decided') %}
   <table>
     <thead><tr><th></th><th>First visit</th><th>Second visit</th></tr></thead>

@@ -6,6 +6,7 @@ from app import db
 COST_LIMIT_USD = 15.0
 DAILY_LIMIT_USD = 2.0
 MAX_CALLS_PER_CASE = 6
+MAX_CALLS_PER_APPEAL = 2
 
 
 class Refused(Exception):
@@ -25,7 +26,10 @@ def prices_for(client):
 def call(client, case_id, role, messages):
     """Returns {"text", "finish_reason", "latency_s", "cost_usd"}. Refuses without calling if a limit would be broken or the price
     is unknown, because a call that cannot be priced cannot be held to the limit."""
-    if db.case_calls(case_id) >= MAX_CALLS_PER_CASE:
+    if role.startswith("appeal_letter"):  # each appeal has its own allowance, inside the cost limits
+        if db.role_calls(case_id, role) >= MAX_CALLS_PER_APPEAL:
+            raise Refused(f"appeal limit of {MAX_CALLS_PER_APPEAL} model calls reached")
+    elif db.case_calls(case_id) >= MAX_CALLS_PER_CASE:
         raise Refused(f"case limit of {MAX_CALLS_PER_CASE} model calls reached")
     prompt_price = completion_price = 0.0
     if client.live:

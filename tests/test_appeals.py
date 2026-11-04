@@ -293,13 +293,68 @@ def test_failed_visit_gets_a_template_letter_with_no_model_call(client, second, 
     assert appeals_of(client, c)[0]["letter"]["status"] == "template"
 
 
-def test_case_call_limit_covers_appeal_letters(client, second, monkeypatch):  # noqa: F811
+def test_appeal_letters_have_their_own_allowance(client, second, monkeypatch):  # noqa: F811
     from app import ledger
     c = suspended(client)
     monkeypatch.setattr(ledger, "MAX_CALLS_PER_CASE", c["usage"]["calls"])
     appeal(client, c)
-    a = appeals_of(client, c)[0]
-    assert a["letter"]["status"] == "template" and client.get(f"/api/cases/{c['id']}").json()["usage"]["calls"] == c["usage"]["calls"]
+    assert appeals_of(client, c)[0]["letter"]["status"] == "accepted"
+    assert db.case_calls(c["id"]) == c["usage"]["calls"]
+
+
+def test_an_appeal_gets_two_letter_calls_and_no_more(client):  # noqa: F811
+    from app import ledger
+
+    class Counted:
+        live, model, max_tokens = False, "m", 0
+        calls = 0
+
+        def complete(self, messages, role):
+            Counted.calls += 1
+            return {"text": "{}", "prompt_tokens": 0, "completion_tokens": 0}
+
+    for _ in range(ledger.MAX_CALLS_PER_APPEAL):
+        ledger.call(Counted(), 1, "appeal_letter:1", [])
+    with pytest.raises(ledger.Refused, match="appeal limit"):
+        ledger.call(Counted(), 1, "appeal_letter:1", [])
+    assert Counted.calls == 2
+    ledger.call(Counted(), 1, "appeal_letter:2", [])
+
+
+def test_appeal_letters_stay_inside_the_cost_limit(client):  # noqa: F811
+    from app import ledger
+    from tests.test_model_pipeline import Priced, spend
+    spend(ledger.COST_LIMIT_USD, "2026-01-01T00:00:00+00:00")
+    with pytest.raises(ledger.Refused, match="cost limit"):
+        ledger.call(Priced(), 1, "appeal_letter:1", [])
+
+
+def test_lower_level_says_not_reproduced_never_fixed(client, second):  # noqa: F811
+    c = suspended(client)
+    appeal(client, c)
+    page = client.get(f"/cases/{c['id']}").text
+    assert "Re-visit did not reproduce the original evidence" in page
+    assert "was fixed" not in page and "is fixed" not in page
+
+
+def test_same_level_does_not_say_not_reproduced(client, second):  # noqa: F811
+    second["evidence"] = PAGE_A_EVIDENCE
+    c = suspended(client)
+    appeal(client, c)
+    assert "did not reproduce" not in client.get(f"/cases/{c['id']}").text
+
+
+def test_failed_visit_does_not_say_not_reproduced(client, second):  # noqa: F811
+    second["ok"] = False
+    c = suspended(client)
+    appeal(client, c)
+    assert "did not reproduce the original" not in client.get(f"/cases/{c['id']}").text
+
+
+def test_demo_note_is_on_both_pages(client):  # noqa: F811
+    c = suspended(client)
+    note = "Demo: anyone with the case link can act as the customer."
+    assert note in client.get(f"/cases/{c['id']}").text and note in client.get(f"/appeal/{c['appeal_token']}").text
 
 
 def test_one_appeal_at_a_time_and_a_limit_per_case(client, second):  # noqa: F811

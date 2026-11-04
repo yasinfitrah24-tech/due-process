@@ -10,6 +10,22 @@ Hosting providers get abuse reports all day: "there is a phishing site on your s
 risky in both directions. Suspend on a false report and you punish an innocent customer. Open the URL yourself and a
 hostile page gets a browser inside your network. A report can also be written to manipulate whatever reads it.
 
+## Why this matters
+
+Hosting providers receive abuse reports at a scale no team can check by hand. One Dutch hosting provider received 1,309,540 abuse reports over nine years (Bijmans, van Eeten, van Wegberg, "Tickets to Hide", NDSS 2026). Providers still have to decide which reports are true, and most try to validate abuse themselves (Infoblox Threat Intel, 2026).
+
+Acting without verification punishes the wrong people. On 28 October 2026, an independent journalist's website was suspended by its hosting provider after an abuse report for "fraud/scam" that he says was fabricated, with no prior notice. It was restored on 2 November (The Wire, 2026).
+
+Waiting is costly too: a phishing site stays online for 2.25 days on average after it is detected (Lee et al., "7 Days Later", WWW 2025).
+
+Due Process verifies every report in a disposable browser in about 20 seconds, and tells the customer exactly why an action was taken.
+
+Sources:
+- https://www.ndss-symposium.org/wp-content/uploads/2026-f468-paper.pdf
+- https://www.infoblox.com/blog/threat-intelligence/patterns-pirates-and-provider-action-what-we-learned-working-with-keitaro/
+- https://m.thewire.in/article/media/paranjoy-guha-thakurtas-website-restored-after-being-taken-down-without-any-prior-warning
+- https://yonghwi-kwon.github.io/data/7_days_later_www25.pdf
+
 ## The principle
 
 **A report is a claim. Only evidence reproduced in a disposable browser can move an action.**
@@ -116,6 +132,8 @@ cannot do is tell two pages apart, or give evidence for its decision.
   container runs under that profile, as shown in [docs/FINDINGS.md](docs/FINDINGS.md). A Docker or AppArmor change could
   break it. The failure is safe: a visit with no namespace proof comes back Not proven.
 - **Vision claims can repeat page text.** This happens, and it is flagged. It never moves a verdict.
+- **Cloaking.** A page that shows a clean version to the sandbox can open Reinstate on appeal. The case then says the
+  re-visit did not reproduce the original evidence, not that the page is fixed, and the decision stays with the analyst.
 - **Citation checks prove that a signal id exists**, not that the sentence describes it truly.
 - **The check for uncited findings is a word list.** It can miss a finding in other words, and it can refuse a harmless
   sentence; then the documents fall back to a template from code.

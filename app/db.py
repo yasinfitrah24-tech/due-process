@@ -287,7 +287,13 @@ def cost_today():
 
 def case_calls(case_id):
     with connect() as c:
-        return c.execute("SELECT COUNT(*) FROM llm_usage WHERE case_id = ?", (case_id,)).fetchone()[0]
+        return c.execute("SELECT COUNT(*) FROM llm_usage WHERE case_id = ? AND role NOT LIKE 'appeal_letter%'",
+                         (case_id,)).fetchone()[0]
+
+
+def role_calls(case_id, role):
+    with connect() as c:
+        return c.execute("SELECT COUNT(*) FROM llm_usage WHERE case_id = ? AND role = ?", (case_id, role)).fetchone()[0]
 
 
 def case_usage(case_id):

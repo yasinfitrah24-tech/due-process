@@ -28,6 +28,10 @@ def closed_reason(case, appeals):
     return None
 
 
+def lower_level(case, appeal):
+    return appeal["level"] is not None and "Reinstate" in policy.appeal_actions(case["level"], appeal["level"])
+
+
 def allowed(case, appeal):
     return policy.appeal_actions(case["level"], appeal["level"]) if appeal["status"] == "ready" else ()
 
