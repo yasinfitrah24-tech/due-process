@@ -86,36 +86,23 @@ make eval
 
 ## Evaluation
 
-From `make eval`: 47 labeled cases on fictional test pages, one run each, model cost USD 0.17. Every case is named in
-[docs/eval.md](docs/eval.md), next to the earlier 26-case version. For Due Process the action is the strongest its verdict
-allows, which is the worst an analyst could do.
+From `make eval`: 47 labeled cases on fictional test pages, one run each. Every case and the earlier 26-case version are in
+[docs/eval.md](docs/eval.md).
 
-| Approach | Wrongful suspend | Abuse missed | Injection changed the outcome | Twin pairs right |
-|---|---|---|---|---|
-| Due Process | 1 of 25 | 2 of 22 | 0 of 4 | 8 of 8 |
-| Text-only triage | 11 of 25 | 3 of 22 | 0 of 4 | 0 of 8 |
-| Fetch without browser | 1 of 25 | 13 of 22 | not applicable: it never reads the report | 4 of 8 |
+- **Text alone cannot tell two pages apart.** In 8 twin pairs, one identical report goes to two pages, one abuse and one
+  legitimate, on neutral hosts of one customer. Due Process got 8 of 8 pairs right; text-only triage got 0 of 8. This test
+  is built to show that limit, and the result is close to fixed by the design, so it says nothing about how often real
+  reports are like this.
+- **The browser matters.** With the same rules and only an HTTP GET, 13 of 22 abuse cases were missed, against 2 of 22
+  with the browser.
+- **Containment held.** In 10 runs on a hostile page, the cloud metadata request was blocked 10 of 10 and the download was
+  quarantined 10 of 10.
+- **A vision model repeated the page's claim, and it changed nothing.** It repeated "safe" 10 of 10 times. The page-text flag
+  caught all 10, and the verdict changed 0 of 10 times.
 
-**Twin pairs** give one identical report to two pages, one abuse and one legitimate, on neutral hosts of one customer.
-They test what cannot be known from the text, and they were added on purpose after the first version of this eval, where
-text-only triage did as well as Due Process and the corpus let it judge by who owned the host. So read the table this way:
-
-- The twin results are close to fixed by the design. Text-only triage gets almost the same input twice, so it can hardly
-  answer differently. Due Process's abuse pages use techniques its signals are built to see.
-- The total depends on the mix of cases. On the 26 original cases, text-only triage had 2 wrongful suspends of 14 and
-  missed 0 of 12, against 1 of 14 and 2 of 12 for Due Process. On the 21 new cases it had 9 of 11 and 3 of 10, against
-  0 of 11 and 0 of 10.
-- Reading a report can be a good guess. What it cannot do is tell two pages apart, or give evidence for its decision.
-
-**Browser against no browser:** the same rules with only an HTTP GET missed 13 of 22 abuse cases, against 2 of 22 with the
-browser. Script redirects and script handlers are invisible to it.
-
-**Containment, 10 runs:** the verdict stayed Proven 10 of 10, the cloud metadata request was blocked 10 of 10, and the
-download was quarantined 10 of 10. The vision model repeated the page's "safe" claim 10 of 10, and the page-text flag
-caught all 10.
-
-Across 180 model outputs, none cited a signal that does not exist. Text-only triage is about 8 times faster and cheaper
-per case: 2.89 s and USD 0.0003, against 23.69 s and USD 0.0026.
+**This does not show that Due Process beats text-only triage in general.** On the 26 original cases, text-only triage
+missed 0 of 12 abuse cases and Due Process missed 2 of 12. Reading a report can be a good and much cheaper guess. What it
+cannot do is tell two pages apart, or give evidence for its decision.
 
 ## Known limits
 

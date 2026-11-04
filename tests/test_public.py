@@ -180,3 +180,13 @@ def test_reset_demo_replaces_every_case_and_keeps_the_ledger(client, monkeypatch
     assert {c["status"] for c in cases} == {"ready"} and db.total_cost() == 1.5
     with db.connect() as c:
         assert c.execute("SELECT COUNT(*) FROM cases WHERE mode = 'test'").fetchone()[0] == 0
+
+
+def test_eval_hosts_are_not_listed_but_still_work(client, monkeypatch):  # noqa: F811
+    page = client.get("/").text
+    assert "orchard-site.test" not in page and "birch-site.test" not in page and "tailspin-offers.test" in page
+    from app import pipeline
+    from tests.evidence import PAGE_C_EVIDENCE, visit_result
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case: visit_result(json.loads(json.dumps(PAGE_C_EVIDENCE))))
+    r = client.post("/api/reports", json={"url": "http://orchard-site.test/p/1042", "claim": "c"})
+    assert r.status_code == 202 and r.json()["customer_id"] == "cust-1004"

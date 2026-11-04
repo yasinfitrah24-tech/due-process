@@ -39,6 +39,19 @@ def test_a_draft_may_not_state_a_result_or_action(text):
         roles.check_documents(draft(text), "Proven", IDS)
 
 
+def test_a_request_that_asserts_abuse_stays_rejected_at_not_proven():
+    text = json.dumps({"statement_of_reasons": [sentence("Fine.")], "customer_notice": None, "reporter_reply": [
+        sentence("Please confirm the phishing page has been removed.", [], False)]})
+    with pytest.raises(roles.Rejected):
+        roles.check_documents(text, "Not proven", IDS)
+
+
+def test_the_prompt_gives_requests_without_finding_words():
+    assert '"Please reply with"' in roles.DOCUMENTS_PROMPT and '"Let us know"' in roles.DOCUMENTS_PROMPT
+    for example in ("Please reply with any questions.", "Let us know if this form is intended."):
+        assert not roles.FINDING_WORD.search(example)
+
+
 def test_a_draft_may_not_write_a_signal_id():
     with pytest.raises(roles.Rejected):
         roles.check_documents(draft("See password_field for this."), "Proven", IDS)

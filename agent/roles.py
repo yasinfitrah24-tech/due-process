@@ -47,7 +47,9 @@ with one JSON object and nothing else:
 A sentence is {{"text": "<one sentence>", "factual": true or false, "signals": ["<signal id>"]}}.
 A factual sentence states what was or was not found, and must list its signal ids: "We did not find evidence of X" is
 factual. Only polite or procedural sentences may be factual false, such as a thank-you or a request to reply; those
-state no finding, name no host or URL and list no signals.
+state no finding, name no host or URL and list no signals. To ask the reader for something, write "Please reply with"
+or "Let us know". Such a sentence never uses the words find, found, evidence, confirm, observe, detect, record, contain
+or include.
 statement_of_reasons is the reasoning for the file, at most six sentences. customer_notice is to the customer named
 in the input; it is null when the level is Not proven. reporter_reply is to the person who reported; it must not name
 the customer. Both of those are plain letters of at most four sentences that mention only what matters to the reader:

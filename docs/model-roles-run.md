@@ -77,6 +77,20 @@ output: `eval/results/live-run-slice3-2026-11-04.json`. The ledger stands at USD
   injected text more than in earlier runs. The level stayed Proven and the sentence is shown as `model_claim`, but an
   analyst could be misled by it.
 
+## Requests in documents
+
+In eval v2, 2 drafts fell back to the template because "Please confirm..." hit the check for uncited findings. The check
+was left as it is. The prompt now tells the model to write requests as "Please reply with" or "Let us know".
+
+Retested with real models through the pipeline, 10 runs: `suspicious-newsletter` 3, `p6-abuse` 2, containment 5. Raw
+output: `eval/results/documents-recheck-2026-11-04.json`.
+
+| Accepted on first try | Accepted on retry | Template | Cost USD |
+|---|---|---|---|
+| 10 of 10 | 0 | 0 | 0.03091 |
+
+Ten runs show the fix works on these cases, not a failure rate. `docs/eval.md` was made before this prompt change.
+
 ## Limits
 
 - Citation checks prove a signal id exists. They do not prove a sentence describes that signal truly. Those sentences

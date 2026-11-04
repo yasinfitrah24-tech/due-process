@@ -181,7 +181,7 @@ def case_context(ref):
 
 
 def front_page(request, error=None, status_code=200):
-    hosts = [h for c in inventory.CUSTOMERS for h in c["hosts"]]
+    hosts = [h for c in inventory.CUSTOMERS if not c.get("eval_only") for h in c["hosts"]]
     return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": error, "hosts": hosts,
                                                               "examples": EXAMPLES}, status_code=status_code)
 
