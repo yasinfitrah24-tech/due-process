@@ -3,7 +3,8 @@ import time
 
 from app import db
 
-COST_LIMIT_USD = 5.0
+COST_LIMIT_USD = 15.0
+DAILY_LIMIT_USD = 2.0
 MAX_CALLS_PER_CASE = 6
 
 
@@ -32,8 +33,11 @@ def call(client, case_id, role, messages):
             prompt_price, completion_price = prices_for(client)
         except Exception as e:
             raise Refused(f"no price for {client.model}: {type(e).__name__}") from None
-        if db.total_cost() + client.max_tokens * completion_price > COST_LIMIT_USD:
+        worst_case = client.max_tokens * completion_price
+        if db.total_cost() + worst_case > COST_LIMIT_USD:
             raise Refused(f"cost limit of USD {COST_LIMIT_USD} reached")
+        if db.cost_today() + worst_case > DAILY_LIMIT_USD:
+            raise Refused(f"daily cost limit of USD {DAILY_LIMIT_USD} reached")
 
     t0 = time.monotonic()
     try:

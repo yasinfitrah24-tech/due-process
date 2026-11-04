@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 METADATA_IP = ipaddress.ip_address("169.254.169.254")
 ALLOWED_PORTS = {80, 443}
-DENIED_NAMES = {"app", "launcher", "egress", "host.docker.internal", "gateway.docker.internal", "metadata",
+DENIED_NAMES = {"app", "launcher", "egress", "caddy", "host.docker.internal", "gateway.docker.internal", "metadata",
                 "metadata.google.internal"}
 HEAD_LIMIT = 65536
 HEAD_TIMEOUT_S = 15

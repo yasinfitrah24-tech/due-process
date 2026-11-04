@@ -6,7 +6,7 @@ import json
 
 from agent import client as llm
 from agent import roles
-from app import db, inventory, ledger, policy, signals, visitor
+from app import db, echo, inventory, ledger, letters, policy, signals, visitor
 
 
 DOCUMENT_RETRIES = 1
@@ -41,14 +41,15 @@ def visit_and_judge(case):
 
 
 def run_role(case_id, role, messages, check, retries=0):
-    """A model call, repeated up to `retries` times if its output is rejected, with the reason. Whatever happens is
-    kept, so a refused or rejected claim stays visible."""
+    """A model call, repeated up to `retries` times if it fails, with the reason. Whatever happens is kept, so a
+    refused or rejected claim stays visible. Returns the last attempt."""
     for _ in range(retries + 1):
         entry = call_role(case_id, role, messages, check)
-        if entry["status"] != "rejected":
+        if entry["status"] in ("accepted", "skipped"):
             break
         messages = messages + [{"role": "user", "content": f"Your reply was rejected: {entry['problem']}. "
                                                            "Reply again with corrected JSON only."}]
+    return entry
 
 
 def call_role(case_id, role, messages, check):
@@ -87,6 +88,17 @@ def evidence_facts(evidence):
     }
 
 
+def page_texts(evidence):
+    """The page's words as the isolated world read them, visible and hidden."""
+    return ([p["text"] for p in evidence.get("pages", []) if p.get("text")]
+            + [h["text"] for h in evidence.get("hidden_text", [])])
+
+
+def check_vision(text, evidence):
+    claim = roles.check_vision(text)
+    return {**claim, "repeats_page_text": echo.repeats(claim["description"], page_texts(evidence))}
+
+
 def last_screenshot(case_id, evidence):
     files = [p["screenshot"]["file"] for p in evidence.get("pages", []) if (p.get("screenshot") or {}).get("file")]
     return (db.case_dir(case_id) / files[-1]).read_bytes() if files else None
@@ -100,7 +112,7 @@ def draft(case_id, evidence):
         return
     image = last_screenshot(case_id, evidence)
     if image:
-        run_role(case_id, "vision_claim", roles.vision_messages(image), roles.check_vision)
+        run_role(case_id, "vision_claim", roles.vision_messages(image), lambda text: check_vision(text, evidence))
 
     level, found = case["level"], case["signals"]
     ids = [s["id"] for s in found]
@@ -109,8 +121,14 @@ def draft(case_id, evidence):
     run_role(case_id, "verdict_claim", roles.verdict_messages(level, found, facts),
              lambda text: roles.check_verdict(text, level, ids))
     if case["mode"] == "demo":
-        run_role(case_id, "documents", roles.document_messages(level, allowed, case["customer_name"], found, facts),
-                 lambda text: roles.check_documents(text, level, ids), retries=DOCUMENT_RETRIES)
+        last = run_role(case_id, "documents",
+                        roles.document_messages(level, allowed, case["customer_name"], found, facts),
+                        lambda text: roles.check_documents(text, level, ids), retries=DOCUMENT_RETRIES)
+        if last["status"] != "accepted":
+            db.save_output(case_id, "documents", letters.TEMPLATE_MODEL, {
+                "status": "template", "output": letters.template_documents(level, found), "raw": None,
+                "problem": last["problem"], "unknown_citations": [], "latency_s": None, "cost_usd": None})
+            db.audit(case_id, "system", "documents_template", reason=last["problem"])
 
 
 def process(case_id):

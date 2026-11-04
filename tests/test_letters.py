@@ -95,7 +95,7 @@ def test_only_one_retry(client, replies, log):  # noqa: F811
     replies["documents"] = ["no", "no", "no"]
     c = run(client, URL_A)
     assert sum(e["role"] == "documents" for e in log) == 2
-    assert c["outputs"]["documents"]["status"] == "rejected"
+    assert c["outputs"]["documents"]["status"] == "template"
 
 
 def test_other_roles_are_not_retried(client, replies, log):  # noqa: F811

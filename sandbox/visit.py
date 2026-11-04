@@ -91,7 +91,8 @@ ANALYZE_JS = r"""
   };
   const body = getter(Document.prototype, 'body')(document);
   if (body) walk(body);
-  return {title: getter(Document.prototype, 'title')(document), forms, password_fields, hidden_text};
+  const text = body ? getter(HTMLElement.prototype, 'innerText')(body).slice(0, 20000) : '';
+  return {title: getter(Document.prototype, 'title')(document), text, forms, password_fields, hidden_text};
 })()
 """
 
@@ -259,7 +260,7 @@ def main():
 
     t0 = time.monotonic()
     rec = {
-        "schema": "dp-visit/5",
+        "schema": "dp-visit/6",
         "client_ip": socket.gethostbyname(socket.gethostname()),
         "input_url": a.url,
         "started_at": datetime.now(timezone.utc).isoformat(),
@@ -417,6 +418,7 @@ def main():
             an = pg.pop("analysis", None) or {}
             u = pg["url"]
             pg["title"] = an.get("title")
+            pg["text"] = an.get("text")
             rec["pages"].append(pg)
             for f in an.get("forms", []):
                 rec["forms"].append({"page": u, "kind": OBSERVED, **f})

@@ -1,6 +1,7 @@
 """SQLite storage: cases, audit log, model outputs, model usage and prices."""
 import json
 import os
+import secrets
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,7 @@ CREATE TABLE IF NOT EXISTS cases (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at TEXT NOT NULL,
   mode TEXT NOT NULL DEFAULT 'demo',
+  token TEXT,
   url TEXT NOT NULL,
   host TEXT NOT NULL,
   claim TEXT NOT NULL,
@@ -92,8 +94,13 @@ def init():
     data_dir().mkdir(parents=True, exist_ok=True)
     with connect() as c:
         c.executescript(SCHEMA)
-        if "mode" not in [r["name"] for r in c.execute("PRAGMA table_info(cases)")]:
+        columns = [r["name"] for r in c.execute("PRAGMA table_info(cases)")]
+        if "mode" not in columns:
             c.execute("ALTER TABLE cases ADD COLUMN mode TEXT NOT NULL DEFAULT 'demo'")
+        if "token" not in columns:
+            c.execute("ALTER TABLE cases ADD COLUMN token TEXT")
+        for row in c.execute("SELECT id FROM cases WHERE mode = 'test' AND token IS NULL").fetchall():
+            c.execute("UPDATE cases SET token = ? WHERE id = ?", (secrets.token_urlsafe(16), row["id"]))
 
 
 def as_case(row):
@@ -102,14 +109,16 @@ def as_case(row):
     case = dict(row)
     for field in JSON_FIELDS:
         case[field] = json.loads(case[field]) if case[field] else None
+    case["ref"] = case["token"] or str(case["id"])
     return case
 
 
 def create_case(url, host, claim, customer, mode="demo"):
     with connect() as c:
-        cur = c.execute("INSERT INTO cases (created_at, mode, url, host, claim, customer_id, customer_name, status) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, 'queued')",
-                        (now(), mode, url, host, claim, customer["id"], customer["name"]))
+        token = secrets.token_urlsafe(16) if mode == "test" else None
+        cur = c.execute("INSERT INTO cases (created_at, mode, token, url, host, claim, customer_id, customer_name, "
+                        "status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'queued')",
+                        (now(), mode, token, url, host, claim, customer["id"], customer["name"]))
         return cur.lastrowid
 
 
@@ -130,9 +139,20 @@ def get_case(case_id):
         return as_case(c.execute("SELECT * FROM cases WHERE id = ?", (case_id,)).fetchone())
 
 
-def list_cases():
+def get_case_by_ref(ref):
+    """A demo case by number, a Test any URL case only by its random token: those are never listed or guessable."""
     with connect() as c:
-        return [as_case(r) for r in c.execute("SELECT * FROM cases ORDER BY id DESC LIMIT 100")]
+        if ref.isdigit():
+            row = c.execute("SELECT * FROM cases WHERE id = ? AND mode = 'demo'", (int(ref),)).fetchone()
+        else:
+            row = c.execute("SELECT * FROM cases WHERE token = ?", (ref,)).fetchone()
+    return as_case(row)
+
+
+def list_cases():
+    """The public queue: demo cases only."""
+    with connect() as c:
+        return [as_case(r) for r in c.execute("SELECT * FROM cases WHERE mode = 'demo' ORDER BY id DESC LIMIT 100")]
 
 
 def decide(case_id, action, analyst):
@@ -176,6 +196,12 @@ def record_usage(case_id, role, model, prompt_tokens, completion_tokens, cost_us
 def total_cost():
     with connect() as c:
         return c.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM llm_usage").fetchone()[0]
+
+
+def cost_today():
+    with connect() as c:
+        return c.execute("SELECT COALESCE(SUM(cost_usd), 0) FROM llm_usage WHERE substr(ts, 1, 10) = ?",
+                         (now()[:10],)).fetchone()[0]
 
 
 def case_calls(case_id):
