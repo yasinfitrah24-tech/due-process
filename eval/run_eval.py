@@ -1,6 +1,7 @@
 """`make eval`, on a laptop with the local stack up. Writes eval/results/eval-latest.json and docs/eval.md.
 
 Every number in docs/eval.md comes from this run. Spending is held to USD 3 by the ledger in the eval's own database.
+`--report-only` rebuilds docs/eval.md from the saved results, with no new calls.
 """
 import json
 import statistics as st
@@ -62,9 +63,9 @@ def fetch_stage(corpus):
     return rows
 
 
-def mean(rows, key):
+def mean(rows, key, digits=2):
     values = [r[key] for r in rows if r.get(key) is not None]
-    return round(st.mean(values), 2) if values else 0
+    return round(st.mean(values), digits) if values else 0
 
 
 def table_row(name, s, wall, cost):
@@ -96,8 +97,8 @@ def report(data):
         "| Mean s per case | Cost USD per case |",
         "|---|---|---|---|---|---|---|---|",
         table_row("Due Process", s, mean([r for r in system if not r["rejected"]], "wall_s"),
-                  f"{mean([r for r in system if not r['rejected']], 'cost_usd'):.5f}"),
-        table_row("Text-only triage", t, mean(text, "wall_s"), f"{mean(text, 'cost_usd'):.5f}"),
+                  f"{mean([r for r in system if not r['rejected']], 'cost_usd', 6):.6f}"),
+        table_row("Text-only triage", t, mean(text, "wall_s"), f"{mean(text, 'cost_usd', 6):.6f}"),
         table_row("Fetch without browser", f, mean(fetch, "wall_s"), "0"), "",
         "How to read this:", "",
         "- For Due Process the action is the strongest one its level allows, so this is the worst an analyst could do. A real "
@@ -106,7 +107,16 @@ def report(data):
         "against injection in its prompt.",
         "- Fetch without browser: one HTTP GET through the same proxy, with the same inventory check and the same level rule "
         "as Due Process. Only the browser is taken away.",
-        "- Abuse missed means no Suspend or Warn on a case labeled as abuse.", "",
+        "- Abuse missed means no Suspend or Warn on a case labeled as abuse.",
+        "- Fetch without browser never reads the report. Its injection count is a page it missed, not an injection that "
+        "worked.", "",
+        "## What these numbers do not show", "",
+        "- **Text-only triage did about as well as Due Process here. Do not read this table as Due Process beating it.** "
+        "The corpus has a confound: every phishing page is on a Tailspin host and almost every false report is on a "
+        "Northwind Bank host, and the text model is given the customer list. It may be judging by who owns the host. "
+        "Reports on phishing pages are also truthful in all but one case. A fairer corpus needs both of those mixed.",
+        "- The text model gives no evidence for its decision. That difference does not show in these columns.",
+        "- Every case ran once, on simple pages.", "",
         "## Cases each approach got wrong", "",
         "| Approach | Wrongful suspend | Abuse missed | Injection | False warn |", "|---|---|---|---|---|",
         *[f"| {n} | {ids(x['wrongful_suspend'])} | {ids(x['missed_abuse'])} | {ids(x['injection_changed_outcome'])} "
@@ -128,12 +138,17 @@ def report(data):
         f"Download quarantined: {sum(bool(c['download_quarantined']) for c in cont)} of {runs}.",
         f"- Documents accepted: {sum(c['documents'] == 'accepted' for c in cont)} of {runs}. Template: "
         f"{sum(c['documents'] == 'template' for c in cont)} of {runs}.",
-        f"- Mean time {mean(cont, 'wall_s')} s, mean cost USD {mean(cont, 'cost_usd'):.5f}.", "",
+        f"- Mean time {mean(cont, 'wall_s')} s, mean cost USD {mean(cont, 'cost_usd', 6):.6f}.", "",
     ]
     return "\n".join(lines)
 
 
 def main():
+    results = ROOT / "eval" / "results"
+    if "--report-only" in sys.argv:
+        data = json.loads((results / "eval-latest.json").read_text(encoding="utf-8"))
+        (ROOT / "docs" / "eval.md").write_text(report(data), encoding="utf-8")
+        return
     corpus = json.loads((ROOT / "corpus" / "cases.json").read_text(encoding="utf-8"))
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
     stage = app_stage(corpus)
@@ -143,7 +158,6 @@ def main():
             "scores": {"system": metrics.score(corpus, stage["system"]), "text": metrics.score(corpus, stage["text"]),
                        "fetch": metrics.score(corpus, fetch)},
             "fake_citations": metrics.fake_citations(stage["system"])}
-    results = ROOT / "eval" / "results"
     results.mkdir(exist_ok=True)
     (results / "eval-latest.json").write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     (ROOT / "docs" / "eval.md").write_text(report(data), encoding="utf-8")
