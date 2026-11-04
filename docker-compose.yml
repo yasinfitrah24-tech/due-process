@@ -1,0 +1,30 @@
+name: due-process
+
+x-locked-down: &locked-down
+  build: ./testsite
+  image: due-process-testsite
+  user: "65534"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges]
+  restart: unless-stopped
+
+services:
+  testsite:
+    <<: *locked-down
+    networks:
+      sandbox:
+        aliases: [tailspin-offers.test, northwind-verify.test, northwind-bank.test]
+
+  collector:
+    <<: *locked-down
+    command: ["python3", "-u", "/app/collector.py"]
+    networks:
+      sandbox:
+        aliases: [collector.test]
+
+networks:
+  # Sandbox containers join this network from sandbox/launch.py. Internal: no route to the internet.
+  sandbox:
+    name: dp-sandbox
+    internal: true
