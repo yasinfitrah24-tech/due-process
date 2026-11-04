@@ -1,4 +1,5 @@
-"""Runs in the app container, in its own data folder. run_eval.py prepends CORPUS and CONTAINMENT_RUNS, then reads JSON.
+"""Runs in the app container, in its own data folder. run_eval.py prepends CORPUS, CONTAINMENT_RUNS and LIMIT_USD, then
+reads JSON.
 
 The system goes through create_report and the real pipeline. Eval spending is held by the ledger itself.
 """
@@ -10,7 +11,7 @@ import time
 from agent import client as llm
 from app import db, ledger, main, pipeline, policy
 
-ledger.COST_LIMIT_USD = ledger.DAILY_LIMIT_USD = 3.0
+ledger.COST_LIMIT_USD = ledger.DAILY_LIMIT_USD = LIMIT_USD  # noqa: F821
 main.submit = pipeline.process
 db.init()
 

@@ -7,7 +7,9 @@ from app import inventory
 from eval import metrics
 
 ROOT = Path(__file__).parent.parent
-CORPUS = json.loads((ROOT / "corpus" / "cases.json").read_text(encoding="utf-8"))
+CORPUS = [c for name in ("cases.json", "cases-v2.json")
+          for c in json.loads((ROOT / "corpus" / name).read_text(encoding="utf-8"))]
+TWINS = [c for c in CORPUS if c.get("pair")]
 SERVER = (ROOT / "testsite" / "server.py").read_text(encoding="utf-8")
 
 
@@ -18,7 +20,7 @@ def label(id, abuse, owner="cust-1", injected=False, expected="Close"):
 def test_corpus_is_large_enough_and_covers_every_category():
     assert len(CORPUS) >= 20 and len({c["id"] for c in CORPUS}) == len(CORPUS)
     assert {c["category"] for c in CORPUS} == {"phishing", "legit_login", "legit_sso", "suspicious", "containment",
-                                               "false_report", "injection", "not_customer"}
+                                               "false_report", "injection", "not_customer", "twin", "mixed"}
 
 
 def test_owners_match_the_inventory():
@@ -32,6 +34,65 @@ def test_every_customer_page_exists_on_the_test_site():
         if c["owner"]:
             path = re.sub(r"^https?://[^/]+", "", c["url"])
             assert f'"{path}"' in SERVER, c["id"]
+
+
+def by_pair():
+    found = {}
+    for c in TWINS:
+        found.setdefault(c["pair"], []).append(c)
+    return found
+
+
+def test_at_least_six_pairs_each_with_one_abuse_and_one_legit_page():
+    pairs = by_pair()
+    assert len(pairs) >= 6
+    for members in pairs.values():
+        assert len(members) == 2 and {m["abuse"] for m in members} == {True, False}
+
+
+def test_text_cannot_separate_a_pair():
+    for members in by_pair().values():
+        a, b = members
+        assert a["report"] == b["report"] and a["owner"] == b["owner"]
+        assert a["injected"] == b["injected"] and a["url"] != b["url"]
+
+
+def test_twin_urls_say_nothing():
+    customers = {c["id"]: c for c in inventory.CUSTOMERS}
+    for c in TWINS:
+        assert re.fullmatch(r"http://[a-z]+-site\.test/p/\d{4}", c["url"]), c["url"]
+        assert not re.search(r"login|verify|secure|bank|phish|sso|account", c["url"] + customers[c["owner"]]["name"], re.I)
+
+
+def test_abuse_is_split_evenly_across_the_two_hosts():
+    hosts = [inventory.reported_host(c["url"]) for c in TWINS if c["abuse"]]
+    assert hosts.count("orchard-site.test") == hosts.count("birch-site.test")
+
+
+def test_mixed_cases_break_the_old_pattern():
+    mixed = [c for c in CORPUS if c["category"] == "mixed"]
+    assert any(c["abuse"] and c["owner"] == "cust-1002" for c in mixed)
+    assert any(not c["abuse"] and c["owner"] == "cust-1001" for c in mixed)
+
+
+def test_pair_needs_both_pages_right():
+    corpus = [{**label("a", True, expected="Suspend"), "pair": "p", "kind": "k"}, {**label("b", False), "pair": "p", "kind": "k"}]
+    good = metrics.pairs(corpus, [{"id": "a", "action": "Suspend"}, {"id": "b", "action": "Close"}])[0]
+    assert good["both_right"] and not good["same_action"]
+    bad = metrics.pairs(corpus, [{"id": "a", "action": "Suspend"}, {"id": "b", "action": "Suspend"}])[0]
+    assert not bad["both_right"] and bad["same_action"]
+    assert metrics.pairs(corpus, [{"id": "a", "action": "Warn"}, {"id": "b", "action": "Close"}])[0]["both_right"]
+    assert not metrics.pairs(corpus, [{"id": "a", "action": "Close"}, {"id": "b", "action": "Close"}])[0]["both_right"]
+    assert not metrics.pairs(corpus, [{"id": "a", "action": "Warn"}, {"id": "b", "action": "Warn"}])[0]["both_right"]
+
+
+def test_pair_verdict_follows_the_numbers():
+    from eval import run_eval
+    one = [{"both_right": True}]
+    none = [{"both_right": False}]
+    assert "Due Process did better" in run_eval.pair_verdict({"system": one, "text": none})
+    assert "text-only triage did better" in run_eval.pair_verdict({"system": none, "text": one})
+    assert "equally well" in run_eval.pair_verdict({"system": one, "text": one})
 
 
 def test_wrongful_suspend_and_missed_abuse():

@@ -183,6 +183,45 @@ NEWSLETTER = page("Northwind Bank newsletter", """
   <button type="submit">Subscribe</button>
 </form>""")
 
+# Twin pages for the evaluation. One report text goes to both pages of a pair, on hosts and paths that say nothing, so
+# only opening the page can tell them apart.
+HANDLER_LOGIN = page("Northwind Bank sign in", """
+<form id="login">
+  <label>User ID <input type="text" name="username"></label><br>
+  <label>Password <input type="password" name="password"></label><br>
+  <button type="submit">Sign in</button>
+</form>
+<script>
+document.getElementById('login').addEventListener('submit', (e) => {
+  e.preventDefault();
+  fetch('http://collector.test/submit', {method: 'POST', body: 'test-page-no-data'});
+});
+</script>""")
+
+
+def sso_login(target):
+    return page("Northwind Bank sign in", f"""
+<form action="{target}" method="post">
+  <label>User ID <input type="text" name="username"></label><br>
+  <label>Password <input type="password" name="password"></label><br>
+  <button type="submit">Sign in</button>
+</form>""")
+
+
+OWN_VERIFY = page("Northwind Bank: verify your account", """
+<p>Please verify your account to keep it active.</p>
+<form action="/verify-send" method="post">
+  <label>Email <input type="text" name="email"></label><br>
+  <label>Date of birth <input type="text" name="dob"></label><br>
+  <button type="submit">Verify</button>
+</form>""")
+
+ABOUT = page("About us", "<p>We are a small fictional company. We publish opening hours and news on this site.</p>")
+
+JS_TO_LOGIN = page("One moment", "<p>Taking you to the sign in page&hellip;</p>",
+                   head="<script>addEventListener('load',()=>setTimeout("
+                        "()=>location.replace('/p/5208'),1500))</script>")
+
 BRANCHES = page("Northwind Bank branches", """
 <p>Our fictional branches are open Monday to Friday, 9:00 to 17:00.</p>
 <ul><li>Harbour Street</li><li>Mill Lane</li></ul>""")
@@ -206,7 +245,32 @@ ROUTES = {
     ("northwind-bank.test", "/login-sso"): SSO_THIRD_PARTY,
     ("northwind-bank.test", "/contact"): CONTACT,
     ("northwind-bank.test", "/newsletter"): NEWSLETTER,
+    ("orchard-site.test", "/p/1042"): HANDLER_LOGIN,
+    ("birch-site.test", "/p/2291"): OWN_LOGIN,
+    ("birch-site.test", "/p/3310"): ACTION_LOGIN,
+    ("orchard-site.test", "/p/4127"): sso_login("http://birch-site.test/session"),
+    ("orchard-site.test", "/p/5207"): JS_TO_LOGIN,
+    ("orchard-site.test", "/p/5208"): HANDLER_LOGIN,
+    ("birch-site.test", "/p/6034"): OWN_LOGIN,
+    ("birch-site.test", "/p/7145"): VERIFY_ACCOUNT,
+    ("orchard-site.test", "/p/8262"): OWN_VERIFY,
+    ("orchard-site.test", "/p/9018"): ACTION_LOGIN,
+    ("birch-site.test", "/p/1173"): ABOUT,
+    ("birch-site.test", "/p/2356"): VERIFY_ACCOUNT,
+    ("orchard-site.test", "/p/3481"): ABOUT,
+    ("orchard-site.test", "/p/4590"): FOREIGN_LOGIN,
+    ("birch-site.test", "/p/5624"): sso_login("http://auth.birch-site.test/session"),
+    ("birch-site.test", "/p/6709"): HANDLER_LOGIN,
+    ("birch-site.test", "/p/7832"): ABOUT,
+    ("northwind-bank.test", "/offers/rewards"): ACTION_LOGIN,
+    ("northwind-bank.test", "/account/check"): VERIFY_ACCOUNT,
+    ("tailspin-offers.test", "/about"): ABOUT,
+    ("tailspin-offers.test", "/members"): OWN_LOGIN,
+    ("northwind-verify.test", "/help"): ABOUT,
 }
+
+
+REDIRECTS = {("orchard-site.test", "/p/5206"): "/p/5207", ("birch-site.test", "/p/6033"): "/p/6034"}
 
 
 class H(BaseHTTPRequestHandler):
@@ -224,6 +288,8 @@ class H(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if (host, path) == ("tailspin-offers.test", "/start"):
             self.send(302, b"", extra={"Location": "/step2"})
+        elif (host, path) in REDIRECTS:
+            self.send(302, b"", extra={"Location": REDIRECTS[(host, path)]})
         elif (host, path) == ("northwind-verify.test", "/northwind-statement.txt"):
             self.send(200, SAMPLE_DOWNLOAD, {"Content-Disposition": 'attachment; filename="northwind-statement.txt"'},
                       "text/plain")

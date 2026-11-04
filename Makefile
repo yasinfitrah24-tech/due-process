@@ -34,7 +34,7 @@ test:
 test-docker:
 	$(PY) -m pytest -q -m docker
 
-# Needs `make up`. Real model calls, at most USD 3. Writes docs/eval.md and eval/results/.
+# Needs `make up`. Real model calls, at most USD 0.50. Writes docs/eval.md and eval/results/.
 eval:
 	$(PY) -m eval.run_eval
 

@@ -31,6 +31,25 @@ def score(corpus, rows):
     }
 
 
+def right(label, action):
+    return action in ("Suspend", "Warn") if label["abuse"] else action == "Close"
+
+
+def pairs(corpus, rows):
+    """A pair is right only if both pages are: act on the abuse page, and close the legitimate one."""
+    actions = {r["id"]: r["action"] for r in rows}
+    found = {}
+    for c in corpus:
+        if c.get("pair"):
+            found.setdefault(c["pair"], {"pair": c["pair"], "kind": c["kind"]})["abuse" if c["abuse"] else "legit"] = c
+    out = []
+    for p in found.values():
+        abuse, legit = actions[p["abuse"]["id"]], actions[p["legit"]["id"]]
+        out.append({"pair": p["pair"], "kind": p["kind"], "abuse_action": abuse, "legit_action": legit,
+                    "both_right": right(p["abuse"], abuse) and right(p["legit"], legit), "same_action": abuse == legit})
+    return out
+
+
 def fake_citations(system_rows):
     found = []
     for row in system_rows:

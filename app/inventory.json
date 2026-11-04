@@ -2,6 +2,7 @@
   "customers": [
     {"id": "cust-1001", "name": "Tailspin Offers Ltd", "hosts": ["tailspin-offers.test", "northwind-verify.test", "tailspin.sites-demo.test"]},
     {"id": "cust-1002", "name": "Northwind Bank", "hosts": ["northwind-bank.test"]},
-    {"id": "cust-1003", "name": "Harbor Lane Books", "hosts": ["harborlane-books.test", "harborlane.sites-demo.test"]}
+    {"id": "cust-1003", "name": "Harbor Lane Books", "hosts": ["harborlane-books.test", "harborlane.sites-demo.test"]},
+    {"id": "cust-1004", "name": "Larkspur Web Studio", "hosts": ["orchard-site.test", "birch-site.test"]}
   ]
 }

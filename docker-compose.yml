@@ -54,7 +54,7 @@ services:
     cap_drop: [ALL]
     security_opt: [no-new-privileges]
     environment:
-      EGRESS_ALLOW_PRIVATE_HOSTS: tailspin-offers.test,northwind-verify.test,northwind-bank.test,tailspin.sites-demo.test,collector.test
+      EGRESS_ALLOW_PRIVATE_HOSTS: tailspin-offers.test,northwind-verify.test,northwind-bank.test,tailspin.sites-demo.test,orchard-site.test,birch-site.test,collector.test
       EGRESS_DENY_IPS: ${EGRESS_DENY_IPS:-}
     networks:
       sandbox:
@@ -68,7 +68,7 @@ services:
     <<: *locked-down
     networks:
       testnet:
-        aliases: [tailspin-offers.test, northwind-verify.test, northwind-bank.test, tailspin.sites-demo.test]
+        aliases: [tailspin-offers.test, northwind-verify.test, northwind-bank.test, tailspin.sites-demo.test, orchard-site.test, birch-site.test]
 
   collector:
     <<: *locked-down
