@@ -45,15 +45,17 @@ result, a level or an action: not "proven", "suspicious", "suspend", "warn", "cl
 with one JSON object and nothing else:
 {{"statement_of_reasons": [<sentence>], "customer_notice": [<sentence>] or null, "reporter_reply": [<sentence>]}}
 A sentence is {{"text": "<one sentence>", "factual": true or false, "signals": ["<signal id>"]}}.
-A factual sentence states what was or was not found, and must list its signal ids: "We did not find evidence of X" is
-factual. Only polite or procedural sentences may be factual false, such as a thank-you or a request to reply; those
+A factual sentence states what was found, and must list its signal ids. A signal is present when its value is true or
+a number above 0. All three documents mention present signals only: never write about a signal that is false or 0, not
+even to say it was not found. If no signal is present, write one factual sentence saying the page showed nothing that
+supports the report, listing the signal ids it rests on. Only polite or procedural sentences may be factual false, such as a thank-you or a request to reply; those
 state no finding, name no host or URL and list no signals. To ask the reader for something, write "Please reply with"
 or "Let us know". Such a sentence never uses the words find, found, evidence, confirm, observe, detect, record, contain
 or include.
 statement_of_reasons is the reasoning for the file, at most six sentences. customer_notice is to the customer named
 in the input; it is null when the level is Not proven. reporter_reply is to the person who reported; it must not name
-the customer. Both of those are plain letters of at most four sentences that mention only what matters to the reader:
-never signals that were not found, or words like "signal", "file" or "visit". Never write a signal id in the text.
+the customer. Both of those are plain letters of at most four sentences that mention only what matters to the reader,
+and never words like "signal", "file" or "visit". Never write a signal id in the text.
 Code adds the sentence about appealing to the customer notice, so never mention an appeal or how to dispute this.
 Use only signal ids from the input. {UNTRUSTED}"""
 

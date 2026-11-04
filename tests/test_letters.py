@@ -52,6 +52,11 @@ def test_the_prompt_gives_requests_without_finding_words():
         assert not roles.FINDING_WORD.search(example)
 
 
+def test_the_prompt_keeps_absent_signals_out_of_the_documents():
+    assert "mention present signals only" in roles.DOCUMENTS_PROMPT
+    assert "We did not find evidence" not in roles.DOCUMENTS_PROMPT
+
+
 def test_a_draft_may_not_write_a_signal_id():
     with pytest.raises(roles.Rejected):
         roles.check_documents(draft("See password_field for this."), "Proven", IDS)
