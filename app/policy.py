@@ -24,5 +24,5 @@ def allowed_actions(level):
 
 
 def allowed_for(case):
-    """A "Test any URL" case has no target, so no action exists for it."""
-    return () if case["mode"] == "test" else allowed_actions(case["level"])
+    """Only demo reports can be acted on. Test any URL has no target, and twin pages exist to be compared."""
+    return allowed_actions(case["level"]) if case["mode"] == "demo" else ()

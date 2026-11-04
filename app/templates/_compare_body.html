@@ -1,0 +1,23 @@
+<div id="compare"{% if polling %} hx-get="/partials/compare/{{ comparison.token }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
+  <h1>One report, two pages</h1>
+  <p>The same report went to both pages:</p>
+  <blockquote>{{ twin.report }}</blockquote>
+  <div class="columns">
+    {% for side in sides %}
+    <section>
+      <h2>{{ side.label }}</h2>
+      <p class="muted">{{ side.case.url }}</p>
+      <h3>Due Process</h3>
+      <p>Opened the page. {% if side.case.level %}Verdict: <span class="level level-{{ side.case.level|replace(' ', '') }}">{{ side.case.level }}</span>{% else %}Status: {{ side.case.status }}{% endif %}</p>
+      {% if side.present %}<p>Signals present: {% for s in side.present %}<code>{{ s }}</code> {% endfor %}</p>{% elif side.case.level %}<p>No signal present.</p>{% endif %}
+      {% if side.step %}<p class="muted">Latest: {{ side.step }}</p>{% endif %}
+      <p><a href="/cases/{{ side.case.ref }}">Open the case</a></p>
+      <h3>baseline: reads report text only</h3>
+      {% if side.baseline %}
+      <p>Decision: <strong>{{ side.baseline.action }}</strong></p>
+      {% else %}<p class="muted">Waiting for the model.</p>{% endif %}
+    </section>
+    {% endfor %}
+  </div>
+  <p class="muted">This run only, on fictional test pages. These pages cannot be acted on here. <a href="/compare">Try another</a></p>
+</div>

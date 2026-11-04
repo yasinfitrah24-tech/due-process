@@ -33,6 +33,8 @@ OBSERVED = "observed"
 DECLARED = "declared_in_script"
 
 HANDLER_SOURCE_MAX = 20000
+EVENT_PREFIX = "DPEVENT "
+MAX_EVENTS = 200  # a page can navigate as often as it likes; the event stream stays bounded
 
 # Runs in an isolated world. A page can still clobber properties of forms and of document with named elements
 # (<input name="action">, <img name="forms">), which reach every world, so those go through the prototype getters.
@@ -103,6 +105,17 @@ SINK_RE = re.compile(
 ABS_URL_RE = re.compile(r"""https?://[^\s'"`<>()\\]+""")
 ALARM_MARGIN_S = 5  # past the visit budget; still inside the launcher's hard kill
 SENDING_TYPES = {"fetch", "xhr", "ping", "eventsource"}
+
+
+events_sent = [0]
+
+
+def emit(kind, **detail):
+    """One line on stderr, as it happens. The launcher passes it on for the live view."""
+    if events_sent[0] < MAX_EVENTS:
+        events_sent[0] += 1
+        print(EVENT_PREFIX + json.dumps({"ts": round(time.time(), 3), "source": "browser", "kind": kind, **detail}),
+              file=sys.stderr, flush=True)
 
 
 def sha256(b):
@@ -270,6 +283,8 @@ def main():
         "env_keys": sorted(os.environ),
     }
 
+    emit("visit_started", client_ip=rec["client_ip"], started_at=rec["started_at"])
+
     def emit_and_exit(code):
         rec["timing"] = {**rec.get("timing", {}), "total_s": round(time.monotonic() - t0, 3)}
         rec["cgroup_memory_peak"] = read_cgroup_peak()
@@ -322,9 +337,12 @@ def main():
             if r.is_navigation_request() and r.frame == page.main_frame:
                 nav_reqs.append(r)
                 last_nav[0] = time.monotonic()
+                emit("navigation", url=r.url[:500])
 
         def on_response(resp):
             status_by_req[id(resp.request)] = resp.status
+            if resp.request.is_navigation_request() and 300 <= resp.status < 400:
+                emit("http_redirect", **{"from": resp.url[:500], "to": (resp.headers.get("location") or "")[:500]})
 
         def snapshot(p):
             entry = {"url": p.url}
@@ -349,8 +367,16 @@ def main():
 
         ctx.on("request", on_request)
         ctx.on("response", on_response)
-        page.on("download", lambda d: downloads.append(d))
-        page.on("load", lambda p: record(snapshot(p)))
+        def on_download(d):
+            downloads.append(d)
+            emit("download", name=d.suggested_filename[:200])
+
+        def on_load(p):
+            emit("page_loaded", url=p.url[:500])
+            record(snapshot(p))
+
+        page.on("download", on_download)
+        page.on("load", on_load)
 
         deadline = t0 + a.timeout
         rec["timed_out"] = False
@@ -373,6 +399,7 @@ def main():
         except PWError as e:
             rec["errors"].append({"stage": "visit", "message": str(e)[:500]})
         rec["timing"]["visit_s"] = round(time.monotonic() - tv, 3)
+        emit("visit_finished")
         rec["browser"]["sandbox_evidence"] = sandbox_evidence()
 
         # Fresh analysis of the page as it stands now (scripts may have changed it after load).

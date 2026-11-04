@@ -10,11 +10,18 @@ MAX_PARALLEL = 4
 TIMEOUT_S = 300  # a visit may wait for a free sandbox slot first
 
 
-def run_visit(url, case):
+def run_visit(url, case, on_event=None):
+    """Reads the launcher's stream: on_event gets each event as it happens, and the last line is the result."""
     base = os.environ.get("LAUNCHER_URL", "http://launcher:8100")
-    r = httpx.post(f"{base}/visit", json={"url": url, "case": case}, timeout=TIMEOUT_S)
-    r.raise_for_status()
-    return r.json()
+    with httpx.stream("POST", f"{base}/visit", json={"url": url, "case": case}, timeout=TIMEOUT_S) as r:
+        r.raise_for_status()
+        for line in r.iter_lines():
+            body = json.loads(line)
+            if "result" in body:
+                return body["result"]
+            if on_event:
+                on_event(body)
+    raise RuntimeError("the launcher ended without a result")
 
 
 def simulate_fix(slug):

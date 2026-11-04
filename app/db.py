@@ -3,6 +3,7 @@ import json
 import os
 import secrets
 import sqlite3
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -52,6 +53,26 @@ CREATE TABLE IF NOT EXISTS appeals (
   decision TEXT,
   decided_by TEXT,
   decided_at TEXT
+);
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts REAL NOT NULL,
+  case_id INTEGER NOT NULL,
+  appeal_id INTEGER,
+  source TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  detail TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS events_case ON events (case_id);
+CREATE TABLE IF NOT EXISTS comparisons (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  twin TEXT NOT NULL,
+  abuse_case INTEGER NOT NULL,
+  legit_case INTEGER NOT NULL,
+  abuse_baseline TEXT,
+  legit_baseline TEXT
 );
 CREATE TABLE IF NOT EXISTS model_prices (
   model TEXT PRIMARY KEY,
@@ -134,7 +155,7 @@ def as_case(row):
 
 def create_case(url, host, claim, customer, mode="demo"):
     with connect() as c:
-        token = secrets.token_urlsafe(16) if mode == "test" else None
+        token = secrets.token_urlsafe(16) if mode != "demo" else None
         cur = c.execute("INSERT INTO cases (created_at, mode, token, url, host, claim, customer_id, customer_name, "
                         "status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'queued')",
                         (now(), mode, token, url, host, claim, customer["id"], customer["name"]))
@@ -162,12 +183,56 @@ def clear_cases():
     """Deletes every case and restarts the numbering. The cost ledger stays. Returns how many went."""
     with connect() as c:
         count = c.execute("SELECT COUNT(*) FROM cases").fetchone()[0]
-        for table in ("cases", "audit", "model_outputs", "appeals"):
+        for table in ("cases", "audit", "model_outputs", "appeals", "events", "comparisons"):
             c.execute(f"DELETE FROM {table}")
             c.execute("DELETE FROM sqlite_sequence WHERE name = ?", (table,))
         # Numbers start again, so old spending must not count against a new case with the same number.
         c.execute("UPDATE llm_usage SET case_id = NULL")
     return count
+
+
+def add_event(case_id, appeal_id, event):
+    """event has source, kind and ts; everything else is its detail."""
+    detail = {k: v for k, v in event.items() if k not in ("ts", "source", "kind")}
+    with connect() as c:
+        c.execute("INSERT INTO events (ts, case_id, appeal_id, source, kind, detail) VALUES (?, ?, ?, ?, ?, ?)",
+                  (event.get("ts") or time.time(), case_id, appeal_id, event["source"], event["kind"], json.dumps(detail)))
+
+
+def replace_proxy_events(case_id, appeal_id, events):
+    """Swaps what was followed live for the proxy's log, which is the record."""
+    with connect() as c:
+        c.execute("DELETE FROM events WHERE case_id = ? AND appeal_id IS ? AND source = 'proxy'", (case_id, appeal_id))
+    for event in events:
+        add_event(case_id, appeal_id, event)
+
+
+def case_events(case_id):
+    with connect() as c:
+        rows = c.execute("SELECT * FROM events WHERE case_id = ? ORDER BY ts, id", (case_id,)).fetchall()
+    return [{**dict(r), "detail": json.loads(r["detail"])} for r in rows]
+
+
+def create_comparison(twin, abuse_case, legit_case):
+    token = secrets.token_urlsafe(16)
+    with connect() as c:
+        c.execute("INSERT INTO comparisons (token, created_at, twin, abuse_case, legit_case) VALUES (?, ?, ?, ?, ?)",
+                  (token, now(), twin, abuse_case, legit_case))
+    return token
+
+
+def get_comparison(token):
+    with connect() as c:
+        row = c.execute("SELECT * FROM comparisons WHERE token = ?", (token,)).fetchone()
+    if row is None:
+        return None
+    return {**dict(row), **{k: json.loads(row[k]) if row[k] else None for k in ("abuse_baseline", "legit_baseline")}}
+
+
+def set_baseline(token, side, result):
+    assert side in ("abuse", "legit")
+    with connect() as c:
+        c.execute(f"UPDATE comparisons SET {side}_baseline = ? WHERE token = ?", (json.dumps(result), token))
 
 
 def set_appeal_token(case_id):

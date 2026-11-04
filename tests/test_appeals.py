@@ -19,9 +19,9 @@ def second(monkeypatch, client):  # noqa: F811
     state = {"evidence": PAGE_C_EVIDENCE, "ok": True, "calls": []}
     first = pipeline.visitor.run_visit
 
-    def visit(url, case):
+    def visit(url, case, on_event=None):
         if "appeal" not in case:
-            return first(url, case)
+            return first(url, case, on_event)
         state["calls"].append(case)
         evidence = copy.deepcopy(state["evidence"])
         return visit_result(evidence, ok=state["ok"])
@@ -170,7 +170,7 @@ def test_a_second_visit_that_failed_cannot_open_reinstate(client, second, change
 def test_crash_in_the_second_visit_cannot_open_reinstate(client, second, monkeypatch):  # noqa: F811
     c = suspended(client)
 
-    def boom(*a):
+    def boom(*a, **k):
         raise RuntimeError("launcher down")
 
     monkeypatch.setattr(pipeline.visitor, "run_visit", boom)
@@ -410,7 +410,7 @@ def test_full_fixable_flow(client, monkeypatch):  # noqa: F811
     """Proven, Suspend, fix, second visit Not proven, Reinstate."""
     fixed = set()
 
-    def visit(url, case):
+    def visit(url, case, on_event=None):
         return visit_result(copy.deepcopy(PAGE_C_EVIDENCE if url.rsplit("/", 1)[1] in fixed else PAGE_A_EVIDENCE))
 
     monkeypatch.setattr(pipeline.visitor, "run_visit", visit)
@@ -437,7 +437,7 @@ def test_full_fixable_flow(client, monkeypatch):  # noqa: F811
 
 
 def test_each_try_gets_its_own_page(client, monkeypatch):  # noqa: F811
-    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case: visit_result(copy.deepcopy(PAGE_A_EVIDENCE)))
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case, on_event=None: visit_result(copy.deepcopy(PAGE_A_EVIDENCE)))
     urls = set()
     for _ in range(2):
         r = client.post("/try/fixable", follow_redirects=False)

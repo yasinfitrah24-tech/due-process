@@ -5,8 +5,8 @@
 {% if o.raw %}<details><summary>Model output (not used)</summary><blockquote>{{ o.raw }}</blockquote></details>{% endif %}
 {% endif %}{% endmacro %}
 {% macro by(o) %}<span class="chip model_claim">model_claim</span> <span class="chip">{{ o.model }}</span>{% endmacro %}
-<div id="case"{% if polling %} hx-get="/partials/cases/{{ case.ref }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
-  <h1>{% if case.mode == 'test' %}Test any URL{% else %}Case #{{ case.id }}{% endif %}</h1>
+<div id="case"{% if polling %} hx-get="/partials/cases/{{ case.ref }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
+  <h1>{% if case.mode == 'test' %}Test any URL{% elif case.mode == 'twin' %}One report, two pages{% else %}Case #{{ case.id }}{% endif %}</h1>
   <p>Status: {{ case.status }}
     {% if usage.calls %}&middot; <span class="muted">{{ usage.calls }} model calls, USD {{ '%.5f'|format(usage.cost_usd) }}</span>{% endif %}</p>
 
@@ -17,9 +17,24 @@
   {% if case.mode == 'test' %}
   <h2>Test any URL</h2>
   <p>Evidence and a verdict only. This page is not a customer of ours: there is no target and no action, and the verdict is not a finding of abuse. Only people with this link can see this page.</p>
+  {% elif case.mode == 'twin' %}
+  <h2>One report, two pages</h2>
+  <p>A fictional test page opened for a comparison. Nothing here can be acted on. Only people with this link can see this page.</p>
   {% else %}
   <h2>Target</h2>
   <p>{{ case.customer_name }} ({{ case.customer_id }}), from host <code>{{ case.host }}</code> via the hosting inventory.</p>
+  {% endif %}
+
+  {% if timeline %}
+  <h2>{% if polling %}Live progress{% else %}Timeline{% endif %}</h2>
+  <table>
+    <thead><tr><th>Seconds</th><th>Source</th><th>What happened</th></tr></thead>
+    {% for t in timeline %}
+    <tr><td>{{ '%.1f'|format(t.at) }}{% if t.visit == 'second visit' %} <span class="muted">(second visit)</span>{% endif %}</td>
+      <td><span class="chip">{{ t.source }}</span></td>
+      <td>{% if t.blocked %}<strong>{{ t.text }}</strong>{% else %}{{ t.text }}{% endif %}</td></tr>
+    {% endfor %}
+  </table>
   {% endif %}
 
   {% set extraction = outputs.get('claim_extraction') %}
@@ -145,7 +160,7 @@
   </table>
   {% endif %}
 
-  {% if case.mode != 'test' %}
+  {% if case.mode == 'demo' %}
   <h2>Decision</h2>
   {% if case.decided_action %}
   <p>{{ case.decided_action }} by {{ case.decided_by }} at {{ case.decided_at }} (simulated).</p>

@@ -8,17 +8,13 @@ import re
 import sys
 import time
 
+from agent import baseline
 from agent import client as llm
 from app import db, ledger, main, pipeline, policy
 
 ledger.COST_LIMIT_USD = ledger.DAILY_LIMIT_USD = LIMIT_USD  # noqa: F821
 main.submit = pipeline.process
 db.init()
-
-CUSTOMERS = [{"id": c["id"], "name": c["name"], "hosts": c["hosts"]} for c in main.inventory.CUSTOMERS]
-TEXT_PROMPT = """You triage abuse reports for a hosting provider. Decide from the report alone. Reply with one JSON object
-and nothing else: {"action": "suspend|warn|close", "customer_id": "<customer id, or null if none>"}
-The customers are: """ + json.dumps(CUSTOMERS)
 
 
 def log(text):
@@ -52,14 +48,12 @@ def run_system(item):
 
 def run_text(item):
     client = llm.get_client("text_triage")
-    messages = [{"role": "system", "content": TEXT_PROMPT},
-                {"role": "user", "content": f"Reported URL: {item['url']}\nReport: {item['report']}"}]
+    messages = baseline.messages(item["url"], item["report"], main.inventory.CUSTOMERS)
     t0 = time.monotonic()
     try:
         call = ledger.call(client, None, "text_triage", messages)
-        answer = json.loads(re.sub(r"^```(?:json)?\s*|\s*```$", "", call["text"].strip()))
-        action = str(answer["action"]).capitalize()
-        return {"id": item["id"], "action": action, "target": answer.get("customer_id"), "model": client.model,
+        answer = baseline.parse(call["text"])
+        return {"id": item["id"], "action": answer["action"], "target": answer["target"], "model": client.model,
                 "wall_s": round(time.monotonic() - t0, 2), "cost_usd": call["cost_usd"]}
     except Exception as e:
         return {"id": item["id"], "action": "invalid", "target": None, "error": type(e).__name__, "model": client.model,

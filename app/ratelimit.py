@@ -7,6 +7,7 @@ REPORTS_PER_WINDOW = 10
 WINDOW_S = 600
 MAX_WAITING = 20
 APPEALS_PER_WINDOW = 5
+COMPARES_PER_WINDOW = 3
 
 _lock = threading.Lock()
 _seen = defaultdict(deque)

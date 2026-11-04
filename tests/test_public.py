@@ -17,7 +17,7 @@ def submit_url(client):  # noqa: F811
 def test_any_url_needs_no_inventory_and_has_no_target(client, monkeypatch):  # noqa: F811
     from app import pipeline, visitor
     from tests.evidence import visit_result
-    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case: visit_result(json.loads(json.dumps(PAGE_A_EVIDENCE))))
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case, on_event=None: visit_result(json.loads(json.dumps(PAGE_A_EVIDENCE))))
     assert visitor is pipeline.visitor
     c = submit_url(client)
     assert c["mode"] == "test" and c["customer_id"] == "" and c["allowed_actions"] == []
@@ -30,7 +30,7 @@ def test_any_url_needs_no_inventory_and_has_no_target(client, monkeypatch):  # n
 def test_any_url_runs_no_claim_extraction_or_documents(client, monkeypatch, log):  # noqa: F811
     from app import pipeline
     from tests.evidence import visit_result
-    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case: visit_result(json.loads(json.dumps(PAGE_A_EVIDENCE))))
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case, on_event=None: visit_result(json.loads(json.dumps(PAGE_A_EVIDENCE))))
     submit_url(client)
     assert [e["role"] for e in log] == ["verdict_claim"]
 
@@ -38,7 +38,7 @@ def test_any_url_runs_no_claim_extraction_or_documents(client, monkeypatch, log)
 def test_any_url_page_says_there_is_no_target(client, monkeypatch):  # noqa: F811
     from app import pipeline
     from tests.evidence import visit_result
-    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case: visit_result(json.loads(json.dumps(PAGE_A_EVIDENCE))))
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case, on_event=None: visit_result(json.loads(json.dumps(PAGE_A_EVIDENCE))))
     page = client.get(f"/cases/{submit_url(client)['ref']}").text
     assert "no target and no action" in page and "not a finding of abuse" in page and "<h2>Decision</h2>" not in page
 
@@ -46,7 +46,7 @@ def test_any_url_page_says_there_is_no_target(client, monkeypatch):  # noqa: F81
 def fake_any_url(monkeypatch):
     from app import pipeline
     from tests.evidence import visit_result
-    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case: visit_result(json.loads(json.dumps(PAGE_A_EVIDENCE))))
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case, on_event=None: visit_result(json.loads(json.dumps(PAGE_A_EVIDENCE))))
 
 
 def test_any_url_is_reached_only_by_its_random_link(client, monkeypatch):  # noqa: F811
@@ -169,7 +169,7 @@ def test_reset_demo_replaces_every_case_and_keeps_the_ledger(client, monkeypatch
     from app import pipeline, reset_demo
     from app.examples import EXAMPLES
     from tests.evidence import PAGE_C_EVIDENCE, visit_result
-    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case: visit_result(json.loads(json.dumps(PAGE_C_EVIDENCE))))
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case, on_event=None: visit_result(json.loads(json.dumps(PAGE_C_EVIDENCE))))
     run(client, URL_A)
     db.record_usage(None, "seed", "m", 0, 0, 1.5, 0)
     client.post("/api/test-url", json={"url": INTERNET})
@@ -187,7 +187,7 @@ def test_eval_hosts_are_not_listed_but_still_work(client, monkeypatch):  # noqa:
     assert "orchard-site.test" not in page and "birch-site.test" not in page and "tailspin-offers.test" in page
     from app import pipeline
     from tests.evidence import PAGE_C_EVIDENCE, visit_result
-    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case: visit_result(json.loads(json.dumps(PAGE_C_EVIDENCE))))
+    monkeypatch.setattr(pipeline.visitor, "run_visit", lambda url, case, on_event=None: visit_result(json.loads(json.dumps(PAGE_C_EVIDENCE))))
     r = client.post("/api/reports", json={"url": "http://orchard-site.test/p/1042", "claim": "c"})
     assert r.status_code == 202 and r.json()["customer_id"] == "cust-1004"
 

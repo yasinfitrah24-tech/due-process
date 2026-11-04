@@ -22,6 +22,8 @@ IMAGE = f"due-process-sandbox:{PW_VERSION}"
 NETWORK = "dp-sandbox"
 EGRESS_PROXY = "http://egress:3128"
 EGRESS_CONTAINER = "dp-egress"
+EVENT_PREFIX = "DPEVENT "
+MAX_EVENTS = 300
 SECCOMP = Path(__file__).resolve().parent / "seccomp" / f"playwright-{PW_VERSION}-chroot.json"
 HARD_TIMEOUT_S = 60
 VISIT_BUDGET_S = 53  # + visit.py's 5 s alarm margin + container start stays under HARD_TIMEOUT_S
@@ -98,6 +100,52 @@ def egress_log(client_ip, since, started_at):
     return entries
 
 
+def parse_event(line):
+    """The event in a line of the sandbox's stderr, or None."""
+    if not line.startswith(EVENT_PREFIX):
+        return None
+    try:
+        event = json.loads(line[len(EVENT_PREFIX):])
+    except ValueError:
+        return None
+    return event if isinstance(event, dict) and "kind" in event else None
+
+
+def proxy_event(entry):
+    kind = {"allowed": "egress_allowed", "blocked": "egress_blocked", "failed": "egress_failed"}.get(entry.get("decision"))
+    return {"ts": entry.get("ts"), "source": "proxy", "kind": kind, "method": entry.get("method"), "host": entry.get("host"),
+            "port": entry.get("port"), "reason": entry.get("reason")} if kind else None
+
+
+class ProxyTail:
+    """Follows the proxy log during one visit, so a block shows when it happens. The record that counts as evidence is
+    still read from the log after the visit."""
+
+    def __init__(self, since, client_ip, started_at, emit):
+        self.client_ip, self.emit = client_ip, emit
+        self.not_before = datetime.fromisoformat(started_at).timestamp()
+        self.proc = subprocess.Popen(["docker", "logs", "-f", "--since", since, EGRESS_CONTAINER], stdout=subprocess.PIPE,
+                                     stderr=subprocess.DEVNULL, text=True)
+        self.thread = threading.Thread(target=self.read, daemon=True)
+        self.thread.start()
+
+    def read(self):
+        for line in self.proc.stdout:
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if entry.get("client") == self.client_ip and entry.get("ts", 0) >= self.not_before:
+                event = proxy_event(entry)
+                if event:
+                    self.emit(event)
+
+    def stop(self):
+        time.sleep(0.3)  # the proxy logs at once; this lets the last line arrive
+        self.proc.terminate()
+        self.thread.join(timeout=2)
+
+
 def namespace_proof(evidence):
     ev = (evidence or {}).get("browser", {}).get("sandbox_evidence") or {}
     isolated = [p for p in ev.get("processes", [])
@@ -107,26 +155,68 @@ def namespace_proof(evidence):
             "isolated_types": sorted({p["type"] for p in isolated})}
 
 
-def run_visit(url, case="case"):
+def run_visit(url, case="case", on_event=None):
     """Returns {"ok", "evidence", "receipt"}. ok means: evidence came back, Chromium's sandbox was really on
-    (processes in new namespaces), the proxy logged the visit, and the container is confirmed gone."""
+    (processes in new namespaces), the proxy logged the visit, and the container is confirmed gone.
+    on_event gets each event as it happens."""
     check_url(url)
+    sent, lock = [0], threading.Lock()
+
+    def emit(event):
+        with lock:
+            if on_event and sent[0] < MAX_EVENTS:
+                sent[0] += 1
+                on_event(event)
+
+    def launcher_event(kind, **detail):
+        emit({"ts": round(time.time(), 3), "source": "launcher", "kind": kind, **detail})
+
     name = f"dp-case-{re.sub(r'[^a-z0-9-]', '-', case.lower())[:40]}-{uuid.uuid4().hex[:8]}"
     with _slots, tempfile.TemporaryDirectory() as tmp:
         cidfile = Path(tmp) / "cid"
         flags = docker_args(name, cidfile)
         started_at, t0, hard_killed = now(), time.monotonic(), False
         log_since = (datetime.now(timezone.utc) - timedelta(seconds=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        launcher_event("sandbox_requested")
         proc = subprocess.Popen(flags + visit_args(url), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, stderr_lines, tails = [], [], []
+
+        def read_stdout():
+            output.append(proc.stdout.read())
+
+        def read_stderr():
+            for raw in proc.stderr:
+                line = raw.decode("utf-8", "replace").rstrip("\n")
+                event = parse_event(line)
+                if event is None:
+                    stderr_lines.append(line)
+                    continue
+                if event["kind"] == "visit_started":
+                    if cidfile.exists():
+                        launcher_event("container_started", container_id=cidfile.read_text().strip()[:12])
+                    if on_event and event.get("client_ip") and event.get("started_at"):
+                        tails.append(ProxyTail(log_since, event["client_ip"], event["started_at"], emit))
+                emit(event)
+
+        readers = [threading.Thread(target=read_stdout, daemon=True), threading.Thread(target=read_stderr, daemon=True)]
+        for reader in readers:
+            reader.start()
         try:
-            out, err = proc.communicate(timeout=HARD_TIMEOUT_S)
+            proc.wait(timeout=HARD_TIMEOUT_S)
         except subprocess.TimeoutExpired:
             hard_killed = True
             subprocess.run(["docker", "kill", name], capture_output=True)
-            out, err = proc.communicate()
+            proc.wait()
+        for reader in readers:
+            reader.join()
+        for tail in tails:
+            tail.stop()
+        out, err = (output[0] if output else b""), "\n".join(stderr_lines).encode()
         wall_s = round(time.monotonic() - t0, 3)
         cid = cidfile.read_text().strip() if cidfile.exists() else None
         gone = teardown(cid)
+        launcher_event("container_gone" if gone["container_gone"] else "container_not_gone",
+                       container_id=(cid or "none")[:12])
 
     try:
         evidence = json.loads(out)

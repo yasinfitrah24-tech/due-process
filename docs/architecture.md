@@ -25,6 +25,20 @@ sandbox can connect to the proxy and nothing else. The app has no socket and no 
 7. An analyst decides. On sending a letter, code adds the result sentence and removes the signal ids. Both versions are
    kept in the audit log.
 
+## Appeals
+
+After Suspend or Warn, the customer notice carries a link. An appeal opens the same fixed visit in a new container. What
+the customer writes is stored and shown to the analyst, and reaches no model and no decision. Reinstate is allowed only if
+the second visit's level is lower than the level at the action; a second visit that failed has no level, so only Keep is
+possible. A lower level means the evidence was not reproduced, not that a page is clean: a page can cloak.
+
+## Live progress and timeline
+
+`visit.py` prints an event as each thing happens, the launcher follows the proxy log during the visit, and `POST /visit`
+answers with a stream of those events and then the result. The Case screen shows them as they arrive and keeps them as the
+timeline. Proxy lines followed live are replaced by the proxy's log when the visit ends. Each event carries the time its
+own source saw it, so the order of events a few milliseconds apart can differ from the order they happened in.
+
 ## Egress rules
 
 - Allowed: addresses on the public internet, ports 80 and 443.

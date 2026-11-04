@@ -250,6 +250,23 @@ def test_fix_port_changes_nothing_else():
     assert r.stdout.strip() == "[404, 404, 404, 404]", r.stdout + r.stderr
 
 
+def test_events_arrive_while_the_visit_runs():
+    seen = []
+    t0 = time.monotonic()
+    result = launch.run_visit("http://northwind-verify.test/containment", "events",
+                              lambda e: seen.append({**e, "arrived": time.monotonic() - t0}))
+    total = time.monotonic() - t0
+    kinds = [e["kind"] for e in seen]
+    for kind in ("sandbox_requested", "container_started", "visit_started", "navigation", "page_loaded", "download",
+                 "egress_allowed", "egress_blocked", "visit_finished", "container_gone"):
+        assert kind in kinds, kinds
+    assert kinds[0] == "sandbox_requested" and kinds[-1] == "container_gone"
+    first_blocked = next(e for e in seen if e["kind"] == "egress_blocked")
+    assert first_blocked["host"] == "169.254.169.254" and first_blocked["arrived"] < total - 1
+    assert next(e for e in seen if e["kind"] == "navigation")["arrived"] < total - 1
+    assert result["ok"]
+
+
 def test_app_has_no_docker():
     r = compose_exec("app", "test -e /var/run/docker.sock; echo socket=$?; command -v docker; echo client=$?")
     assert "socket=1" in r.stdout and "client=1" in r.stdout

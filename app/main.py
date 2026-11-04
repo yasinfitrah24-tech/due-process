@@ -14,8 +14,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from app import appeals, compare, db, inventory, letters, pipeline, policy, ratelimit, signals, visitor
+from app import appeals, compare, db, inventory, letters, pipeline, policy, ratelimit, signals, timeline, visitor
 from app.examples import EXAMPLES, FIXABLE_EXAMPLE
+from app.twins import TWINS
 
 HERE = Path(__file__).parent
 MAX_CLAIM_CHARS = 20000
@@ -33,6 +34,10 @@ def submit(case_id):
 
 def submit_appeal(appeal_id):
     executor.submit(pipeline.revisit, appeal_id)
+
+
+def submit_baseline(token):
+    executor.submit(pipeline.run_baseline, token)
 
 
 @asynccontextmanager
@@ -210,7 +215,7 @@ def case_context(ref):
     views = appeal_views(case, outputs)
     polling = case["status"] in ("queued", "visiting", "drafting") or any(a["status"] in appeals.PENDING for a in views)
     return {"case": case, "evidence": evidence, "audit": db.audit_log(case_id), "outputs": outputs, "appeals": views,
-            "polling": polling, "choices": appeals.CHOICES,
+            "polling": polling, "choices": appeals.CHOICES, "timeline": timeline.rows(db.case_events(case_id)),
             "comparison": compare.rows(claim and claim["output"], case["signals"], evidence, vision and vision["output"]),
             "usage": db.case_usage(case_id), "documents": DOCUMENTS, "sent": sent_documents(case_id),
             "allowed": policy.allowed_for(case) if case["status"] == "ready" else ()}
@@ -238,6 +243,64 @@ def try_example(request: Request, key: str):
     else:
         case_id = create_report(EXAMPLES[key]["url"], EXAMPLES[key]["claim"])
     return RedirectResponse(f"/cases/{case_id}", status_code=303)
+
+
+def compare_guard(request):
+    if not ratelimit.allow(f"compare:{client_address(request)}", limit=ratelimit.COMPARES_PER_WINDOW):
+        raise HTTPException(429, "too many comparisons from this address, try again later")
+    if db.waiting_cases() >= ratelimit.MAX_WAITING:
+        raise HTTPException(503, "the queue is full, try again later")
+
+
+def twin_case(url, report):
+    host = inventory.reported_host(url)
+    return db.create_case(url, host, report, inventory.customer_for(host), mode="twin")
+
+
+@app.get("/compare")
+def compare_page(request: Request):
+    return templates.TemplateResponse(request, "compare.html", {"twins": TWINS, "error": None})
+
+
+@app.post("/compare/run/{key}")
+def compare_run(request: Request, key: str):
+    if key not in TWINS:
+        raise HTTPException(404, "no such pair")
+    compare_guard(request)
+    twin = TWINS[key]
+    abuse_case, legit_case = twin_case(twin["abuse_url"], twin["report"]), twin_case(twin["legit_url"], twin["report"])
+    token = db.create_comparison(key, abuse_case, legit_case)
+    for case_id in (abuse_case, legit_case):
+        db.audit(case_id, "public", "comparison_started", twin=key)
+        submit(case_id)
+    submit_baseline(token)
+    return RedirectResponse(f"/compare/{token}", status_code=303)
+
+
+def compare_context(token):
+    comparison = db.get_comparison(token)
+    if comparison is None:
+        raise HTTPException(404, "no such comparison")
+    twin = TWINS[comparison["twin"]]
+    sides = []
+    for side in ("abuse", "legit"):
+        case = db.get_case(comparison[f"{side}_case"])
+        steps = timeline.rows(db.case_events(case["id"]))
+        sides.append({"label": twin[f"{side}_label"], "case": case, "baseline": comparison[f"{side}_baseline"],
+                      "present": [s["id"] for s in case["signals"] or [] if s["value"]],
+                      "step": steps[-1]["text"] if steps and case["status"] != "ready" else None})
+    polling = any(s["case"]["status"] != "ready" or not s["baseline"] for s in sides)
+    return {"comparison": comparison, "twin": twin, "sides": sides, "polling": polling}
+
+
+@app.get("/compare/{token}")
+def compare_result(request: Request, token: str):
+    return templates.TemplateResponse(request, "compare_result.html", compare_context(token))
+
+
+@app.get("/partials/compare/{token}")
+def compare_partial(request: Request, token: str):
+    return templates.TemplateResponse(request, "_compare_body.html", compare_context(token))
 
 
 def find_appealed_case(token):
@@ -445,7 +508,8 @@ def report_api(request: Request, report: ReportIn):
 def case_api(ref: str):
     ctx = case_context(ref)
     return {**ctx["case"], "allowed_actions": ctx["allowed"], "audit": ctx["audit"], "outputs": ctx["outputs"],
-            "comparison": ctx["comparison"], "usage": ctx["usage"], "sent": ctx["sent"], "appeals": ctx["appeals"]}
+            "comparison": ctx["comparison"], "usage": ctx["usage"], "sent": ctx["sent"], "appeals": ctx["appeals"],
+            "timeline": ctx["timeline"]}
 
 
 @app.post("/api/cases/{ref}/actions")

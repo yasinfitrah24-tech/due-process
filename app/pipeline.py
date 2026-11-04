@@ -4,6 +4,7 @@ The level is stored before the first model call, so no model output can reach it
 """
 import json
 
+from agent import baseline
 from agent import client as llm
 from agent import roles
 from app import db, echo, inventory, ledger, letters, policy, signals, visitor
@@ -12,12 +13,28 @@ from app import db, echo, inventory, ledger, letters, policy, signals, visitor
 DOCUMENT_RETRIES = 1
 
 
+def recorder(case_id, appeal_id=None):
+    return lambda event: db.add_event(case_id, appeal_id, event)
+
+
+def keep_proxy_record(case_id, appeal_id, result):
+    if result["evidence"]:
+        db.replace_proxy_events(case_id, appeal_id, list(filter(None, map(proxy_event, result["evidence"].get("egress", [])))))
+
+
+def proxy_event(entry):
+    kind = {"allowed": "egress_allowed", "blocked": "egress_blocked", "failed": "egress_failed"}.get(entry.get("decision"))
+    return {"ts": entry.get("ts"), "source": "proxy", "kind": kind, "method": entry.get("method"), "host": entry.get("host"),
+            "port": entry.get("port"), "reason": entry.get("reason")} if kind else None
+
+
 def visit_and_judge(case):
     """Returns the evidence, or None if the visit produced none to rely on."""
     case_id = case["id"]
     db.update_case(case_id, status="visiting")
     try:
-        result = visitor.run_visit(case["url"], f"case-{case_id}")
+        result = visitor.run_visit(case["url"], f"case-{case_id}", on_event=recorder(case_id))
+        keep_proxy_record(case_id, None, result)
         visitor.save(result, db.case_dir(case_id))
         receipt = result["receipt"]
         db.audit(case_id, "sandbox", "sandbox_visit", ok=result["ok"], container_id=receipt["container_id"],
@@ -30,6 +47,7 @@ def visit_and_judge(case):
         else:
             found, level, note = [], signals.NOT_PROVEN, "The sandbox visit did not complete; nothing was reproduced."
         db.update_case(case_id, status="drafting", level=level, note=note, signals=found, receipt=receipt)
+        db.add_event(case_id, None, {"source": "code", "kind": "level_computed", "level": level})
         db.audit(case_id, "system", "verdict_computed", level=level,
                  signals={s["id"]: s["value"] for s in found})
         return result["evidence"] if result["ok"] else None
@@ -54,6 +72,8 @@ def run_role(case_id, role, messages, check, retries=0):
 
 def call_role(case_id, role, messages, check):
     client = llm.get_client(role)
+    appeal_id = int(role.split(":")[1]) if ":" in role else None
+    db.add_event(case_id, appeal_id, {"source": "model", "kind": "model_started", "role": role.split(":")[0]})
     entry = {"status": "accepted", "output": None, "raw": None, "problem": None, "unknown_citations": [],
              "latency_s": None, "cost_usd": None}
     try:
@@ -69,6 +89,8 @@ def call_role(case_id, role, messages, check):
     except Exception as e:
         entry.update(status="failed", problem=type(e).__name__)
     db.save_output(case_id, role, client.model, entry)
+    db.add_event(case_id, appeal_id, {"source": "model", "kind": "model_finished", "role": role.split(":")[0],
+                                      "status": entry["status"]})
     db.audit(case_id, "model", "model_output", role=role, model=client.model, status=entry["status"],
              problem=entry["problem"])
     return entry
@@ -139,7 +161,8 @@ def revisit(appeal_id):
     db.update_appeal(appeal_id, status="visiting")
     found, level, note = [], None, "The second visit did not complete; nothing can be compared."
     try:
-        result = visitor.run_visit(case["url"], f"case-{case_id}-appeal-{appeal_id}")
+        result = visitor.run_visit(case["url"], f"case-{case_id}-appeal-{appeal_id}", on_event=recorder(case_id, appeal_id))
+        keep_proxy_record(case_id, appeal_id, result)
         visitor.save(result, db.case_dir(case_id) / f"appeal-{appeal_id}")
         receipt = result["receipt"]
         db.audit(case_id, "sandbox", "sandbox_revisit", appeal_id=appeal_id, ok=result["ok"],
@@ -152,6 +175,8 @@ def revisit(appeal_id):
     except Exception as e:
         note = f"The second visit failed: {type(e).__name__}"
     db.update_appeal(appeal_id, status="drafting", level=level, note=note, signals=found)
+    if level:
+        db.add_event(case_id, appeal_id, {"source": "code", "kind": "level_computed", "level": level})
     db.audit(case_id, "system", "revisit_computed", appeal_id=appeal_id, level=level, level_at_action=case["level"],
              signals={s["id"]: s["value"] for s in found})
     try:
@@ -172,6 +197,23 @@ def draft_appeal_letter(case, appeal_id, found):
             "status": "template", "output": letters.template_appeal(before, found), "raw": None,
             "problem": last["problem"], "unknown_citations": [], "latency_s": None, "cost_usd": None})
         db.audit(case_id, "system", "appeal_letter_template", appeal_id=appeal_id, reason=last["problem"])
+
+
+def run_baseline(token):
+    """Text-only triage on both pages: the report and the URL, nothing from any visit. It decides nothing here."""
+    comparison = db.get_comparison(token)
+    for side in ("abuse", "legit"):
+        case = db.get_case(comparison[f"{side}_case"])
+        client = llm.get_client("text_triage")
+        try:
+            call = ledger.call(client, case["id"], "text_triage",
+                               baseline.messages(case["url"], case["claim"], inventory.CUSTOMERS))
+            result = baseline.parse(call["text"])
+        except ledger.Refused:
+            result = {"action": "Not run: model limit reached", "target": None}
+        except Exception:
+            result = {"action": "No valid answer", "target": None}
+        db.set_baseline(token, side, result)
 
 
 def process(case_id):
