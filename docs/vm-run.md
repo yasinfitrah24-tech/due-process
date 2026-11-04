@@ -56,3 +56,18 @@ Test any URL was lost when that run ended. Case 7 in the queue is left from that
 - Test any URL: 404 by case number, 200 by link, not in the queue, Suspend refused.
 
 Ledger after this run: USD 0.024111 of USD 15 on the VM.
+
+## Case time, before and after running model roles in parallel
+
+Measured on the VM on 2026-11-04 against the public URL, from report to ready, one case at a time. Before: `1ff3175`, one
+run. After: `700f952`, two runs. Few runs on three pages, so this shows a direction, not a distribution.
+
+| Page | Before s | After, run 1 s | After, run 2 s |
+|---|---|---|---|
+| Phishing (`/start`) | 21.1 | 12.6 | 22.6 (retry) |
+| Legitimate login | 13.9 | 13.6 (retry) | 9.3 |
+| Containment | 34.4 (retry) | 16.9 | 15.9 |
+| Mean | 23.1 | 14.4 | 15.9 |
+
+"Retry" marks a case whose documents role needed a second call. A retry still runs after the first try, so it is the slowest
+path. The range after the change is 9.3 to 22.6 s.

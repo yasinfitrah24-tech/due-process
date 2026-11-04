@@ -91,6 +91,23 @@ output: `eval/results/documents-recheck-2026-11-04.json`.
 
 Ten runs show the fix works on these cases, not a failure rate. `docs/eval.md` was made before this prompt change.
 
+## Retries of documents in the timing runs
+
+From the VM's database, for the cases of `docs/vm-run.md`. No rule changed after this.
+
+| Case | Run | First try | Cause |
+|---|---|---|---|
+| 20 | before, containment | no text, 6000 completion tokens | ran out of tokens (`finish_reason: length`) |
+| 22 | after, legitimate login | rejected, 1427 tokens | word check, sentence below |
+| 24 | after, phishing | rejected, 3391 tokens | word check, sentence below |
+
+Cases 21, 23, 25 and 26 passed on the first try. All three retries were accepted on the second try, so none fell back to the
+template.
+
+The rejected sentence was the same in both cases: "We did not find evidence that egress was blocked or that a download was
+quarantined." It was refused as stating a result or action, because the word check counts `block` as an action word. Here
+the word describes the `egress_blocked` signal, so this refusal is a false alarm of the check, and it cost a second call.
+
 ## Limits
 
 - Citation checks prove a signal id exists. They do not prove a sentence describes that signal truly. Those sentences

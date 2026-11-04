@@ -18,7 +18,7 @@ Acting without verification punishes the wrong people. On 28 October 2026, an in
 
 Waiting is costly too: a phishing site stays online for 2.25 days on average after it is detected (Lee et al., "7 Days Later", WWW 2025).
 
-Due Process verifies every report in a disposable browser in 15–35 seconds, and tells the customer exactly why an action was taken.
+Due Process verifies every report in a disposable browser in 10–25 seconds, and tells the customer exactly why an action was taken.
 
 Sources:
 - https://www.ndss-symposium.org/wp-content/uploads/2026-f468-paper.pdf
