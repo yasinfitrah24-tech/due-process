@@ -33,10 +33,34 @@ def template_documents(level, found):
             "reporter_reply": facts}
 
 
+APPEAL_DECISION_TEXT = {"Reinstate": "The service was reinstated.", "Keep": "The action stays in place."}
+
+
+def template_appeal(before, after):
+    """A letter without a model: what changed between the two visits, per signal."""
+    now = {s["id"]: s["value"] for s in after}
+    sentences = []
+    for s in before:
+        if s["value"] and s["id"] in now:
+            state = "This is still there" if now[s["id"]] else "This is gone now"
+            sentences.append({"text": f"{TEMPLATE_FACTS[s['id']]} {state}.", "factual": True,
+                              "signals": [f"before.{s['id']}", f"after.{s['id']}"]})
+    return {"sentences": sentences or [{"text": "We could not compare the two visits.", "factual": False, "signals": []}]}
+
+
+def appeal_sent_text(sentences, level, decision):
+    result = f"Result of the second visit: {level}." if level else "The second visit could not be completed."
+    return f"{clean(sentences)}\n\n{result} {APPEAL_DECISION_TEXT[decision]}"
+
+
+def clean(sentences):
+    return " ".join(CITATION.sub("", s["text"]).strip() for s in sentences)
+
+
 def outcome_sentence(level, action):
     return f"Result of our review: {level}. {ACTION_TEXT[action]}"
 
 
-def sent_text(sentences, level, action):
-    body = " ".join(CITATION.sub("", s["text"]).strip() for s in sentences)
-    return f"{body}\n\n{outcome_sentence(level, action)}"
+def sent_text(sentences, level, action, appeal_url=None):
+    text = f"{clean(sentences)}\n\n{outcome_sentence(level, action)}"
+    return f"{text}\n\nIf you fixed this or disagree: {appeal_url}" if appeal_url else text

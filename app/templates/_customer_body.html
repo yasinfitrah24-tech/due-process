@@ -1,0 +1,37 @@
+<div id="customer"{% if polling %} hx-get="/partials/appeal/{{ case.appeal_token }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <h1>Customer view</h1>
+  <p class="muted">Simulated. This is what {{ case.customer_name }} would see.</p>
+
+  <h2>What happened</h2>
+  <p>{{ action_text }} Reported page: {{ case.url }}</p>
+  {% if notice %}<blockquote>{{ notice }}</blockquote>{% endif %}
+
+  {% if slug %}
+  <h2>Demo</h2>
+  <form method="post" action="/appeal/{{ case.appeal_token }}/simulate-fix">
+    <button type="submit">Simulate customer fix</button>
+  </form>
+  <p class="muted">Changes this one test page to a clean version, as a customer's cleanup would.</p>
+  {% endif %}
+
+  <h2>Appeal</h2>
+  {% if closed %}
+  <p class="muted">{{ closed }}.</p>
+  {% else %}
+  <p>We will open the page again in a new disposable browser. Only what that visit finds counts; an analyst then decides.</p>
+  <form method="post" action="/appeal/{{ case.appeal_token }}">
+    {% for value, label in choices.items() %}
+    <label><input type="radio" name="choice" value="{{ value }}" required> {{ label }}</label>
+    {% endfor %}
+    <label>Anything you want the analyst to read <textarea name="text" rows="3" maxlength="2000"></textarea></label>
+    <button type="submit">Send appeal</button>
+  </form>
+  {% endif %}
+
+  {% for a in appeals %}
+  <h2>Appeal {{ loop.index }}</h2>
+  <p>{{ choices[a.choice] }}. Status: {{ a.status }}.
+    {% if a.decision == 'Reinstate' %}Reinstated (simulated).{% elif a.decision == 'Keep' %}The action stays in place.{% endif %}</p>
+  {% if a.sent %}<blockquote>{{ a.sent }}</blockquote>{% endif %}
+  {% endfor %}
+</div>

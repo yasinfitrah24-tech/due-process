@@ -20,7 +20,7 @@ services:
         required: false
     volumes:
       - appdata:/data
-    networks: [default, control]
+    networks: [default, control, demo]
     depends_on:
       launcher:
         condition: service_healthy
@@ -54,7 +54,7 @@ services:
     cap_drop: [ALL]
     security_opt: [no-new-privileges]
     environment:
-      EGRESS_ALLOW_PRIVATE_HOSTS: tailspin-offers.test,northwind-verify.test,northwind-bank.test,tailspin.sites-demo.test,orchard-site.test,birch-site.test,collector.test
+      EGRESS_ALLOW_PRIVATE_HOSTS: tailspin-offers.test,northwind-verify.test,northwind-bank.test,tailspin.sites-demo.test,orchard-site.test,birch-site.test,harborlane-shop.test,collector.test
       EGRESS_DENY_IPS: ${EGRESS_DENY_IPS:-}
     networks:
       sandbox:
@@ -68,7 +68,9 @@ services:
     <<: *locked-down
     networks:
       testnet:
-        aliases: [tailspin-offers.test, northwind-verify.test, northwind-bank.test, tailspin.sites-demo.test, orchard-site.test, birch-site.test]
+        aliases: [tailspin-offers.test, northwind-verify.test, northwind-bank.test, tailspin.sites-demo.test, orchard-site.test, birch-site.test, harborlane-shop.test]
+      # The app reaches the fix port here. Only the app and the test site are on this network.
+      demo:
 
   collector:
     <<: *locked-down
@@ -90,6 +92,9 @@ networks:
     internal: true
   control:
     name: dp-control
+    internal: true
+  demo:
+    name: dp-demo
     internal: true
   outbound:
     name: dp-outbound

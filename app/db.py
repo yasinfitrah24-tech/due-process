@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 JSON_FIELDS = ("signals", "receipt")
+PENDING_APPEALS = ("requested", "visiting", "drafting")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS cases (
@@ -14,6 +15,7 @@ CREATE TABLE IF NOT EXISTS cases (
   created_at TEXT NOT NULL,
   mode TEXT NOT NULL DEFAULT 'demo',
   token TEXT,
+  appeal_token TEXT,
   url TEXT NOT NULL,
   host TEXT NOT NULL,
   claim TEXT NOT NULL,
@@ -35,6 +37,21 @@ CREATE TABLE IF NOT EXISTS audit (
   actor TEXT NOT NULL,
   event TEXT NOT NULL,
   detail TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS appeals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  choice TEXT NOT NULL,
+  text TEXT NOT NULL,
+  status TEXT NOT NULL,
+  level TEXT,
+  note TEXT,
+  signals TEXT,
+  receipt TEXT,
+  decision TEXT,
+  decided_by TEXT,
+  decided_at TEXT
 );
 CREATE TABLE IF NOT EXISTS model_prices (
   model TEXT PRIMARY KEY,
@@ -99,6 +116,8 @@ def init():
             c.execute("ALTER TABLE cases ADD COLUMN mode TEXT NOT NULL DEFAULT 'demo'")
         if "token" not in columns:
             c.execute("ALTER TABLE cases ADD COLUMN token TEXT")
+        if "appeal_token" not in columns:
+            c.execute("ALTER TABLE cases ADD COLUMN appeal_token TEXT")
         for row in c.execute("SELECT id FROM cases WHERE mode = 'test' AND token IS NULL").fetchall():
             c.execute("UPDATE cases SET token = ? WHERE id = ?", (secrets.token_urlsafe(16), row["id"]))
 
@@ -143,12 +162,62 @@ def clear_cases():
     """Deletes every case and restarts the numbering. The cost ledger stays. Returns how many went."""
     with connect() as c:
         count = c.execute("SELECT COUNT(*) FROM cases").fetchone()[0]
-        for table in ("cases", "audit", "model_outputs"):
+        for table in ("cases", "audit", "model_outputs", "appeals"):
             c.execute(f"DELETE FROM {table}")
             c.execute("DELETE FROM sqlite_sequence WHERE name = ?", (table,))
         # Numbers start again, so old spending must not count against a new case with the same number.
         c.execute("UPDATE llm_usage SET case_id = NULL")
     return count
+
+
+def set_appeal_token(case_id):
+    with connect() as c:
+        c.execute("UPDATE cases SET appeal_token = ? WHERE id = ?", (secrets.token_urlsafe(16), case_id))
+
+
+def get_case_by_appeal_token(token):
+    with connect() as c:
+        return as_case(c.execute("SELECT * FROM cases WHERE appeal_token = ?", (token,)).fetchone())
+
+
+def as_appeal(row):
+    if row is None:
+        return None
+    appeal = dict(row)
+    for field in JSON_FIELDS:
+        appeal[field] = json.loads(appeal[field]) if appeal[field] else None
+    return appeal
+
+
+def create_appeal(case_id, choice, text):
+    with connect() as c:
+        return c.execute("INSERT INTO appeals (case_id, created_at, choice, text, status) VALUES (?, ?, ?, ?, 'requested')",
+                         (case_id, now(), choice, text)).lastrowid
+
+
+def get_appeal(appeal_id):
+    with connect() as c:
+        return as_appeal(c.execute("SELECT * FROM appeals WHERE id = ?", (appeal_id,)).fetchone())
+
+
+def case_appeals(case_id):
+    with connect() as c:
+        return [as_appeal(r) for r in c.execute("SELECT * FROM appeals WHERE case_id = ? ORDER BY id", (case_id,))]
+
+
+def update_appeal(appeal_id, **fields):
+    values = [json.dumps(v) if k in JSON_FIELDS else v for k, v in fields.items()]
+    sets = ", ".join(f"{k} = ?" for k in fields)
+    with connect() as c:
+        c.execute(f"UPDATE appeals SET {sets} WHERE id = ?", (*values, appeal_id))
+
+
+def decide_appeal(appeal_id, decision, analyst):
+    """Records the decision once. False if the appeal is not waiting for one."""
+    with connect() as c:
+        cur = c.execute("UPDATE appeals SET decision = ?, decided_by = ?, decided_at = ?, status = 'decided' "
+                        "WHERE id = ? AND status = 'ready' AND decision IS NULL", (decision, analyst, now(), appeal_id))
+        return cur.rowcount == 1
 
 
 def get_case_by_ref(ref):
@@ -255,3 +324,10 @@ def fail_interrupted():
         else:
             update_case(r["id"], status="ready", level="Not proven", note="Interrupted by a restart; no evidence.")
         audit(r["id"], "system", "case_interrupted")
+    with connect() as c:
+        marks = ",".join("?" * len(PENDING_APPEALS))
+        rows = c.execute(f"SELECT id, case_id FROM appeals WHERE status IN ({marks})", PENDING_APPEALS).fetchall()
+    for r in rows:
+        # No level: an interrupted second visit proves nothing, so it cannot open Reinstate.
+        update_appeal(r["id"], status="ready", level=None, note="Interrupted by a restart; no second visit.")
+        audit(r["case_id"], "system", "appeal_interrupted", appeal_id=r["id"])

@@ -131,6 +131,49 @@ def draft(case_id, evidence):
             db.audit(case_id, "system", "documents_template", reason=last["problem"])
 
 
+def revisit(appeal_id):
+    """The same fixed visit in a new container. It is the only thing that can open Reinstate."""
+    appeal = db.get_appeal(appeal_id)
+    case = db.get_case(appeal["case_id"])
+    case_id = case["id"]
+    db.update_appeal(appeal_id, status="visiting")
+    found, level, note = [], None, "The second visit did not complete; nothing can be compared."
+    try:
+        result = visitor.run_visit(case["url"], f"case-{case_id}-appeal-{appeal_id}")
+        visitor.save(result, db.case_dir(case_id) / f"appeal-{appeal_id}")
+        receipt = result["receipt"]
+        db.audit(case_id, "sandbox", "sandbox_revisit", appeal_id=appeal_id, ok=result["ok"],
+                 container_id=receipt["container_id"], container_gone=receipt["teardown"]["container_gone"])
+        db.update_appeal(appeal_id, receipt=receipt)
+        # A page that did not load shows nothing, and that must not look like a clean page.
+        if result["ok"] and not result["evidence"].get("errors"):
+            found = signals.compute(result["evidence"], case["url"])
+            level, note = signals.level(found), None
+    except Exception as e:
+        note = f"The second visit failed: {type(e).__name__}"
+    db.update_appeal(appeal_id, status="drafting", level=level, note=note, signals=found)
+    db.audit(case_id, "system", "revisit_computed", appeal_id=appeal_id, level=level, level_at_action=case["level"],
+             signals={s["id"]: s["value"] for s in found})
+    try:
+        draft_appeal_letter(case, appeal_id, found)
+    except Exception as e:
+        db.audit(case_id, "system", "drafting_failed", appeal_id=appeal_id, error=type(e).__name__)
+    db.update_appeal(appeal_id, status="ready")
+
+
+def draft_appeal_letter(case, appeal_id, found):
+    case_id, before, role = case["id"], case["signals"], f"appeal_letter:{appeal_id}"
+    last = {"status": "skipped", "problem": "no second visit to compare"}
+    if found:
+        last = run_role(case_id, role, roles.appeal_messages(before, found, case["customer_name"]),
+                        lambda text: roles.check_appeal_letter(text, before, found), retries=DOCUMENT_RETRIES)
+    if last["status"] != "accepted":
+        db.save_output(case_id, role, letters.TEMPLATE_MODEL, {
+            "status": "template", "output": letters.template_appeal(before, found), "raw": None,
+            "problem": last["problem"], "unknown_citations": [], "latency_s": None, "cost_usd": None})
+        db.audit(case_id, "system", "appeal_letter_template", appeal_id=appeal_id, reason=last["problem"])
+
+
 def process(case_id):
     evidence = visit_and_judge(db.get_case(case_id))
     try:

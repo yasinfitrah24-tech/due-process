@@ -37,7 +37,7 @@ vm_proxy = {"vm_ip": get(f"http://{public_ip}/", public_ip),
 print(json.dumps({
     "direct": {f"{h}:{p}": direct(h, p) for h, p in [
         ("egress", 3128), ("tailspin-offers.test", 80), ("collector.test", 80), ("launcher", 8100), ("app", 8000),
-        ("caddy", 443), ("1.1.1.1", 443), ("8.8.8.8", 53), ("169.254.169.254", 80), ("host.docker.internal", 80),
+        ("caddy", 443), ("testsite", 8081), ("1.1.1.1", 443), ("8.8.8.8", 53), ("169.254.169.254", 80), ("host.docker.internal", 80),
         *vm_direct]},
     "proxy": {
         "metadata": get("http://169.254.169.254/latest/meta-data/", "169.254.169.254"),
@@ -50,6 +50,7 @@ print(json.dumps({
         "launcher_port80": get("http://launcher/", "launcher"),
         "app": get("http://app:8000/", "app"),
         "docker_host": get("http://host.docker.internal/", "host.docker.internal"),
+        "fix_port": through_proxy("POST http://harborlane-shop.test:8081/fix/aaaaaaaa HTTP/1.1\r\nHost: x\r\n\r\n"),
         "demo_host": get("http://tailspin-offers.test/start", "tailspin-offers.test"),
         **vm_proxy,
     },

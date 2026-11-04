@@ -7,12 +7,15 @@ Pages are routed by Host header, so each simulated customer host serves only its
   (c) http://northwind-bank.test/branches ordinary page, no form
   (d) http://tailspin-offers.test/verify-account form to collector.test, no password field
   http://northwind-verify.test/containment (a)'s login plus a download, visible AI text and a metadata fetch
+  http://harborlane-shop.test/shop/<id> phishing until the internal port marks that id as fixed
   http://northwind-bank.test/login-subdomain login whose form posts to auth.northwind-bank.test
   http://tailspin.sites-demo.test/login-shared login whose form posts to another customer on the same domain
 /hang (any host) never finishes; it exists only to test the sandbox timeout.
 http://northwind-verify.test/login-tamper, -delegated and -inline are variants of (a)'s login for evidence tests.
 """
+import re
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -270,6 +273,14 @@ ROUTES = {
 }
 
 
+# Fixable demo page: phishing until its own id is fixed, then clean. Each id is one case's page.
+FIXABLE_HOST = "harborlane-shop.test"
+FIXABLE_PATH = re.compile(r"/shop/([a-z0-9]{8,32})")
+FIXED_LIMIT = 5000
+CLEAN_SHOP = page("Harbor Lane Books", "<p>A fictional bookshop. This site was cleaned up.</p>")
+fixed = set()
+fixed_lock = threading.Lock()
+
 REDIRECTS = {("orchard-site.test", "/p/5206"): "/p/5207", ("birch-site.test", "/p/6033"): "/p/6034"}
 
 
@@ -288,6 +299,10 @@ class H(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if (host, path) == ("tailspin-offers.test", "/start"):
             self.send(302, b"", extra={"Location": "/step2"})
+        elif host == FIXABLE_HOST and (m := FIXABLE_PATH.fullmatch(path)):
+            with fixed_lock:
+                is_fixed = m.group(1) in fixed
+            self.send(200, CLEAN_SHOP if is_fixed else ACTION_LOGIN)
         elif (host, path) in REDIRECTS:
             self.send(302, b"", extra={"Location": REDIRECTS[(host, path)]})
         elif (host, path) == ("northwind-verify.test", "/northwind-statement.txt"):
@@ -311,6 +326,23 @@ class H(BaseHTTPRequestHandler):
         self.send(200, page("Northwind Bank", "<p>TEST PAGE: nothing is stored.</p>"))
 
 
+class Control(BaseHTTPRequestHandler):
+    """Internal port for the app only. The proxy allows ports 80 and 443, so a sandbox cannot reach it. The one thing it
+    can do is mark one fixable page as fixed."""
+
+    def do_POST(self):
+        m = re.fullmatch(r"/fix/([a-z0-9]{8,32})", self.path)
+        with fixed_lock:
+            if m and len(fixed) < FIXED_LIMIT:
+                fixed.add(m.group(1))
+        self.send_response(204 if m else 404)
+        self.end_headers()
+
+    def log_message(self, *a):
+        pass
+
+
 if __name__ == "__main__":
     ThreadingHTTPServer.daemon_threads = True
+    threading.Thread(target=ThreadingHTTPServer(("0.0.0.0", 8081), Control).serve_forever, daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", int(sys.argv[1]) if len(sys.argv) > 1 else 80), H).serve_forever()

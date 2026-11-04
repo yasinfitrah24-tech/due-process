@@ -20,6 +20,7 @@ set_value() {
 set_value VULTR_MODEL deepseek-v4.1-flash-1017
 set_value VULTR_VISION_MODEL nemotron-3-nano-omni-30b-a3b-reasoning
 set_value PUBLIC_HOST "$PUBLIC_HOST"
+set_value PUBLIC_URL "https://$PUBLIC_HOST"
 set_value EGRESS_DENY_IPS "$PUBLIC_IP"
 set_value COMPOSE_FILE docker-compose.yml:deploy/compose.vm.yml
 

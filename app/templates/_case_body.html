@@ -5,7 +5,7 @@
 {% if o.raw %}<details><summary>Model output (not used)</summary><blockquote>{{ o.raw }}</blockquote></details>{% endif %}
 {% endif %}{% endmacro %}
 {% macro by(o) %}<span class="chip model_claim">model_claim</span> <span class="chip">{{ o.model }}</span>{% endmacro %}
-<div id="case"{% if case.status in ('queued', 'visiting', 'drafting') %} hx-get="/partials/cases/{{ case.ref }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+<div id="case"{% if polling %} hx-get="/partials/cases/{{ case.ref }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
   <h1>{% if case.mode == 'test' %}Test any URL{% else %}Case #{{ case.id }}{% endif %}</h1>
   <p>Status: {{ case.status }}
     {% if usage.calls %}&middot; <span class="muted">{{ usage.calls }} model calls, USD {{ '%.5f'|format(usage.cost_usd) }}</span>{% endif %}</p>
@@ -149,6 +149,7 @@
   <h2>Decision</h2>
   {% if case.decided_action %}
   <p>{{ case.decided_action }} by {{ case.decided_by }} at {{ case.decided_at }} (simulated).</p>
+  {% if case.appeal_token %}<p><a href="/appeal/{{ case.appeal_token }}">Customer view</a>: the link in the customer notice.</p>{% endif %}
   {% elif allowed %}
   <form method="post" action="/cases/{{ case.ref }}/actions" class="actions">
     <input type="text" name="analyst" value="analyst" aria-label="Analyst" style="width: 160px">
@@ -174,6 +175,43 @@
   {% endfor %}
   {% endif %}
   {% endif %}
+
+  {% for a in appeals %}
+  <h2>Appeal {{ loop.index }}</h2>
+  <p>{{ choices[a.choice] }}. Status: {{ a.status }}.</p>
+  {% if a.text %}<p class="muted">Customer says (untrusted, moves nothing):</p><blockquote>{{ a.text }}</blockquote>{% endif %}
+  {% if a.note %}<p class="error">{{ a.note }}</p>{% endif %}
+  {% if a.status in ('drafting', 'ready', 'decided') %}
+  <table>
+    <thead><tr><th></th><th>First visit</th><th>Second visit</th></tr></thead>
+    <tr><th>Level</th><td><span class="level level-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></td>
+      <td><span class="level level-{{ (a.level or '')|replace(' ', '') }}">{{ a.level or 'No result' }}</span></td></tr>
+    {% for r in a.rows %}
+    <tr><td><code>{{ r.id }}</code> {{ kind(r.kind) }}</td><td>{{ r.before }}</td><td>{{ r.after if r.after is not none else 'No result' }}</td></tr>
+    {% endfor %}
+    {% if a.receipt %}
+    <tr><th>Container</th><td><code>{{ (case.receipt.container_id or '')[:12] }}</code></td><td><code>{{ (a.receipt.container_id or '')[:12] }}</code>{% if a.receipt.teardown.container_gone %}, gone{% endif %}</td></tr>
+    {% endif %}
+  </table>
+  {% endif %}
+  {% if a.shot %}<p>{{ kind('observed') }} Second visit</p><img src="/cases/{{ case.ref }}/appeals/{{ a.id }}/shots/{{ a.shot }}" alt="Screenshot of the second visit">{% endif %}
+  {% if a.letter %}
+  <h3>Letter to the customer</h3>
+  <p>{% if a.letter.status == 'template' %}<span class="error">Template, model unavailable: {{ a.letter.problem }}</span>{% else %}{{ by(a.letter) }}{% endif %}</p>
+  {% if a.letter.output %}{{ sentences(a.letter.output.sentences) }}{% endif %}
+  {% endif %}
+  {% if a.allowed %}
+  <form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/decide" class="actions">
+    <input type="text" name="analyst" value="analyst" aria-label="Analyst" style="width: 160px">
+    {% for d in a.allowed %}<button type="submit" name="decision" value="{{ d }}">{{ d }}</button>{% endfor %}
+  </form>
+  {% if 'Reinstate' not in a.allowed %}<p class="muted">Reinstate needs a second visit with a lower level than at the action.</p>{% endif %}
+  {% elif a.decision %}
+  <p>{{ a.decision }} by {{ a.decided_by }} at {{ a.decided_at }} (simulated).</p>
+  {% if a.sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ a.sent }}</blockquote>
+  {% elif a.letter %}<form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/send"><button type="submit">Send letter</button></form>{% endif %}
+  {% endif %}
+  {% endfor %}
 
   <h2>Audit log</h2>
   <table>

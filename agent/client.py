@@ -8,7 +8,7 @@ DEFAULT_BASE_URL = "https://api.vultrinference.com/v1"
 TIMEOUT_S = 90
 MAX_TOKENS = 6000
 # Left at its default, reasoning on the documents role used up all of MAX_TOKENS and returned no text. See docs/eval.md.
-REASONING_EFFORT = {"documents": "minimal"}
+REASONING_EFFORT = {"documents": "minimal", "appeal_letter": "minimal"}
 
 
 def mock_reply(role, messages):
@@ -17,6 +17,9 @@ def mock_reply(role, messages):
     if role == "vision_claim":
         return {"description": "Mock description.", "imitated_brand": None}
     data = json.loads(messages[1]["content"])  # a retry adds messages after the data
+    if role.startswith("appeal_letter"):
+        ids = [data["first_visit"][0]["id"], data["second_visit"][0]["id"]]
+        return {"sentences": [{"text": "Mock comparison.", "signals": ids, "factual": True}]}
     ids = [s["id"] for s in data["signals"] if s["value"]] or [data["signals"][0]["id"]]
     sentence = {"text": "Mock statement.", "signals": ids, "factual": True}
     if role == "verdict_claim":
@@ -46,7 +49,8 @@ class VultrClient:
         return {"Authorization": f"Bearer {self.api_key}"}
 
     def complete(self, messages, role):
-        effort = {"reasoning_effort": REASONING_EFFORT[role]} if role in REASONING_EFFORT else {}
+        base_role = role.split(":")[0]
+        effort = {"reasoning_effort": REASONING_EFFORT[base_role]} if base_role in REASONING_EFFORT else {}
         r = httpx.post(f"{self.base_url}/chat/completions", timeout=TIMEOUT_S, headers=self.headers(),
                        json={"model": self.model, "messages": messages, "temperature": 0,
                              "max_tokens": self.max_tokens, **effort})

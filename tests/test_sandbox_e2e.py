@@ -186,7 +186,7 @@ def test_from_the_sandbox_only_the_proxy_is_reachable(netcheck):
 
 
 @pytest.mark.parametrize("name", ["metadata", "metadata_decimal", "metadata_connect", "private_10", "private_192",
-                                  "loopback", "launcher", "launcher_port80", "app", "docker_host"])
+                                  "loopback", "launcher", "launcher_port80", "app", "docker_host", "fix_port"])
 def test_from_the_sandbox_the_proxy_blocks(netcheck, name):
     assert netcheck["proxy"][name] == 403
 
@@ -229,6 +229,25 @@ def test_containment_does_not_move_the_level(containment, page_a):
     assert values["egress_blocked"] and values["download_quarantined"]
     assert signals.level(found) == "Proven"
     assert signals.level(signals.compute(page_a["evidence"], PAGE_A)) == "Proven"
+
+
+def test_fixable_page_changes_only_for_its_own_id():
+    fixed, other = f"http://harborlane-shop.test/shop/{uuid.uuid4().hex[:12]}", f"http://harborlane-shop.test/shop/{uuid.uuid4().hex[:12]}"
+    before = launch.run_visit(fixed, "fix-before")["evidence"]
+    assert signals.level(signals.compute(before, fixed)) == "Proven"
+    slug = fixed.rsplit("/", 1)[1]
+    script = f"import httpx; print(httpx.post('http://testsite:8081/fix/{slug}', timeout=10).status_code)"
+    r = subprocess.run(["docker", "compose", "exec", "-T", "app", "python", "-c", script], capture_output=True, text=True)
+    assert r.stdout.strip() == "204", r.stderr
+    after = launch.run_visit(fixed, "fix-after")["evidence"]
+    assert signals.level(signals.compute(after, fixed)) == "Not proven"
+    assert signals.level(signals.compute(launch.run_visit(other, "fix-other")["evidence"], other)) == "Proven"
+
+
+def test_fix_port_changes_nothing_else():
+    script = "import httpx; print([httpx.post('http://testsite:8081' + p, timeout=10).status_code for p in ('/fix/UPPER', '/fix/../x', '/login', '/')])"
+    r = subprocess.run(["docker", "compose", "exec", "-T", "app", "python", "-c", script], capture_output=True, text=True)
+    assert r.stdout.strip() == "[404, 404, 404, 404]", r.stdout + r.stderr
 
 
 def test_app_has_no_docker():

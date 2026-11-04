@@ -1,5 +1,11 @@
 """The example reports behind the "try an example" buttons and `make reset-demo`."""
 
+FIXABLE_EXAMPLE = {
+    "title": "Phishing page that can be fixed",
+    "hint": "Suspend it, then use the customer's link to fix the page and appeal.",
+    "claim": "Phishing page imitating Northwind Bank on a Harbor Lane Books site. It steals logins.",
+}
+
 EXAMPLES = {
     "phishing": {
         "title": "Phishing login",

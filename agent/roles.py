@@ -57,6 +57,19 @@ never signals that were not found, or words like "signal", "file" or "visit". Ne
 Use only signal ids from the input. {UNTRUSTED}"""
 
 
+APPEAL_PROMPT = f"""You draft a letter to a hosting customer who appealed. The page was visited twice, in a new browser
+each time. An analyst reviews and sends the letter. Code adds the sentence with the result and the action, so never state
+or hint at a result, a level or an action: not "proven", "suspicious", "suspend", "warn", "close", "block" or similar
+words. Reply with one JSON object and nothing else:
+{{"sentences": [{{"text": "<one sentence>", "factual": true or false, "signals": ["<signal id>"]}}]}}
+Say what the first visit found and what the second visit found, in at most five plain sentences. A factual sentence
+states what was or was not found and must list its signal ids. The ids in the input start with before. or after.; use
+only those, and cite both visits. Never write a signal id in the text. Only polite or procedural sentences may be factual
+false; those state no finding, name no host or URL and list no signals. To ask the reader for something, write "Please
+reply with" or "Let us know". Such a sentence never uses the words find, found, evidence, confirm, observe, detect,
+record, contain or include. {UNTRUSTED}"""
+
+
 class Rejected(Exception):
     def __init__(self, reason, unknown=()):
         super().__init__(reason)
@@ -96,6 +109,10 @@ class Documents(Strict):
     statement_of_reasons: list[DocumentSentence] = Field(min_length=1, max_length=12)
     customer_notice: list[DocumentSentence] | None = Field(max_length=12)
     reporter_reply: list[DocumentSentence] = Field(min_length=1, max_length=12)
+
+
+class AppealLetter(Strict):
+    sentences: list[DocumentSentence] = Field(min_length=1, max_length=8)
 
 
 def validated(schema, text):
@@ -159,14 +176,9 @@ def document_messages(level, allowed, customer_name, signals, facts):
                                                     "evidence": facts})}]
 
 
-def check_documents(text, level, signal_ids):
-    docs = validated(Documents, text)
-    if level == "Not proven":
-        docs.customer_notice = None
-    elif docs.customer_notice is None:
-        raise Rejected("customer_notice is missing")
-    sentences = docs.statement_of_reasons + (docs.customer_notice or []) + docs.reporter_reply
-    check_citations(sentences, signal_ids)
+def check_sentences(sentences, cited_ids, names):
+    """cited_ids may be cited; names may not be written in the text."""
+    check_citations(sentences, cited_ids)
     for s in sentences:
         if s.factual and not s.signals:
             raise Rejected(f"a factual sentence cites no signal: {s.text!r}")
@@ -176,6 +188,38 @@ def check_documents(text, level, signal_ids):
             raise Rejected(f"a sentence marked not factual states a finding without citing a signal: {s.text!r}")
         if OUTCOME_WORD.search(s.text):
             raise Rejected(f"states a result or action, which only code may write: {s.text!r}")
-        if any(i in s.text for i in signal_ids):
+        if any(i in s.text for i in names):
             raise Rejected(f"writes a signal id in the text: {s.text!r}")
+
+
+def check_documents(text, level, signal_ids):
+    docs = validated(Documents, text)
+    if level == "Not proven":
+        docs.customer_notice = None
+    elif docs.customer_notice is None:
+        raise Rejected("customer_notice is missing")
+    sentences = docs.statement_of_reasons + (docs.customer_notice or []) + docs.reporter_reply
+    check_sentences(sentences, signal_ids, signal_ids)
     return docs.model_dump()
+
+
+def visit_signals(found, visit):
+    return [{**x, "id": f"{visit}.{x['id']}"} for x in found]
+
+
+def appeal_messages(before, after, customer_name):
+    """Signals of both visits. A customer's own words are not part of this."""
+    data = {"customer": customer_name, "first_visit": visit_signals(before, "before"),
+            "second_visit": visit_signals(after, "after")}
+    return [{"role": "system", "content": APPEAL_PROMPT}, {"role": "user", "content": json.dumps(data)}]
+
+
+def check_appeal_letter(text, before, after):
+    letter = validated(AppealLetter, text)
+    before_ids = [f"before.{x['id']}" for x in before]
+    after_ids = [f"after.{x['id']}" for x in after]
+    check_sentences(letter.sentences, before_ids + after_ids, [x["id"] for x in before])
+    cited = {i for s in letter.sentences for i in s.signals}
+    if not cited & set(before_ids) or not cited & set(after_ids):
+        raise Rejected("must cite signals from both visits")
+    return letter.model_dump()

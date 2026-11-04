@@ -13,6 +13,12 @@
   {% endfor %}
 </div>
 
+<h2>Try an appeal</h2>
+<form method="post" action="/try/fixable">
+  <button type="submit">{{ fixable.title }}</button>
+  <p class="muted">{{ fixable.hint }}</p>
+</form>
+
 <h2>Send your own report</h2>
 {% if error %}<p class="error">Rejected: {{ error }}</p>{% endif %}
 <form method="post" action="/reports">

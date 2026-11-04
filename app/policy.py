@@ -8,6 +8,17 @@ ALLOWED_ACTIONS = {
 }
 
 
+APPEALABLE = ("Suspend", "Warn")
+LEVEL_RANK = {NOT_PROVEN: 0, SUSPICIOUS: 1, PROVEN: 2}
+
+
+def appeal_actions(level_at_action, revisit_level):
+    """Reinstate needs a second visit that really happened and came out lower. Anything else keeps the action."""
+    if revisit_level is not None and LEVEL_RANK[revisit_level] < LEVEL_RANK[level_at_action]:
+        return ("Reinstate", "Keep")
+    return ("Keep",)
+
+
 def allowed_actions(level):
     return ALLOWED_ACTIONS.get(level, ())
 

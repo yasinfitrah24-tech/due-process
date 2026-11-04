@@ -68,7 +68,7 @@ def test_letters_never_state_another_level_or_action(client, url):  # noqa: F811
     sent = client.get(f"/api/cases/{c['id']}").json()["sent"]
     assert "reporter_reply" in sent
     for text in sent.values():
-        assert text.endswith(letters.outcome_sentence(level, action))
+        assert letters.outcome_sentence(level, action) in text
         assert text.count("Result of our review") == 1
         for other in LEVELS:
             found = re.findall(rf"(?<!Not ){other}", text) if other == "Proven" else re.findall(other, text)

@@ -17,6 +17,12 @@ def run_visit(url, case):
     return r.json()
 
 
+def simulate_fix(slug):
+    """Asks the test site's internal port to clean one fixable page. Nothing else can be changed there."""
+    base = os.environ.get("TESTSITE_CONTROL_URL", "http://testsite:8081")
+    httpx.post(f"{base}/fix/{slug}", timeout=10).raise_for_status()
+
+
 def save(result, out_dir):
     """Writes evidence.json, receipt.json and shot-N.jpg. Screenshots leave the JSON here."""
     out_dir = Path(out_dir)
