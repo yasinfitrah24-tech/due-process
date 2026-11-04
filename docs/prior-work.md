@@ -26,7 +26,7 @@ probe built on Nov 1, before the hackathon started on Nov 3. The probe contains 
   (`DOMDebugger.getEventListeners`, `Debugger.getScriptSource`), and the DOM from an isolated world.
 - The regex over all page scripts is gone. Only the source of handlers bound to a form is read.
 - Every evidence item has `kind`: `observed` or `declared_in_script`.
-- The visit follows a validated list of steps instead of one fixed sequence.
+- Evidence fields follow schema `dp-visit/4`; the visit itself stays one fixed sequence.
 - Namespace proof is recorded on every visit, not only with `--launch-only`.
 - The last-resort alarm moved from 20 s to 5 s after the visit budget, so it fires before the launcher's hard kill.
 - Removed the `--channel` option, which was for local testing.
