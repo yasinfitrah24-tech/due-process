@@ -1,0 +1,96 @@
+{% macro kind(k) %}{% if k %}<span class="chip {{ k }}">{{ k }}</span>{% endif %}{% endmacro %}
+<div id="case"{% if case.status in ('queued', 'visiting') %} hx-get="/partials/cases/{{ case.id }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <h1>Case #{{ case.id }}</h1>
+  <p>Status: {{ case.status }}
+    {% if case.plan %}&middot; <span class="chip">planner: {{ case.plan.planner }}</span>{% endif %}</p>
+
+  <h2>Report (untrusted claim)</h2>
+  <p>{{ case.url }}</p>
+  <blockquote>{{ case.claim }}</blockquote>
+
+  <h2>Target</h2>
+  <p>{{ case.customer_name }} ({{ case.customer_id }}), from host <code>{{ case.host }}</code> via the hosting inventory.</p>
+
+  {% if case.level %}
+  <h2>Verdict</h2>
+  <p class="level level-{{ case.level|replace(' ', '') }}">{{ case.level }}</p>
+  {% if case.note %}<p class="error">{{ case.note }}</p>{% endif %}
+  {% endif %}
+
+  {% if case.signals %}
+  <h2>Signals</h2>
+  <table>
+    <thead><tr><th>Signal</th><th>Value</th><th>Kind</th><th>Detail</th></tr></thead>
+    {% for s in case.signals %}
+    <tr><td><code>{{ s.id }}</code></td><td>{{ s.value }}</td><td>{{ kind(s.kind) }}</td>
+      <td>{% if s.detail is string %}{{ s.detail }}{% else %}{{ s.detail|join(', ') }}{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if evidence %}
+  <h2>Evidence</h2>
+  {% for p in evidence.pages if p.screenshot and p.screenshot.file %}
+  <p>{{ kind(p.screenshot.kind) }} {{ p.url }}</p>
+  <img src="/cases/{{ case.id }}/shots/{{ p.screenshot.file }}" alt="Screenshot of {{ p.url }}">
+  {% endfor %}
+
+  <h2>Redirect chain</h2>
+  {% if evidence.redirects %}
+  <table>
+    {% for r in evidence.redirects %}
+    <tr><td>{{ kind(r.kind) }}</td><td>{{ r.type }}</td><td>{{ r.from }}</td><td>{{ r.to }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">None.</p>{% endif %}
+  <p>Final URL: {{ evidence.final_url }}</p>
+
+  <h2>Destinations</h2>
+  {% if evidence.destinations %}
+  <table>
+    <thead><tr><th>Kind</th><th>Via</th><th>URL</th><th>Same host as page</th></tr></thead>
+    {% for d in evidence.destinations %}
+    <tr><td>{{ kind(d.kind) }}</td><td>{{ d.via }}</td><td>{{ d.url }}</td><td>{{ d.same_host_as_page }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">None.</p>{% endif %}
+
+  <h2>Password fields and hidden text</h2>
+  <table>
+    {% for p in evidence.password_fields %}
+    <tr><td>{{ kind(p.kind) }}</td><td>password field</td><td>{{ p.page }}</td></tr>
+    {% endfor %}
+    {% for h in evidence.hidden_text %}
+    <tr><td>{{ kind(h.kind) }}</td><td>hidden ({{ h.reason }})</td><td>{{ h.text }}</td></tr>
+    {% endfor %}
+    {% if not evidence.password_fields and not evidence.hidden_text %}<tr><td class="muted">None.</td></tr>{% endif %}
+  </table>
+  {% endif %}
+
+  {% if case.receipt %}
+  <h2>Sandbox receipt</h2>
+  <table>
+    <tr><th>Container</th><td><code>{{ case.receipt.container_id }}</code></td></tr>
+    <tr><th>Chromium sandbox</th><td>{{ case.receipt.chromium_sandbox.in_new_user_pid_net_ns }} of {{ case.receipt.chromium_sandbox.chromium_processes }} processes in new user, pid and net namespaces ({{ case.receipt.chromium_sandbox.isolated_types|join(', ') }})</td></tr>
+    <tr><th>Run time</th><td>{{ case.receipt.wall_s }} s, exit {{ case.receipt.exit_code }}</td></tr>
+    <tr><th>Teardown</th><td>{% if case.receipt.teardown.container_gone %}Container gone, checked {{ case.receipt.teardown.checked_at }}{% else %}<span class="error">Container still present</span>{% endif %}</td></tr>
+  </table>
+  {% endif %}
+
+  <h2>Decision</h2>
+  {% if case.decided_action %}
+  <p>{{ case.decided_action }} by {{ case.decided_by }} at {{ case.decided_at }} (simulated).</p>
+  {% elif allowed %}
+  <form method="post" action="/cases/{{ case.id }}/actions" class="actions">
+    <input type="text" name="analyst" value="analyst" aria-label="Analyst" style="width: 160px">
+    {% for a in allowed %}<button type="submit" name="action" value="{{ a }}">{{ a }}</button>{% endfor %}
+  </form>
+  {% else %}<p class="muted">Waiting for the verdict.</p>{% endif %}
+
+  <h2>Audit log</h2>
+  <table>
+    {% for a in audit %}
+    <tr><td>{{ a.ts }}</td><td>{{ a.actor }}</td><td>{{ a.event }}</td><td><code>{{ a.detail|tojson }}</code></td></tr>
+    {% endfor %}
+  </table>
+</div>

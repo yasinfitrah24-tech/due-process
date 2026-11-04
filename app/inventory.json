@@ -1,0 +1,7 @@
+{
+  "customers": [
+    {"id": "cust-1001", "name": "Tailspin Offers Ltd", "hosts": ["tailspin-offers.test", "northwind-verify.test"]},
+    {"id": "cust-1002", "name": "Northwind Bank", "hosts": ["northwind-bank.test"]},
+    {"id": "cust-1003", "name": "Harbor Lane Books", "hosts": ["harborlane-books.test"]}
+  ]
+}

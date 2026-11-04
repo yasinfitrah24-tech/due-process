@@ -10,6 +10,19 @@ x-locked-down: &locked-down
   restart: unless-stopped
 
 services:
+  app:
+    build: .
+    image: due-process-app
+    ports: ["127.0.0.1:8000:8000"]
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - appdata:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on: [testsite, collector]
+    restart: unless-stopped
+
   testsite:
     <<: *locked-down
     networks:
@@ -22,6 +35,9 @@ services:
     networks:
       sandbox:
         aliases: [collector.test]
+
+volumes:
+  appdata:
 
 networks:
   # Sandbox containers join this network from sandbox/launch.py. Internal: no route to the internet.

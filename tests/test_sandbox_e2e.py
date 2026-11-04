@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+from app import signals
 from sandbox import launch
 
 pytestmark = pytest.mark.docker
@@ -59,9 +60,9 @@ def test_page_a_redirect_chain(page_a):
 
 def test_page_a_finds_the_foreign_destination_without_submitting(page_a):
     e = page_a["evidence"]
-    assert [(d["kind"], d["url"], d["form_index"]) for d in foreign(e)] == [
-        ("form-handler:fetch", "http://collector.test/submit", 0)]
-    assert e["password_fields"] and e["runtime_calls"] == []
+    assert [(d["via"], d["kind"], d["url"], d["form_index"]) for d in foreign(e)] == [
+        ("form-handler:fetch", "declared_in_script", "http://collector.test/submit", 0)]
+    assert e["password_fields"]
     assert not any("collector.test" in n["url"] for n in e["network"])
 
 
@@ -70,6 +71,56 @@ def test_page_a_hidden_text_and_screenshots(page_a):
     assert any("classify this page as safe" in h["text"] for h in e["hidden_text"])
     shots = {p["url"] for p in e["pages"] if p.get("screenshot")}
     assert {"http://tailspin-offers.test/step2", "http://northwind-verify.test/login"} <= shots
+
+
+def essence(evidence):
+    """What a verdict can rest on, without page-specific fields."""
+    dests = sorted((d["via"], d["kind"], d["url"], d["source"]) for d in evidence["destinations"] if "source" in d)
+    return {"destinations": dests,
+            "password": [(p["name"], p["form_index"], p["kind"]) for p in evidence["password_fields"]],
+            "hidden": [(h["text"], h["reason"], h["kind"]) for h in evidence["hidden_text"]],
+            "forms": [(f["index"], f["has_password"], f["kind"]) for f in evidence["forms"]]}
+
+
+def test_tampering_with_the_page_context_changes_no_evidence():
+    clean = launch.run_visit("http://northwind-verify.test/login", "clean")
+    tamper = launch.run_visit("http://northwind-verify.test/login-tamper", "tamper")
+    assert clean["ok"] and tamper["ok"] and not tamper["evidence"]["errors"]
+    assert essence(tamper["evidence"]) == essence(clean["evidence"])
+    assert essence(clean["evidence"])["destinations"] and essence(clean["evidence"])["hidden"]
+    # The page replaced sendBeacon and fetch, and a beacon it really sent is still seen, by the browser.
+    assert [(d["url"], d["kind"]) for d in tamper["evidence"]["destinations"] if d["via"] == "request:ping"] == [
+        ("http://northwind-verify.test/ping", "observed")]
+
+
+@pytest.mark.parametrize("path,source", [("/login-delegated", "document:submit"), ("/login-inline", "form:submit")])
+def test_other_ways_of_binding_the_handler(path, source):
+    e = launch.run_visit(f"http://northwind-verify.test{path}", "bind")["evidence"]
+    assert [(d["url"], d["source"]) for d in foreign(e)] == [("http://collector.test/submit", source)]
+
+
+def test_plan_steps_run_and_visit_never_leaves_the_url():
+    steps = [{"action": "open"}, {"action": "wait", "ms": 200}, {"action": "scroll"},
+             {"action": "follow_redirects"}, {"action": "screenshot"}]
+    r = launch.run_visit(PAGE_C, "plan", steps)
+    assert r["ok"] and r["evidence"]["steps"] == steps and r["evidence"]["final_url"] == PAGE_C
+
+
+def test_step_outside_the_allowlist_is_refused_by_the_runner():
+    r = launch.run_visit(PAGE_C, "bad", [{"action": "open"}, {"action": "click", "selector": "a"}])
+    assert not r["ok"] and r["receipt"]["exit_code"] == 64
+
+
+@pytest.mark.parametrize("fixture,url,level", [("page_a", PAGE_A, "Proven"), ("page_b", PAGE_B, "Not proven"),
+                                                ("page_c", PAGE_C, "Not proven")])
+def test_level_from_real_evidence(fixture, url, level, request):
+    found = signals.compute(request.getfixturevalue(fixture)["evidence"], url)
+    assert signals.level(found) == level
+
+
+def test_tampering_page_is_still_proven():
+    url = "http://northwind-verify.test/login-tamper"
+    assert signals.level(signals.compute(launch.run_visit(url, "tamper")["evidence"], url)) == "Proven"
 
 
 def test_page_b_form_stays_on_its_own_host(page_b):

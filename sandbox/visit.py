@@ -1,7 +1,14 @@
 """Visit one URL in headless Chromium and print one JSON evidence record to stdout.
 
 Never fills, clicks or submits anything on the page. Downloads are saved and hashed, never opened.
-Exit codes: 0 visited, 2 browser failed to launch, 124 hard timeout.
+Exit codes: 0 visited, 2 browser failed to launch, 64 bad steps, 124 hard timeout.
+
+Evidence must not depend on anything the page can change, so nothing here runs in the page's JS context:
+  - requests come from Playwright's network events (browser side);
+  - listeners and their source come from CDP (DOMDebugger.getEventListeners, Debugger.getScriptSource);
+  - the DOM is read from an isolated world, which shares the DOM but not the page's globals or prototypes.
+Every evidence item has kind "observed" (the browser saw it) or "declared_in_script" (read from script
+source, never executed: a form that only sends on submit never sends here, because nothing is submitted).
 """
 import argparse
 import base64
@@ -20,84 +27,55 @@ from playwright.sync_api import Error as PWError
 from playwright.sync_api import TimeoutError as PWTimeout
 from playwright.sync_api import sync_playwright
 
-# Records network sinks that page scripts actually call (we never trigger handlers ourselves), and the
-# source of submit/click listeners: a form that only sends on submit never reaches those sinks here,
-# because nothing is ever submitted.
-INIT_JS = r"""
-(() => {
-  const calls = [];
-  Object.defineProperty(window, '__dpCalls', {value: calls});
-  const listeners = [];
-  Object.defineProperty(window, '__dpListeners', {value: listeners});
-  const fnSource = Function.prototype.toString;
-  const oa = EventTarget.prototype.addEventListener;
-  EventTarget.prototype.addEventListener = function (type, fn) {
-    if ((type === 'submit' || type === 'click') && fn) {
-      const f = typeof fn === 'function' ? fn : fn.handleEvent;
-      if (typeof f === 'function') listeners.push({target: this || window, type, source: fnSource.call(f)});
-    }
-    return oa.apply(this, arguments);
-  };
-  const rec = (kind, url, method) => {
-    let u = String(url);
-    try { u = String(new URL(url, location.href)); } catch (e) {}
-    calls.push({kind, url: u, method: method ? String(method).toUpperCase() : null});
-  };
-  const of = window.fetch;
-  window.fetch = function (input, init) {
-    rec('fetch', (input && input.url) || input, (init && init.method) || (input && input.method) || 'GET');
-    return of.apply(this, arguments);
-  };
-  const oo = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function (m, u) { rec('xhr', u, m); return oo.apply(this, arguments); };
-  if (navigator.sendBeacon) {
-    const ob = navigator.sendBeacon.bind(navigator);
-    navigator.sendBeacon = (u, d) => { rec('beacon', u, 'POST'); return ob(u, d); };
-  }
-  const os = HTMLFormElement.prototype.submit;
-  HTMLFormElement.prototype.submit = function () { rec('form.submit', this.action, this.method); return os.apply(this, arguments); };
-})();
-"""
+OBSERVED = "observed"
+DECLARED = "declared_in_script"
 
+DEFAULT_STEPS = [{"action": "open"}, {"action": "follow_redirects"}, {"action": "screenshot"}]
+STEP_ACTIONS = {"open", "wait", "follow_redirects", "screenshot", "scroll"}
+MAX_WAIT_MS = 5000
+HANDLER_SOURCE_MAX = 20000
+
+# Runs in an isolated world. A page can still clobber properties of forms and of document with named elements
+# (<input name="action">, <img name="forms">), which reach every world, so those go through the prototype getters.
 ANALYZE_JS = r"""
-() => {
-  const formHandlers = (f) => {
-    const out = [];
-    for (const l of window.__dpListeners || []) {
-      const t = l.target;
-      const delegated = t === document || t === window;
-      if (delegated ? l.type === 'submit' : (t === f || t.form === f || f.contains(t)))
-        out.push({event: l.type, on: delegated ? 'document' : t.tagName.toLowerCase(), source: l.source.slice(0, 20000)});
-    }
-    for (const el of [f, ...f.elements]) {
-      for (const [prop, event] of [['onsubmit', 'submit'], ['onclick', 'click']]) {
-        if (typeof el[prop] === 'function')
-          out.push({event, on: el.tagName.toLowerCase(), source: String(el[prop]).slice(0, 20000)});
-      }
-    }
-    return out;
+(() => {
+  const getter = (proto, name) => {
+    const g = Object.getOwnPropertyDescriptor(proto, name).get;
+    return (o) => g.call(o);
   };
-  const forms = [...document.forms].map((f, i) => ({
+  const attr = (e, n) => Element.prototype.getAttribute.call(e, n);
+  const hasAttr = (e, n) => Element.prototype.hasAttribute.call(e, n);
+  const within = (e, s) => [...Element.prototype.querySelectorAll.call(e, s)];
+  const all = (s) => [...Document.prototype.querySelectorAll.call(document, s)];
+  const children = getter(Element.prototype, 'children');
+  const tagName = getter(Element.prototype, 'tagName');
+  const textContent = getter(Node.prototype, 'textContent');
+  const elements = getter(HTMLFormElement.prototype, 'elements');
+  const baseURI = getter(Node.prototype, 'baseURI')(document);
+  const resolve = (u) => { try { return new URL(u, baseURI).href; } catch (e) { return u; } };
+
+  const formEls = all('form');
+  const forms = formEls.map((f, i) => ({
     index: i,
-    id: f.id || null,
-    action_attr: f.getAttribute('action'),
-    action_resolved: f.hasAttribute('action') ? f.action : null,
-    method: (f.getAttribute('method') || 'get').toLowerCase(),
-    fields: [...f.elements].filter(e => e.tagName !== 'FIELDSET').map(e => ({
-      tag: e.tagName.toLowerCase(), type: e.type || null, name: e.name || null, id: e.id || null})),
-    has_password: !!f.querySelector('input[type=password]'),
-    handlers: formHandlers(f),
+    id: attr(f, 'id'),
+    action_attr: attr(f, 'action'),
+    action_resolved: hasAttr(f, 'action') ? resolve(attr(f, 'action')) : null,
+    button_actions: within(f, '[formaction]').map(b => resolve(attr(b, 'formaction'))),
+    method: (attr(f, 'method') || 'get').toLowerCase(),
+    fields: [...elements(f)].filter(e => tagName(e) !== 'FIELDSET').map(e => ({
+      tag: tagName(e).toLowerCase(), type: attr(e, 'type'), name: attr(e, 'name'), id: attr(e, 'id')})),
+    has_password: within(f, 'input[type=password]').length > 0,
   }));
-  const password_fields = [...document.querySelectorAll('input[type=password]')].map(e => ({
-    name: e.name || null, id: e.id || null, form_index: e.form ? [...document.forms].indexOf(e.form) : null}));
+  const password_fields = all('input[type=password]').map(e => ({
+    name: attr(e, 'name'), id: attr(e, 'id'), form_index: e.form ? formEls.indexOf(e.form) : null}));
 
   const hidden_text = [];
   const skip = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'HEAD']);
   const walk = (el) => {
-    for (const c of el.children) {
-      if (skip.has(c.tagName)) continue;
+    for (const c of children(el)) {
+      if (skip.has(tagName(c))) continue;
       const cs = getComputedStyle(c);
-      const r = c.getBoundingClientRect();
+      const r = Element.prototype.getBoundingClientRect.call(c);
       let reason = null;
       if (cs.display === 'none') reason = 'display:none';
       else if (cs.visibility === 'hidden') reason = 'visibility:hidden';
@@ -105,18 +83,17 @@ ANALYZE_JS = r"""
       else if ((r.width === 0 || r.height === 0) && cs.overflow === 'hidden') reason = 'zero-size';
       else if (r.right <= 0 || r.bottom <= 0) reason = 'offscreen';
       if (reason) {
-        const t = (c.textContent || '').trim();
-        if (t) hidden_text.push({tag: c.tagName.toLowerCase(), id: c.id || null, reason, text: t.slice(0, 1000)});
+        const t = (textContent(c) || '').trim();
+        if (t) hidden_text.push({tag: tagName(c).toLowerCase(), id: attr(c, 'id'), reason, text: t.slice(0, 1000)});
         continue;
       }
       walk(c);
     }
   };
-  if (document.body) walk(document.body);
-
-  return {title: document.title, forms, password_fields, hidden_text,
-          runtime_calls: window.__dpCalls ? [...window.__dpCalls] : []};
-}
+  const body = getter(Document.prototype, 'body')(document);
+  if (body) walk(body);
+  return {title: getter(Document.prototype, 'title')(document), forms, password_fields, hidden_text};
+})()
 """
 
 # fetch('u'), xhr.open('POST','u'), navigator.sendBeacon('u'), $.post('u'), axios.post('u')
@@ -125,6 +102,7 @@ SINK_RE = re.compile(
     r"""(?:(['"])[A-Za-z]+\2\s*,\s*)?(['"`])([^'"`\s]+?)\3""")
 ABS_URL_RE = re.compile(r"""https?://[^\s'"`<>()\\]+""")
 ALARM_MARGIN_S = 5  # past the visit budget; still inside the launcher's hard kill
+SENDING_TYPES = {"fetch", "xhr", "ping", "eventsource"}
 
 
 def sha256(b):
@@ -206,6 +184,78 @@ def sandbox_evidence():
             "processes": procs}
 
 
+class Inspector:
+    """Reads a page from outside its JS context, over one CDP session."""
+
+    def __init__(self, ctx, page):
+        self.cdp = ctx.new_cdp_session(page)
+        self.scripts = {}
+        self.cdp.on("Debugger.scriptParsed", lambda e: self.scripts.__setitem__(e["scriptId"], e))
+        for domain in ("Runtime", "Page", "DOM", "Debugger"):
+            self.cdp.send(f"{domain}.enable")
+        # A `debugger` statement must not freeze the visit.
+        self.cdp.send("Debugger.setSkipAllPauses", {"skip": True})
+
+    def analyze(self):
+        frame = self.cdp.send("Page.getFrameTree")["frameTree"]["frame"]["id"]
+        world = self.cdp.send("Page.createIsolatedWorld", {"frameId": frame, "worldName": "dp-evidence"})
+        r = self.cdp.send("Runtime.evaluate", {"expression": ANALYZE_JS, "returnByValue": True,
+                                               "contextId": world["executionContextId"]})
+        if "exceptionDetails" in r:
+            raise PWError(str(r["exceptionDetails"])[:300])
+        an = r["result"]["value"]
+        for f, handlers in zip(an["forms"], self.form_handlers()):
+            f["handlers"] = handlers
+        return an
+
+    def listeners(self, object_id, depth):
+        return self.cdp.send("DOMDebugger.getEventListeners",
+                             {"objectId": object_id, "depth": depth, "objectGroup": "dp"})["listeners"]
+
+    def handler_source(self, listener):
+        """The handler's text out of its script. Locations count from the document, script text does not."""
+        script = self.scripts.get(listener["scriptId"])
+        description = (listener.get("handler") or {}).get("description", "")
+        if not script:
+            return description[:HANDLER_SOURCE_MAX]
+        src = self.cdp.send("Debugger.getScriptSource", {"scriptId": listener["scriptId"]})["scriptSource"]
+        row = listener["lineNumber"] - script["startLine"]
+        col = listener["columnNumber"] - (script["startColumn"] if row == 0 else 0)
+        start = sum(len(line) for line in src.splitlines(True)[:row]) + col
+        return src[start:start + (len(description) or HANDLER_SOURCE_MAX)][:HANDLER_SOURCE_MAX]
+
+    def form_handlers(self):
+        """Per form, in document order: submit/click listeners on it and inside it, plus submit listeners on
+        document and window, which see every form's submit."""
+        root = self.cdp.send("DOM.getDocument", {"depth": 0})["root"]["nodeId"]
+        forms = self.cdp.send("DOM.querySelectorAll", {"nodeId": root, "selector": "form"})["nodeIds"]
+        document = self.cdp.send("DOM.resolveNode", {"nodeId": root, "objectGroup": "dp"})["object"]["objectId"]
+        window = self.cdp.send("Runtime.evaluate", {"expression": "window", "objectGroup": "dp"})["result"]["objectId"]
+
+        def entries(found, on, types):
+            return [{"event": x["type"], "on": on, "source": self.handler_source(x)}
+                    for x in found if x["type"] in types]
+
+        shared = (entries(self.listeners(document, 0), "document", {"submit"})
+                  + entries(self.listeners(window, 0), "window", {"submit"}))
+        out = []
+        for node in forms:
+            obj = self.cdp.send("DOM.resolveNode", {"nodeId": node, "objectGroup": "dp"})["object"]["objectId"]
+            out.append(entries(self.listeners(obj, -1), "form", {"submit", "click"}) + shared)
+        self.cdp.send("Runtime.releaseObjectGroup", {"objectGroup": "dp"})
+        return out
+
+
+def parse_steps(text):
+    steps = json.loads(text)
+    if not isinstance(steps, list) or not steps or steps[0].get("action") != "open":
+        raise ValueError("steps must start with open")
+    for s in steps:
+        if s.get("action") not in STEP_ACTIONS:
+            raise ValueError(f"step not allowed: {s!r}")
+    return steps
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("url", nargs="?")
@@ -214,15 +264,22 @@ def main():
     ap.add_argument("--sandbox", choices=["on", "off"], default="on", help="Chromium's own sandbox")
     ap.add_argument("--launch-only", action="store_true", help="launch, report sandbox status, exit")
     ap.add_argument("--no-embed", action="store_true", help="omit screenshot base64 from JSON")
+    ap.add_argument("--steps", default=json.dumps(DEFAULT_STEPS), help="visit plan, JSON list of allowed steps")
     ap.add_argument("--workdir", default=os.path.join(tempfile.gettempdir(), "dp"))
     a = ap.parse_args()
+    try:
+        steps = parse_steps(a.steps)
+    except (ValueError, AttributeError) as e:
+        print(f"bad steps: {e}", file=sys.stderr)
+        sys.exit(64)
 
     t0 = time.monotonic()
     rec = {
-        "schema": "dp-visit/2",
+        "schema": "dp-visit/3",
         "input_url": a.url,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "timeout_s": a.timeout,
+        "steps": steps,
         "browser": {"sandbox_requested": a.sandbox},
         "errors": [],
         "env_keys": sorted(os.environ),
@@ -266,15 +323,16 @@ def main():
             browser.close()
             emit_and_exit(0)
 
-        ctx.add_init_script(INIT_JS)
         page = ctx.new_page()
+        inspector = Inspector(ctx, page)
 
-        requests, status_by_req = [], {}
+        requests, status_by_req, page_of_req = [], {}, {}
         nav_reqs, pages, downloads = [], [], []
         last_nav = [time.monotonic()]
 
         def on_request(r):
             requests.append(r)
+            page_of_req[id(r)] = page.url
             if r.is_navigation_request() and r.frame == page.main_frame:
                 nav_reqs.append(r)
                 last_nav[0] = time.monotonic()
@@ -286,36 +344,55 @@ def main():
             entry = {"url": p.url}
             try:
                 img = p.screenshot(type="jpeg", quality=70, timeout=10000)
-                entry["screenshot"] = {"bytes": len(img), "sha256": sha256(img)}
+                entry["screenshot"] = {"bytes": len(img), "sha256": sha256(img), "kind": OBSERVED}
                 if not a.no_embed:
                     entry["screenshot"]["jpeg_b64"] = base64.b64encode(img).decode()
             except PWError as e:
                 entry["screenshot_error"] = str(e)[:300]
             try:
-                entry["analysis"] = p.evaluate(ANALYZE_JS)
+                entry["analysis"] = inspector.analyze()
             except PWError as e:
                 entry["analysis_error"] = str(e)[:300]
             return entry
 
-        def on_load(p):
-            pages.append(snapshot(p))
+        def record(entry):
+            if pages and pages[-1]["url"] == entry["url"]:
+                pages[-1] = entry
+            else:
+                pages.append(entry)
 
-        page.on("request", on_request)
-        page.on("response", on_response)
+        ctx.on("request", on_request)
+        ctx.on("response", on_response)
         page.on("download", lambda d: downloads.append(d))
-        page.on("load", on_load)
+        page.on("load", lambda p: record(snapshot(p)))
 
         deadline = t0 + a.timeout
         rec["timed_out"] = False
         tv = time.monotonic()
+
+        def remaining_ms():
+            return max(1, deadline - time.monotonic()) * 1000
+
         try:
-            page.goto(a.url, wait_until="load", timeout=max(1, deadline - time.monotonic()) * 1000)
-            # Follow client-side redirects until no new main-frame navigation for `settle` seconds.
-            while time.monotonic() < deadline:
-                page.wait_for_timeout(250)
-                if time.monotonic() - last_nav[0] >= a.settle:
+            for step in steps:
+                if time.monotonic() >= deadline:
                     break
-            page.wait_for_load_state("load", timeout=max(1, deadline - time.monotonic()) * 1000)
+                action = step["action"]
+                if action == "open":
+                    page.goto(a.url, wait_until="load", timeout=remaining_ms())
+                elif action == "follow_redirects":
+                    # Follow client-side redirects until no new main-frame navigation for `settle` seconds.
+                    while time.monotonic() < deadline:
+                        page.wait_for_timeout(250)
+                        if time.monotonic() - last_nav[0] >= a.settle:
+                            break
+                    page.wait_for_load_state("load", timeout=remaining_ms())
+                elif action == "wait":
+                    page.wait_for_timeout(min(int(step.get("ms", 1000)), MAX_WAIT_MS, remaining_ms()))
+                elif action == "scroll":
+                    page.mouse.wheel(0, 800)
+                elif action == "screenshot":
+                    record(snapshot(page))
         except PWTimeout as e:
             rec["timed_out"] = True
             rec["errors"].append({"stage": "visit", "message": str(e).splitlines()[0][:300]})
@@ -325,17 +402,14 @@ def main():
         rec["browser"]["sandbox_evidence"] = sandbox_evidence()
 
         # Fresh analysis of the page as it stands now (scripts may have changed it after load).
-        final = snapshot(page) if not rec["timed_out"] else {"url": page.url}
-        if pages and pages[-1]["url"] == final["url"]:
-            pages[-1] = final
-        elif not rec["timed_out"]:
-            pages.append(final)
+        if not rec["timed_out"]:
+            record(snapshot(page))
         rec["final_url"] = page.url
 
         # Downloads: save under workdir, hash, never open.
         dls, dl_urls = [], set()
         for i, d in enumerate(downloads):
-            item = {"url": d.url, "suggested_filename": d.suggested_filename}
+            item = {"url": d.url, "suggested_filename": d.suggested_filename, "kind": OBSERVED}
             dl_urls.add(d.url)
             try:
                 safe = re.sub(r"[^A-Za-z0-9._-]", "_", d.suggested_filename)[:100] or "download"
@@ -356,36 +430,39 @@ def main():
             prev = r.redirected_from
             if prev is not None:
                 redirects.append({"type": "http", "status": status_by_req.get(id(prev)),
-                                  "from": prev.url, "to": r.url})
+                                  "from": prev.url, "to": r.url, "kind": OBSERVED})
             elif visited:
-                redirects.append({"type": "client", "from": visited[-1], "to": r.url})
+                redirects.append({"type": "client", "from": visited[-1], "to": r.url, "kind": OBSERVED})
             visited.append(r.url)
         rec["redirects"] = redirects
         rec["navigations"] = visited
 
         # Per-page evidence and aggregated findings.
         rec["pages"], rec["forms"], rec["password_fields"], rec["hidden_text"] = [], [], [], []
-        rec["destinations"], rec["runtime_calls"] = [], []
+        rec["destinations"] = []
         for pg in pages:
             an = pg.pop("analysis", None) or {}
             u = pg["url"]
             pg["title"] = an.get("title")
             rec["pages"].append(pg)
             for f in an.get("forms", []):
-                rec["forms"].append({"page": u, **f})
-                if f["action_resolved"]:
-                    rec["destinations"].append({"kind": "form-action", "page": u, "url": f["action_resolved"],
+                rec["forms"].append({"page": u, "kind": OBSERVED, **f})
+                actions = ([f["action_resolved"]] if f["action_resolved"] else []) + f["button_actions"]
+                for action_url in actions:
+                    rec["destinations"].append({"via": "form-action", "kind": OBSERVED, "page": u, "url": action_url,
                                                 "method": f["method"], "form_index": f["index"]})
-                sources = [(f"{h['on']}:{h['event']}", h["source"]) for h in f["handlers"]]
+                sources = [(f"{h['on']}:{h['event']}", h["source"]) for h in f.get("handlers", [])]
                 for t in script_targets(u, sources):
-                    rec["destinations"].append({"kind": f"form-handler:{t['via']}", "page": u, "url": t["url"],
-                                                "source": t["source"], "form_index": f["index"]})
-            rec["password_fields"] += [{"page": u, **p} for p in an.get("password_fields", [])]
-            rec["hidden_text"] += [{"page": u, **h} for h in an.get("hidden_text", [])]
-            for c in an.get("runtime_calls", []):
-                rec["runtime_calls"].append({"page": u, **c})
-                rec["destinations"].append({"kind": f"runtime:{c['kind']}", "page": u, "url": c["url"],
-                                            "method": c["method"]})
+                    rec["destinations"].append({"via": f"form-handler:{t['via']}", "kind": DECLARED, "page": u,
+                                                "url": t["url"], "source": t["source"], "form_index": f["index"]})
+            rec["password_fields"] += [{"page": u, "kind": OBSERVED, **p} for p in an.get("password_fields", [])]
+            rec["hidden_text"] += [{"page": u, "kind": OBSERVED, **h} for h in an.get("hidden_text", [])]
+
+        # Requests that really left the page, from the browser's own network events.
+        for r in requests:
+            if r.resource_type in SENDING_TYPES:
+                rec["destinations"].append({"via": f"request:{r.resource_type}", "kind": OBSERVED,
+                                            "page": page_of_req[id(r)], "url": r.url, "method": r.method})
         for d in rec["destinations"]:
             d["host"] = host(d["url"])
             d["same_host_as_page"] = d["host"] == host(d["page"])
@@ -393,7 +470,7 @@ def main():
         rec["network"] = [{
             "method": r.method, "url": r.url, "resource_type": r.resource_type,
             "navigation": r.is_navigation_request(), "status": status_by_req.get(id(r)),
-            "failure": r.failure,
+            "failure": r.failure, "kind": OBSERVED,
         } for r in requests]
 
         try:

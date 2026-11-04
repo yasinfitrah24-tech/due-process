@@ -21,9 +21,12 @@ probe built on Nov 1, before the hackathon started on Nov 3. The probe contains 
 
 ## Changes to `visit.py` during the hackathon
 
-- Form destinations no longer come from a regex over all page scripts. The init script now records the source of
-  submit and click listeners, and only the handlers bound to a form are read.
-- Calls that really happen (fetch, XHR, sendBeacon, form.submit) are reported as `runtime:*` destinations.
+- Nothing runs in the page's JS context any more. The probe's init script and `page.evaluate` are gone, because a
+  page can rewrite both. Requests come from Playwright's network events, listeners and their source from CDP
+  (`DOMDebugger.getEventListeners`, `Debugger.getScriptSource`), and the DOM from an isolated world.
+- The regex over all page scripts is gone. Only the source of handlers bound to a form is read.
+- Every evidence item has `kind`: `observed` or `declared_in_script`.
+- The visit follows a validated list of steps instead of one fixed sequence.
 - Namespace proof is recorded on every visit, not only with `--launch-only`.
 - The last-resort alarm moved from 20 s to 5 s after the visit budget, so it fires before the launcher's hard kill.
 - Removed the `--channel` option, which was for local testing.

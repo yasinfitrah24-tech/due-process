@@ -6,6 +6,7 @@ The flags in docker_args() are the sandbox contract in CLAUDE.md: don't change t
 import argparse
 import base64
 import json
+import os
 import re
 import subprocess
 import sys
@@ -41,9 +42,18 @@ def docker_args(name, cidfile):
             "--cpus", "1", "--rm", IMAGE]
 
 
-def visit_args(url):
+def visit_args(url, steps=None):
     # "--" so a reported URL can never be read as an option by visit.py.
-    return ["--sandbox", "on", "--timeout", str(VISIT_BUDGET_S), "--", url]
+    plan = ["--steps", json.dumps(steps)] if steps else []
+    return ["--sandbox", "on", "--timeout", str(VISIT_BUDGET_S), *plan, "--", url]
+
+
+def ensure_image():
+    """Build the sandbox image if it is missing. The CLI in the app image has no buildx."""
+    found = subprocess.run(["docker", "image", "inspect", IMAGE], capture_output=True)
+    if found.returncode != 0:
+        subprocess.run(["docker", "build", "-q", "-t", IMAGE, str(SECCOMP.parent.parent)], check=True,
+                       env={**os.environ, "DOCKER_BUILDKIT": "0"})
 
 
 def check_url(url):
@@ -79,7 +89,7 @@ def namespace_proof(evidence):
             "isolated_types": sorted({p["type"] for p in isolated})}
 
 
-def run_visit(url, case="case"):
+def run_visit(url, case="case", steps=None):
     """Returns {"ok", "evidence", "receipt"}. ok means: evidence came back, Chromium's sandbox was
     really on (processes in new namespaces), and the container is confirmed gone."""
     check_url(url)
@@ -88,7 +98,7 @@ def run_visit(url, case="case"):
         cidfile = Path(tmp) / "cid"
         flags = docker_args(name, cidfile)
         started_at, t0, hard_killed = now(), time.monotonic(), False
-        proc = subprocess.Popen(flags + visit_args(url), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen(flags + visit_args(url, steps), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             out, err = proc.communicate(timeout=HARD_TIMEOUT_S)
         except subprocess.TimeoutExpired:
@@ -142,7 +152,7 @@ def summary(result):
     lines = [f"final url    {e.get('final_url')}",
              f"timed out    {e.get('timed_out')}  errors {len(e.get('errors', []))}"]
     lines += [f"redirect     {x['type']}: {x['from']} -> {x['to']}" for x in e.get("redirects", [])]
-    lines += [f"destination  {d['kind']}: {d['url']} (same host: {d['same_host_as_page']})"
+    lines += [f"destination  {d['via']} [{d['kind']}]: {d['url']} (same host: {d['same_host_as_page']})"
               for d in e.get("destinations", [])]
     lines += [f"password     {len(e.get('password_fields', []))} field(s)",
               f"hidden text  {[h['text'] for h in e.get('hidden_text', [])]}",
