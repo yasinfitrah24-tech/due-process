@@ -86,23 +86,36 @@ make eval
 
 ## Evaluation
 
-From `make eval`, 26 labeled cases on fictional test pages, one run each, model cost USD 0.10. The full results, with
-every case named, are in [docs/eval.md](docs/eval.md).
+From `make eval`: 47 labeled cases on fictional test pages, one run each, model cost USD 0.17. Every case is named in
+[docs/eval.md](docs/eval.md), next to the earlier 26-case version. For Due Process the action is the strongest its verdict
+allows, which is the worst an analyst could do.
 
-| Approach | Wrongful suspend | Abuse missed | Injection changed the outcome |
-|---|---|---|---|
-| Due Process | 1 of 14 | 2 of 12 | 0 of 4 |
-| Text-only triage | 1 of 14 | 0 of 12 | 0 of 4 |
-| Fetch without browser | 1 of 14 | 9 of 12 | not applicable: it never reads the report |
+| Approach | Wrongful suspend | Abuse missed | Injection changed the outcome | Twin pairs right |
+|---|---|---|---|---|
+| Due Process | 1 of 25 | 2 of 22 | 0 of 4 | 8 of 8 |
+| Text-only triage | 11 of 25 | 3 of 22 | 0 of 4 | 0 of 8 |
+| Fetch without browser | 1 of 25 | 13 of 22 | not applicable: it never reads the report | 4 of 8 |
 
-- **Against fetching without a browser, the browser is the difference**: the same rules with no browser missed 9 of 12
-  abuse cases against 2 of 12.
-- **Text-only triage did as well or better on this corpus, and this does not show Due Process beating it.** The corpus
-  has a confound that may help it: abuse and customer are correlated, and the model is given the customer list. What it
-  cannot give is evidence for its decision.
-- Across 96 model outputs, none cited a signal that does not exist.
-- Containment, 10 runs: the level stayed Proven 10 of 10, the metadata request was blocked 10 of 10 and the download
-  was quarantined 10 of 10. The vision model repeated the page's "safe" claim 10 of 10, and the flag caught all 10.
+**Twin pairs** give one identical report to two pages, one abuse and one legitimate, on neutral hosts of one customer.
+They test what cannot be known from the text, and they were added on purpose after the first version of this eval, where
+text-only triage did as well as Due Process and the corpus let it judge by who owned the host. So read the table this way:
+
+- The twin results are close to fixed by the design. Text-only triage gets almost the same input twice, so it can hardly
+  answer differently. Due Process's abuse pages use techniques its signals are built to see.
+- The total depends on the mix of cases. On the 26 original cases, text-only triage had 2 wrongful suspends of 14 and
+  missed 0 of 12, against 1 of 14 and 2 of 12 for Due Process. On the 21 new cases it had 9 of 11 and 3 of 10, against
+  0 of 11 and 0 of 10.
+- Reading a report can be a good guess. What it cannot do is tell two pages apart, or give evidence for its decision.
+
+**Browser against no browser:** the same rules with only an HTTP GET missed 13 of 22 abuse cases, against 2 of 22 with the
+browser. Script redirects and script handlers are invisible to it.
+
+**Containment, 10 runs:** the verdict stayed Proven 10 of 10, the cloud metadata request was blocked 10 of 10, and the
+download was quarantined 10 of 10. The vision model repeated the page's "safe" claim 10 of 10, and the page-text flag
+caught all 10.
+
+Across 180 model outputs, none cited a signal that does not exist. Text-only triage is about 8 times faster and cheaper
+per case: 2.89 s and USD 0.0003, against 23.69 s and USD 0.0026.
 
 ## Known limits
 
@@ -117,6 +130,8 @@ every case named, are in [docs/eval.md](docs/eval.md).
   break it. The failure is safe: a visit with no namespace proof comes back Not proven.
 - **Vision claims can repeat page text.** This happens, and it is flagged. It never moves a verdict.
 - **Citation checks prove that a signal id exists**, not that the sentence describes it truly.
+- **The check for uncited findings is a word list.** It can miss a finding in other words, and it can refuse a harmless
+  sentence; then the documents fall back to a template from code.
 - **The demo is open.** Anyone can approve simulated actions there. The launcher is still root-equivalent on its host
   if compromised.
 
