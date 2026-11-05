@@ -1,8 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Queue - Due Process{% endblock %}
-{% block content %}
-<div class="front">
-<section class="hero">
+{% block band %}
+<section class="hero-band"><div class="hero">
   <h1>A report is a claim. Only reproduced evidence can move an action.</h1>
   <p class="lead">Due Process is an abuse desk for hosting providers. The reported URL is opened in a throwaway browser in a locked-down sandbox on Vultr, and only evidence reproduced there can lead to action. Try an example or send your own report: no access code is needed.</p>
   <div class="btn-row">
@@ -10,8 +9,10 @@
     <a class="btn" href="/compare">Compare the two pages</a>
   </div>
   <p class="demo-note">This is a demo. Every customer and action is simulated.</p>
-</section>
-
+</div></section>
+{% endblock %}
+{% block content %}
+<div class="front">
 <section class="showcase" aria-label="One report, two pages">
   <div class="claim-box">
     <p class="label">The same report, sent twice</p>
@@ -19,13 +20,14 @@
     <p class="claim-label">Reporter's claim — untrusted. It cannot move the verdict.</p>
   </div>
   <div class="solid{{ ' reveal' if showcase.sides else '' }}">
+    {% if showcase.date %}<p class="real">Real comparison, run on {{ showcase.date }}</p>{% endif %}
     {% if showcase.sides %}
     <div class="versus head"><div class="label">The browser saw</div><div class="label">baseline: reads report text only</div></div>
     {% for s in showcase.sides %}
     <div class="versus">
       <div>
         <p class="code host url-line" title="{{ s.url }}">{{ s.url }}</p>
-        <p class="big">{{ s.level }}</p>
+        <p class="big"><span class="pill pill-on-navy pill-{{ s.level|replace(' ', '') }}">{{ s.level }}</span></p>
         <p class="why">{{ s.why }}</p>
       </div>
       <div class="base">
@@ -44,6 +46,13 @@
     {% endif %}
   </div>
 </section>
+
+<ol class="flow" aria-label="How a report moves">
+  <li>The report claims.</li>
+  <li>The browser reproduces.</li>
+  <li>Code decides.</li>
+  <li>An analyst acts.</li>
+</ol>
 
 <section class="try-box" aria-labelledby="try">
   <h2 id="try" class="section-title">Try a case</h2>
@@ -102,6 +111,7 @@
     <div><p class="fact">2 of 22 abuse cases missed</p><p class="more">A plain fetch missed 13 of the same 22.</p></div>
     <div><p class="fact">0 false citations</p><p class="more">Across 180 model outputs.</p></div>
   </div>
+  <p class="eval-source">From <a href="https://github.com/yasinfitrah24-tech/due-process/blob/main/docs/eval.md">docs/eval.md</a>, 47 test cases.</p>
 </details>
 
 <section class="queue" id="queue" aria-labelledby="queue-title">
@@ -114,6 +124,7 @@
       </tbody>
     </table>
   </div>
+  {% if cases|length > 12 %}<details class="queue-all" id="queue-all"><summary class="btn">Show all {{ cases|length }} cases</summary></details>{% endif %}
 </section>
 </div>
 {% endblock %}

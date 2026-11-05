@@ -5,8 +5,8 @@
   <td class="url-cell" title="{{ c.url }}"><span class="code url-line">{{ c.url }}</span></td>
   <td title="{{ c.customer_name or 'Test any URL' }}">{{ c.customer_name or 'Test any URL' }}</td>
   <td>{{ c.status }}</td>
-  <td><span class="level level-{{ (c.level or '')|replace(' ', '') }}">{{ c.level or '...' }}</span></td>
-  <td>{{ c.decided_action or '' }}</td>
+  <td>{% if c.level %}<span class="pill pill-{{ c.level|replace(' ', '') }}">{{ c.level }}</span>{% else %}...{% endif %}</td>
+  <td>{% if c.decided_action %}<span class="pill pill-{{ c.decided_action }}">{{ c.decided_action }}</span>{% endif %}</td>
 </tr>
 {% else %}
 <tr><td colspan="6" class="muted">No reports yet. <a href="#try">Try a case</a> to see one here.</td></tr>

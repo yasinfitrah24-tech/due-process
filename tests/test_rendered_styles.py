@@ -81,3 +81,78 @@ def test_show_all_still_holds_the_whole_text(long_claims):
     whole = long_claims[long_claims.index('id="claims-all"'):]
     assert ("A long report with many words in it. " * 30).strip() in whole
     assert ("A long claim about the page, written at length. " * 12).strip() in whole
+
+
+PILLS = """
+  const rgb = s => (s.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+  const lum = c => { const f = c.map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; });
+                     return .2126 * f[0] + .7152 * f[1] + .0722 * f[2]; };
+  return [...doc.querySelectorAll('.pill, .badge')].map(e => {
+    const s = win.getComputedStyle(e), text = rgb(s.color), back = rgb(s.backgroundColor);
+    const [hi, lo] = [lum(text), lum(back)].sort((a, b) => b - a);
+    return {words: e.innerText.trim(), classes: e.className, text, back, ratio: (hi + .05) / (lo + .05)};
+  });
+"""
+HEX = {"Proven": ((0xA3, 0x22, 0x1A), (0xFB, 0xEA, 0xE8)), "Suspend": ((0xA3, 0x22, 0x1A), (0xFB, 0xEA, 0xE8)),
+       "Suspicious": ((0x9A, 0x4A, 0x06), (0xFD, 0xEF, 0xE0)), "Warn": ((0x9A, 0x4A, 0x06), (0xFD, 0xEF, 0xE0)),
+       "Not proven": ((0x3E, 0x4A, 0x5C), (0xE9, 0xED, 0xF3)), "Close": ((0x3E, 0x4A, 0x5C), (0xE9, 0xED, 0xF3))}
+SOLID = {"Proven": (0xB3, 0x26, 0x1E), "Suspicious": (0xB4, 0x53, 0x09), "Not proven": (0x4B, 0x58, 0x68)}
+QUEUE_ROWS = """<table class="queue"><tbody>""" + "".join(
+    f'<tr><td><span class="pill pill-{w.replace(" ", "")}">{w}</span></td></tr>' for w in HEX) + """</tbody></table>"""
+LEVELS = "".join(f'<p class="badge badge-{w.replace(" ", "")}">{w}</p>' for w in SOLID)
+
+
+def test_every_level_and_decision_has_its_words_and_its_color(tmp_path):
+    page = f"<!doctype html><html><head></head><body>{QUEUE_ROWS}{LEVELS}</body></html>"
+    for frame, pills in run_in_frames({"pills": page}, PILLS, tmp_path).items():
+        assert len(pills) == len(HEX) + len(SOLID)
+        for p in pills:
+            assert p["words"] and p["ratio"] >= 4.5, f"{frame}: {p}"
+            if "badge" in p["classes"]:
+                assert tuple(p["back"]) == SOLID[p["words"]] and p["text"] == [255, 255, 255], f"{frame}: {p}"
+            else:
+                assert (tuple(p["text"]), tuple(p["back"])) == HEX[p["words"]], f"{frame}: {p}"
+
+
+def test_queue_and_case_use_the_level_pills(client):  # noqa: F811
+    c = run(client, URL_A)
+    assert 'class="pill pill-Proven">Proven<' in client.get("/partials/queue").text
+    assert 'badge badge-Proven">Proven<' in client.get(f"/cases/{c['id']}").text
+
+
+NAVIGATION = """
+  const back = doc.querySelector('.back'), links = [...doc.querySelectorAll('.site-nav a')];
+  return {back: back ? back.getBoundingClientRect().height : null, width: win.innerWidth,
+          lines: links.map(a => win.getComputedStyle(a).textDecorationLine),
+          heights: links.map(a => a.getBoundingClientRect().height),
+          current: links.filter(a => a.getAttribute('aria-current') === 'page').length};
+"""
+
+
+def test_menu_has_no_underlines_and_marks_the_page_and_the_back_button_fits_a_finger(client, tmp_path):  # noqa: F811
+    c = run(client, URL_A)
+    results = run_in_frames({"front": client.get("/").text, "case": client.get(f"/cases/{c['id']}").text}, NAVIGATION, tmp_path)
+    for frame, n in results.items():
+        assert set(n["lines"]) == {"none"} and min(n["heights"]) >= 44, f"{frame}: {n}"
+        assert n["current"] == (1 if frame.startswith("front") else 0), f"{frame}: {n}"
+        if frame.startswith("case"):
+            assert n["back"] >= (44 if n["width"] <= 375 else 40), f"{frame}: {n}"
+
+
+QUEUE_SHOWN = """return [...doc.querySelectorAll('#queue tbody tr')].filter(r => r.getBoundingClientRect().height > 0).length;"""
+
+
+def test_the_front_page_shows_twelve_rows_until_asked(client, monkeypatch, tmp_path):  # noqa: F811
+    monkeypatch.setattr("app.main.submit", lambda case_id: None)
+    for _ in range(9):
+        client.post("/api/reports", json={"url": URL_A, "claim": "c"})
+    assert "Show all" not in client.get("/").text
+    monkeypatch.setattr("app.ratelimit.allow", lambda *a, **k: True)
+    for _ in range(6):
+        client.post("/api/reports", json={"url": URL_A, "claim": "c"})
+    page = client.get("/").text
+    assert "Show all 15 cases" in page
+    opened = page.replace('id="queue-all"', 'id="queue-all" open')
+    results = run_in_frames({"folded": page, "open": opened}, QUEUE_SHOWN, tmp_path)
+    for frame, rows in results.items():
+        assert rows == (12 if frame.startswith("folded") else 15), f"{frame}: {rows}"
