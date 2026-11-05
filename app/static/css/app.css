@@ -244,10 +244,11 @@ input[type=radio]:focus-visible { outline: 3px solid var(--yellow); box-shadow: 
 
 /* Case */
 .back { font-size: 15px; }
-.case-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; margin-top: 12px; }
+.case-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-top: 12px; }
+.case-head > div:first-child { flex: 1; min-width: 0; }
 .case-head h1 { margin-top: 2px; font-size: 36px; line-height: 1.15; }
 .case-url { margin-top: 4px; font-size: 15px; color: var(--text-2); overflow-wrap: anywhere; }
-.case-state { max-width: 460px; text-align: right; }
+.case-state { flex: 0 0 auto; max-width: 460px; text-align: right; }
 .case-state p { font-size: 15px; color: var(--text-3); }
 .case-state .demo-note { margin-top: 4px; font-size: 13px; }
 .url-full { display: none; }
@@ -440,6 +441,26 @@ input[type=radio]:focus-visible { outline: 3px solid var(--yellow); box-shadow: 
   .technical > .rec-body > h2 { margin-top: 16px; font-size: 15px; }
   .technical code, .technical .code { font-size: 11px; }
   .technical .chip { padding: 0 3px; font-size: 11px; white-space: normal; overflow-wrap: anywhere; }
+
+  /* Everything a finger can press is at least 44x44. Negative margins keep the header as low as it was. */
+  main a:not(.btn, .back) { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; }
+  .site-nav a, .brand { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; margin-block: -10px; }
+  summary { min-height: 44px; padding-block: 10px; }
+  details.form-card, .measures, .claims { padding: 0 14px; }
+  details.form-card > summary, .measures > summary, .claims > summary { padding-block: 10px; }
+  details.form-card > form, .claims > div { margin-top: 0; padding-bottom: 12px; }
+  .measure-row { margin-top: 0; padding-bottom: 12px; }
+  .tries li { padding: 0 14px 8px; }
+  .tries .link-button { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; }
+  .queue tr { position: relative; min-height: 46px; }
+  .queue td:nth-child(1) { width: 38px; overflow: visible; }
+  .queue td:nth-child(1) a { position: absolute; inset: 0; display: block; padding: 5px 12px; }
+  .choice { min-height: 44px; gap: 0; }
+  .choice input {
+    appearance: none; width: 44px; height: 44px; margin: 0 0 0 -12px;
+    background: radial-gradient(circle, var(--card) 0 8px, var(--navy) 8.5px 10px, transparent 10.5px);
+  }
+  .choice input:checked { background: radial-gradient(circle, var(--navy) 0 5px, var(--card) 5.5px 8px, var(--navy) 8.5px 10px, transparent 10.5px); }
 }
 @media (min-width: 720px) {
   .case-grid > .case-state { display: none; }
