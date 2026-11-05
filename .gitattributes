@@ -1,1 +1,4 @@
 * text=auto eol=lf
+scripts export-ignore
+docs/screens export-ignore
+docs/design export-ignore

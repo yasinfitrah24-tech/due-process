@@ -364,23 +364,23 @@ Heights count the Drafts folded, as a phone first shows them.
 
 | Page | Level y | Action y | Height | Height at the first inventory |
 |---|---|---|---|---|
-| Case, Proven (28) | 149 | 323 | 2233 | 3253 |
-| Case, Not proven (34) | 149 | 302 | 1927 | 2249 |
-| Case, containment (37) | 149 | 365 | 2716 | none |
-| Case, Suspicious, ready (staged) | 149 | 302 | 2015 | none |
-| Case, Warn decided (5) | 149 | decided | 1806 | 3473 |
-| Case, template (6) | 149 | decided | 2491 | 4076 |
-| Case, appeal ready (17) | 149 | Reinstate 2357 | 2580 | 4531 |
-| Case, visit failed (staged) | 151 | 412 | 1169 | none |
-| Case, teardown failed (staged) | 151 | 542 | 1384 | none |
-| Case, cost limit (staged) | 149 | 365 | 2156 | none |
-| Test any URL (8) | 149 | none | 1113 | 1474 |
-| Twin case (15) | 149 | none | 911 | 1205 |
-| Compare | | | 1174 | 812 |
-| Compare result | | | 1695 | 1125 |
-| Customer view (17) | | | 1931 | 917 |
+| Case, Proven (28) | 146 | 320 | 2227 | 3253 |
+| Case, Not proven (34) | 146 | 299 | 1921 | 2249 |
+| Case, containment (37) | 146 | 362 | 2710 | none |
+| Case, Suspicious, ready (staged) | 146 | 299 | 2009 | none |
+| Case, Warn decided (5) | 146 | decided | 1801 | 3473 |
+| Case, template (6) | 146 | decided | 2486 | 4076 |
+| Case, appeal ready (17) | 146 | Reinstate 2395 | 2618 | 4531 |
+| Case, visit failed (staged) | 148 | 409 | 1164 | none |
+| Case, teardown failed (staged) | 148 | 539 | 1379 | none |
+| Case, cost limit (staged) | 146 | 362 | 2150 | none |
+| Test any URL (8) | 146 | none | 1107 | 1474 |
+| Twin case (15) | 146 | none | 906 | 1205 |
+| Compare | | | 1171 | 812 |
+| Compare result | | | 1734 | 1125 |
+| Customer view (17) | | | 1932 | 917 |
 
-Front page at 375: height 3690, Queue at 1742, with the 35 rows of the VM copy. Each Queue row adds about 47 px, so 100 rows, the limit, comes to
+Front page at 375: height 3668, Queue at 1734, with the 35 rows of the VM copy. Each Queue row adds about 47 px, so 100 rows, the limit, comes to
 about 6700 px.
 
 ## h. Contrast

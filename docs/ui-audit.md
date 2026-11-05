@@ -1,7 +1,7 @@
 # UI audit, design 6A
 
-Audit of branch `yasin/ui-6a` at `a169927`, on 2026-11-05. Status updated after the fixes Yasin approved: 10 findings and all motion
-changes are fixed, 14 are deferred, and the confirmation dialog stays rejected.
+Audit of branch `yasin/ui-6a` at `a169927`, on 2026-11-05. Status updated after the fixes Yasin approved: 12 findings and all motion
+changes are fixed, 12 are deferred, and the confirmation dialog stays rejected.
 
 Checked with the rule lists of `ui-ux-pro-max` (accessibility, states, responsive, tokens) and `emil-design-eng` (motion and interaction
 feedback), against the screenshots in `docs/screens/`, the code, and a read-only browser run of 22 screens at 375, 768, 812 and 1280 px wide.
@@ -25,8 +25,8 @@ Impact: High blocks or misleads someone. Medium hurts a common path. Low is poli
 | 3 | Case, visit failed and teardown failed | The solid navy block and the title "Evidence the browser reproduced" appear when nothing was reproduced. In 6A navy means reproduced evidence, so the screen says the opposite of its text. | High. It breaks the product's main visual rule at the moment evidence is missing. | With a note and no signals, use the outlined or pending block, and a title such as "Nothing was reproduced". The level stays. | 45 min | Fixed |
 | 4 | Case, teardown failed | The note says only that the visit "did not complete". "Container still present" is inside the closed Technical evidence. A container left running is the one sandbox failure an operator must see. | High. A containment failure can go unnoticed. | Show a notice in the evidence block when `container_gone` is false, with what to do. | 30 min | Fixed |
 | 5 | Case, Compare | The status sent to `aria-live` has no level: "Received, reproduced, decided. Awaiting an analyst." A screen reader user never hears Proven or Not proven as it appears. | High for those users. The main result is not announced. | Add the level to the announced text. Compare: both levels. | 30 min | Fixed |
-| 6 | Case and Queue at 720 px and wider | A long URL is shown whole: with 2000 characters the level moves from y 298 to 697 on a Case, and one row adds about 3000 px to the public Queue. Anyone can submit such a URL. | Medium. The verdict leaves the first screen, and one report spoils the public Queue. | Clamp to two lines with the full value under the existing Show all pattern. In the Queue, one line with ellipsis. | 45 min | Deferred |
-| 7 | Front page | Try a case buttons are 20 px high, and header links 23 px on a phone, under the 24 px WCAG minimum. Try a case is the main way into the demo. | Medium. Mis-taps on the most used control on a phone. | Make the whole row the target, at least 44 px. Pad the header links. | 30 min | Deferred |
+| 6 | Case and Queue at 720 px and wider | A long URL is shown whole: with 2000 characters the level moves from y 298 to 697 on a Case, and one row adds about 3000 px to the public Queue. Anyone can submit such a URL. | Medium. The verdict leaves the first screen, and one report spoils the public Queue. | Clamp to two lines with the full value under the existing Show all pattern. In the Queue, one line with ellipsis. | 45 min | Fixed |
+| 7 | Front page | Try a case buttons are 20 px high, and header links 23 px on a phone, under the 24 px WCAG minimum. Try a case is the main way into the demo. | Medium. Mis-taps on the most used control on a phone. | Make the whole row the target, at least 44 px. Pad the header links. | 30 min | Fixed |
 | 8 | Case and Customer view, appeals | The re-visit block never opens. `app.js` plays it only when a level changes from empty, but this block first appears with its level already set. 6A shows this moment. | Medium. The reveal is missing from one of the two places the design uses it. | Treat a block that appears during polling with a level as first shown. | 30 min | Fixed |
 | 9 | All screens | `aria-current` is never set, though 6A has it and the CSS is ready. Nothing in the header shows where you are. | Medium. Lost orientation, and a gap against the mockup. | Set it on Queue and Same report, two pages. | 15 min | Fixed |
 | 10 | All screens, phone turned sideways | At 812×375 the wide layout applies: the level is at y 321 of a 375 px screen, and Action below it. | Medium. Level and Action leave the first view on a phone in landscape. | Apply the phone layout at `max-height: 500px` too. | 30 min | Deferred |
@@ -45,7 +45,7 @@ Impact: High blocks or misleads someone. Medium hurts a common path. Low is poli
 | 23 | Case, phone | The required "Computed by code..." label is 12 px, and Technical evidence goes down to 11 px. The 12 px is from `case-phone.html`. | Low. Small, though contrast passes. | Raise the label to 13 px if Action stays at or above its current position. Leave Technical. | 15 min | Fixed |
 | 24 | CSS | 21 font sizes in use, with no type tokens. Three raw `rgba()` values and the 2 px and 3 px radii are outside `:root`. `.stack` is unused. The radii come from the mockups. | Low. Harder upkeep, nothing visible. | Add size tokens and a divider token, and drop dead rules. | 45 min | Deferred |
 
-The 14 deferred findings are about 7 hours. Finding 2 covers forms only: each form carries a nonce the server spends once, in
+The 12 deferred findings are about 6 hours. All controls at 375 px now measure at least 44×44, on 15 screens with every section open. Finding 2 covers forms only: each form carries a nonce the server spends once, in
 `submissions`, so a repeat starts nothing and follows the first request. API calls carry no nonce and rely on the rate limits. Finding 23 kept
 the Action position by taking 2 px from the margin above the target line.
 
