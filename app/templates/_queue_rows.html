@@ -2,8 +2,8 @@
 {% for c in cases %}
 <tr>
   <td><a href="/cases/{{ c.id }}">#{{ c.id }}</a></td>
-  <td><span class="code">{{ c.url }}</span></td>
-  <td>{{ c.customer_name or 'Test any URL' }}</td>
+  <td title="{{ c.url }}"><span class="code">{{ c.url }}</span></td>
+  <td title="{{ c.customer_name or 'Test any URL' }}">{{ c.customer_name or 'Test any URL' }}</td>
   <td>{{ c.status }}</td>
   <td><span class="level level-{{ (c.level or '')|replace(' ', '') }}">{{ c.level or '...' }}</span></td>
   <td>{{ c.decided_action or '' }}</td>

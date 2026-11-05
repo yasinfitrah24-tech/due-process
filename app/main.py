@@ -9,10 +9,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import appeals, compare, db, explain, inventory, letters, pipeline, policy, ratelimit, signals, timeline, visitor
 from app.examples import EXAMPLES, FIXABLE_EXAMPLE
@@ -51,6 +54,61 @@ async def lifespan(_):
 
 app = FastAPI(title="Due Process", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request, error):
+    if not wants_page(request):
+        return await http_exception_handler(request, error)
+    return error_page(request, error.status_code, FOUND_NOTHING.get(error.detail, str(error.detail)))
+
+
+@app.exception_handler(RequestValidationError)
+async def form_error(request, error):
+    if not wants_page(request):
+        return await request_validation_exception_handler(request, error)
+    return error_page(request, 422, "That form was incomplete or not valid.")
+
+
+@app.exception_handler(Exception)
+async def server_error(request, error):
+    if not wants_page(request):
+        return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
+    return error_page(request, 500, "Something went wrong on our side.")
+
+
+FOUND_NOTHING = {"Not Found": "We could not find that page.", "case not found": "We could not find that case.",
+                 "no such appeal link": "This appeal link does not exist.",
+                 "no such comparison": "This comparison does not exist."}
+NEXT_STEP = {403: "Go back and choose one of the actions shown there.",
+             404: "Check the link, or go back and start from there.",
+             405: "Go back and use the buttons on the page.",
+             409: "Go back: the page shows where this stands now.",
+             422: "Go back, check what you entered and send it again.",
+             429: "Wait ten minutes, then try again.",
+             500: "Nothing was lost. Go back and try again in a moment.",
+             503: "Wait a few minutes, then try again."}
+
+
+def wants_page(request):
+    """A person in a browser gets a page. The API, polling and anything else that asks for data get what they had."""
+    path = request.url.path
+    return "text/html" in request.headers.get("accept", "") and not path.startswith(("/api/", "/partials/"))
+
+
+def error_page(request, status, what):
+    """One sentence on what happened, one on what to do, and a way back. Only this app's own paths are linked."""
+    match = re.match(r"/(cases|appeal)/([\w-]+)", request.url.path) if request.method == "POST" else None
+    if match:
+        back, label = f"/{match[1]}/{match[2]}", "Back to the case"
+    elif request.url.path.startswith("/compare"):
+        back, label = "/compare", "Back to One report, two pages"
+    else:
+        back, label = "/", "Back to the queue"
+    sentence = what[0].upper() + what[1:]
+    return templates.TemplateResponse(request, "error.html", {
+        "status": status, "what": sentence if sentence.endswith(".") else f"{sentence}.",
+        "next_step": NEXT_STEP.get(status, NEXT_STEP[409]), "back": back, "back_label": label}, status_code=status)
 
 
 class Rejected(Exception):
@@ -228,6 +286,10 @@ def case_context(ref):
             "allowed": allowed}
 
 
+def baseline_is_wrong(level, action):
+    return level == "Not proven" and action in policy.APPEALABLE
+
+
 def showcase():
     """The front page's report and, once one has run, what a real comparison of it found. Nothing here is made up."""
     twin = TWINS[SHOWCASE_TWIN]
@@ -239,15 +301,22 @@ def showcase():
         if case["status"] != "ready":
             return {"report": twin["report"], "sides": []}
         sides.append({"url": case["url"].split("://", 1)[1], "level": case["level"], "why": explain.why(case["signals"]),
-                      "baseline": action, "wrong": case["level"] == "Not proven" and action in policy.APPEALABLE})
+                      "baseline": action, "wrong": baseline_is_wrong(case["level"], action)})
     return {"report": twin["report"], "sides": sides}
+
+
+def rejected_next(error):
+    if error == "not our customer":
+        return "Use one of the hosts listed below, or try the address under Test any URL."
+    return "Check the address and send it again."
 
 
 def front_page(request, error=None, status_code=200):
     hosts = [h for c in inventory.CUSTOMERS if not c.get("eval_only") for h in c["hosts"]]
     return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": error, "hosts": hosts,
                                                               "examples": EXAMPLES, "fixable": FIXABLE_EXAMPLE,
-                                                              "showcase": showcase()},
+                                                              "showcase": showcase(),
+                                                              "error_next": rejected_next(error)},
                                       status_code=status_code)
 
 
@@ -309,11 +378,16 @@ def compare_context(token):
     for side in ("abuse", "legit"):
         case = db.get_case(comparison[f"{side}_case"])
         steps = timeline.rows(db.case_events(case["id"]))
-        sides.append({"label": twin[f"{side}_label"], "case": case, "baseline": comparison[f"{side}_baseline"],
+        baseline = comparison[f"{side}_baseline"]
+        sides.append({"label": twin[f"{side}_label"], "case": case, "baseline": baseline,
                       "present": [s["id"] for s in case["signals"] or [] if s["value"]],
-                      "step": steps[-1]["text"] if steps and case["status"] != "ready" else None})
+                      "step": steps[-1]["text"] if steps and case["status"] != "ready" else None,
+                      "why": explain.why(case["signals"]), "host": case["url"].split("://", 1)[1],
+                      "allowed": policy.ALLOWED_ACTIONS.get(case["level"], ()),
+                      "wrong": bool(baseline) and baseline_is_wrong(case["level"], baseline["action"])})
     polling = any(s["case"]["status"] != "ready" or not s["baseline"] for s in sides)
-    return {"comparison": comparison, "twin": twin, "sides": sides, "polling": polling}
+    status_line = "Both pages opened." if not polling else "Opening both pages and asking the baseline."
+    return {"comparison": comparison, "twin": twin, "sides": sides, "polling": polling, "status_line": status_line}
 
 
 @app.get("/compare/{token}")
@@ -339,8 +413,11 @@ def customer_context(token):
     views = appeal_views(case, outputs)
     draft = outputs.get("documents")
     notice = draft["output"]["customer_notice"] if draft and draft["output"] else None
-    return {"case": case, "appeals": views, "choices": appeals.CHOICES, "closed": appeals.closed_reason(case, views),
+    closed = appeals.closed_reason(case, views)
+    return {"case": case, "appeals": views, "choices": appeals.CHOICES, "closed": closed,
             "polling": any(a["status"] in appeals.PENDING for a in views), "slug": appeals.fixable_slug(case),
+            "why": explain.why(case["signals"]), "headline": explain.customer_headline(case, views, closed),
+            "steps": explain.appeal_steps(case, views), "status_line": explain.appeal_status(views),
             "fixed": fix_simulated(case["id"]),
             "notice": letters.clean(notice) if notice else None,
             "action_text": letters.outcome_sentence(case["level"], case["decided_action"])}

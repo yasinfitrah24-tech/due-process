@@ -4,8 +4,8 @@
   var phone = window.matchMedia("(max-width: 719px)");
   var open = {};
   var focused = null;
-  var level = null;
-  var revealedAt = null;
+  var levels = {};
+  var revealedAt = {};
   var said = null;
 
   function all(selector) {
@@ -28,18 +28,43 @@
   }
 
   function reveal() {
-    var block = document.querySelector("[data-level]");
-    if (!block) return;
-    var now = block.getAttribute("data-level");
-    if (level === "" && now) revealedAt = performance.now();
-    level = now;
-    var solid = block.querySelector(".solid");
-    var elapsed = revealedAt === null ? null : performance.now() - revealedAt;
-    if (solid && elapsed !== null && elapsed < 1000) {
-      solid.classList.add("reveal");
-      solid.style.animationDelay = -elapsed + "ms"; // a swap in mid-animation carries on, it does not restart
-    }
+    all("[data-level][id]").forEach(function (block) {
+      var now = block.getAttribute("data-level");
+      if (levels[block.id] === "" && now) revealedAt[block.id] = performance.now();
+      levels[block.id] = now;
+      var solid = block.querySelector(".solid");
+      var elapsed = block.id in revealedAt ? performance.now() - revealedAt[block.id] : null;
+      if (solid && elapsed !== null && elapsed < 1000) {
+        solid.classList.add("reveal");
+        solid.style.animationDelay = -elapsed + "ms"; // a swap in mid-animation carries on, it does not restart
+      }
+    });
   }
+
+  /* A section that is always open on a wide screen is plain text there: no toggle, no stop for the keyboard. */
+  function lock() {
+    all("details[data-lock]").forEach(function (d) {
+      var summary = d.querySelector(":scope > summary");
+      if (phone.matches) {
+        summary.removeAttribute("tabindex");
+      } else {
+        d.open = true;
+        summary.setAttribute("tabindex", "-1");
+      }
+    });
+  }
+
+  function openTarget() {
+    var target = location.hash && document.getElementById(location.hash.slice(1));
+    if (target && target.tagName === "DETAILS") target.open = true;
+  }
+
+  document.addEventListener("click", function (event) {
+    var summary = event.target.closest && event.target.closest("details[data-lock] > summary");
+    if (summary && !phone.matches) event.preventDefault();
+  });
+  window.addEventListener("hashchange", openTarget);
+  phone.addEventListener("change", lock);
 
   document.addEventListener("htmx:beforeSwap", function () {
     all("details[id]").forEach(function (d) { open[d.id] = d.open; });
@@ -53,6 +78,7 @@
       if (d.id in open) d.open = open[d.id];
     });
     fold();
+    lock();
     if (focused) {
       var summary = document.querySelector("#" + focused + " > summary");
       if (summary) summary.focus();
@@ -62,6 +88,8 @@
   });
 
   fold();
+  lock();
+  openTarget();
   reveal();
   announce();
 })();

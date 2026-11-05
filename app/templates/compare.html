@@ -1,16 +1,20 @@
 {% extends "base.html" %}
 {% block title %}One report, two pages - Due Process{% endblock %}
 {% block content %}
-<h1>One report, two pages</h1>
-<p>The same report text goes to two pages. One is abuse and one is legitimate, on neutrally named hosts of one fictional customer. Due Process opens both. Next to it, a baseline reads the report text only.</p>
-<p class="muted">Built to show what the text alone cannot decide, not how often real reports look like this.</p>
-{% if error %}<p class="error">{{ error }}</p>{% endif %}
-<div class="examples">
+<a class="back" href="/">Back to queue</a>
+<h1 class="page-title">One report, two pages</h1>
+<p class="page-lead">The same report text goes to two pages. One is abuse and one is legitimate, on neutrally named hosts of one fictional customer. Due Process opens both. Next to it, a baseline reads the report text only.</p>
+<p class="demo-note page-note">Built to show what the text alone cannot decide, not how often real reports look like this.</p>
+{% if error %}<p class="notice">{{ error }}</p>{% endif %}
+<div class="pairs">
   {% for key, t in twins.items() %}
-  <form method="post" action="/compare/run/{{ key }}">
-    <button type="submit">{{ t.title }}</button>
-    <p class="muted">"{{ t.report }}"</p>
+  <form class="form-card" method="post" action="/compare/run/{{ key }}">
+    <h2>{{ t.title }}</h2>
+    <p class="said-small">&ldquo;{{ t.report }}&rdquo;</p>
+    <p class="demo-note">Reporter's claim — untrusted. It cannot move the verdict.</p>
+    <button type="submit" class="primary">Send it to both pages</button>
   </form>
   {% endfor %}
 </div>
+<p class="demo-note page-note">This is a demo. Every customer and action is simulated.</p>
 {% endblock %}

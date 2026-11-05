@@ -1,10 +1,11 @@
 {% macro kind(k) %}{% if k %}<span class="chip {{ k }}">{{ k }}</span>{% endif %}{% endmacro %}
 {% macro sentences(items) %}{% for s in items %}<p>{{ s.text }}{% for id in s.signals %} <code>[{{ id }}]</code>{% endfor %}</p>{% endfor %}{% endmacro %}
-{% macro problem(o) %}{% if o.status not in ('accepted', 'template') %}
-<p class="notice">Claim {{ o.status }}: {{ o.problem }}</p>
-{% if o.raw %}<details id="raw-{{ o.id }}"><summary>Model output (not used)</summary><blockquote>{{ o.raw }}</blockquote></details>{% endif %}
+{% macro raw_output(o) %}{% if o.raw and o.status not in ('accepted', 'template') %}<details id="raw-{{ o.id }}"><summary>Model output (not used)</summary><blockquote>{{ o.raw }}</blockquote></details>{% endif %}{% endmacro %}
+{% macro problem(o, with_raw=True) %}{% if o.status not in ('accepted', 'template') %}
+<div class="notice"><p>Claim {{ o.status }}: {{ o.problem }}</p><p class="next">{% if o.status == 'skipped' %}No model call was made, so this claim is missing. The evidence and the level stand, and an analyst can still decide from them.{% else %}This claim is not used. The evidence and the level stand.{% endif %}</p></div>
+{% if with_raw %}{{ raw_output(o) }}{% endif %}
 {% endif %}{% endmacro %}
-{% macro by(o) %}{% if o.status == 'template' %}<span class="chip">template (code)</span>{% else %}<span class="chip model_claim">model_claim</span> <span class="chip">{{ o.model }}</span>{% endif %}{% endmacro %}
+{% macro by(o) %}{% if o.status == 'template' %}<span class="chip">template (code)</span>{% elif o.status == 'skipped' %}<span class="chip">not run</span>{% else %}<span class="chip model_claim">model_claim</span> <span class="chip">{{ o.model }}</span>{% endif %}{% endmacro %}
 {% macro progress(rows) %}
   <table>
     <thead><tr><th scope="col">Seconds</th><th scope="col">Source</th><th scope="col">What happened</th></tr></thead>
@@ -52,7 +53,7 @@
       <p class="target">Target: <strong>{{ case.customer_name }}</strong> ({{ case.customer_id }})<span class="more">, from host <code>{{ case.host }}</code> via the hosting inventory</span>.</p>
       {% endif %}
       {% if why %}<p class="why">{{ why }}</p>{% endif %}
-      {% if case.note %}<p class="notice">{{ case.note }}</p>{% endif %}
+      {% if case.note %}<div class="notice"><p>{{ case.note }}</p><p class="next">Nothing can be acted on from this visit. Send the report again to retry{% if case.mode == 'demo' %}, or close the case{% endif %}.</p></div>{% endif %}
       {% if present %}
       <ul class="found">
         {% for p in present %}<li><span>{{ p.label }}</span>{{ kind(p.kind) }}</li>{% endfor %}
@@ -138,31 +139,50 @@
     {% endif %}
 
     {% set vision = outputs.get('vision_claim') %}
+    {% set vision_out = vision.output if vision else none %}
+    {% set repeats = vision_out.repeats_page_text if vision_out else none %}
+    {% set long_claim = case.mode == 'demo' and case.claim|length > 240 %}
+    {% set long_vision = vision_out and vision_out.description|length > 200 %}
+    {% set vision_raw = vision and vision.raw and vision.status not in ('accepted', 'template') %}
+    {% set show_all = long_claim or long_vision or repeats or vision_raw %}
     {% if case.mode == 'demo' or vision %}
-    <details class="claims claim-box" id="claims" data-fold open>
+    <details class="claims claim-box" id="claims" data-fold data-lock open>
       <summary>Claims, not used for the result</summary>
       <div>
         {% if case.mode == 'demo' %}
         <h3>Reporter</h3>
         <p class="small">Reporter's claim — untrusted. It cannot move the verdict.</p>
-        <blockquote>{{ case.claim }}</blockquote>
+        <blockquote{% if long_claim %} class="clamp"{% endif %}>{{ case.claim }}</blockquote>
         {% endif %}
         {% if vision %}
         <h3>What the vision model reads</h3>
         <p>{{ by(vision) }}</p>
-        {{ problem(vision) }}
+        {{ problem(vision, False) }}
         {% if vision.output %}
-        <blockquote>{{ vision.output.description }}</blockquote>
+        <blockquote{% if long_vision %} class="clamp"{% endif %}>{{ vision.output.description }}</blockquote>
         <p class="small">Brand the page shows: {{ vision.output.imitated_brand or 'none named' }}. The model cannot tell whether that brand owns the page.</p>
-        {% if vision.output.repeats_page_text %}
+        {% if repeats %}<p class="warn">This claim repeats text taken from the page. Those are the page's words, not a finding.</p>{% endif %}
+        {% endif %}
+        {% endif %}
+        {% if show_all %}<p class="small muted">The full text is below, under Show all.</p>{% endif %}
+      </div>
+    </details>
+    {% endif %}
+
+    {% if show_all %}
+    <details class="rec show-all" id="claims-all">
+      <summary>Show all<span class="sr-only"> claim text</span></summary>
+      <div class="rec-body">
+        {% if long_claim %}<h3>Reporter</h3><blockquote>{{ case.claim }}</blockquote>{% endif %}
+        {% if long_vision %}<h3>Vision model</h3><blockquote>{{ vision_out.description }}</blockquote>{% endif %}
+        {% if repeats %}
         <p class="warn">This claim repeats text taken from the page. Those are the page's words, not a finding.</p>
         <table>
           <thead><tr><th scope="col">Claim says</th><th scope="col">Page says</th></tr></thead>
-          {% for r in vision.output.repeats_page_text %}<tr><td>{{ r.claim }}</td><td>{{ r.page }}</td></tr>{% endfor %}
+          {% for r in repeats %}<tr><td>{{ r.claim }}</td><td>{{ r.page }}</td></tr>{% endfor %}
         </table>
         {% endif %}
-        {% endif %}
-        {% endif %}
+        {% if vision_raw %}{{ raw_output(vision) }}{% endif %}
       </div>
     </details>
     {% endif %}
@@ -200,13 +220,25 @@
         <p>{{ choices[a.choice] }}. Status: {{ a.status }}.</p>
         {% if a.text %}<p class="muted">Customer says (untrusted, moves nothing):</p><blockquote>{{ a.text }}</blockquote>{% endif %}
         {% if a.note %}<p class="notice">{{ a.note }}</p>{% endif %}
-        {% if a.not_reproduced %}<p><strong>Re-visit did not reproduce the original evidence.</strong> A page can also show a clean version only to this browser.</p>{% endif %}
       </div>
       {% if a.status in ('drafting', 'ready', 'decided') %}
+      <div id="visits-{{ a.id }}" data-level="{{ a.level or '' }}">
+      <div class="visits in-card">
+        <div class="claim-box">
+          <p class="label">Original visit</p>
+          <p class="visit-level">{{ case.level }}</p>
+        </div>
+        <div class="solid">
+          <p class="label">Re-visit, in a new browser</p>
+          <p class="visit-level">{{ a.level or 'No result' }}</p>
+          {% if a.not_reproduced %}<p><strong>Re-visit did not reproduce the original evidence.</strong> A page can also show a clean version only to this browser.</p>{% endif %}
+        </div>
+      </div>
+      </div>
+      <details class="doc" id="visit-table-{{ a.id }}" data-fold open>
+      <summary><h3>Both visits, signal by signal</h3></summary>
       <table>
         <thead><tr><th scope="col"><span class="sr-only">Item</span></th><th scope="col">First visit</th><th scope="col">Second visit</th></tr></thead>
-        <tr><th scope="row">Level</th><td><span class="level level-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></td>
-          <td><span class="level level-{{ (a.level or '')|replace(' ', '') }}">{{ a.level or 'No result' }}</span></td></tr>
         {% for r in a.rows %}
         <tr><td><code>{{ r.id }}</code> {{ kind(r.kind) }}</td><td>{{ r.before }}</td><td>{{ r.after if r.after is not none else 'No result' }}</td></tr>
         {% endfor %}
@@ -214,13 +246,16 @@
         <tr><th scope="row">Container</th><td><code>{{ (case.receipt.container_id or '')[:12] }}</code></td><td><code>{{ (a.receipt.container_id or '')[:12] }}</code>{% if a.receipt.teardown.container_gone %}, gone{% endif %}</td></tr>
         {% endif %}
       </table>
+      </details>
       {% endif %}
       <div class="rec-body">
-        {% if a.shot %}<p>{{ kind('observed') }} Second visit</p><img src="/cases/{{ case.ref }}/appeals/{{ a.id }}/shots/{{ a.shot }}" alt="Screenshot of the second visit">{% endif %}
+        {% if a.shot %}<details class="doc-plain" id="visit-shot-{{ a.id }}" data-fold open><summary>{{ kind('observed') }} Second visit</summary><img src="/cases/{{ case.ref }}/appeals/{{ a.id }}/shots/{{ a.shot }}" alt="Screenshot of the second visit"></details>{% endif %}
         {% if a.letter %}
-        <h3>Letter to the customer</h3>
-        <p>{{ by(a.letter) }}{% if a.letter.status == 'template' %} <span class="notice">Template, model unavailable: {{ a.letter.problem }}</span>{% endif %}</p>
+        <details class="doc-plain" id="letter-{{ a.id }}" data-fold open><summary><h3>Letter to the customer</h3></summary>
+        <p>{{ by(a.letter) }}</p>
+        {% if a.letter.status == 'template' %}<p class="notice">Template, model unavailable: {{ a.letter.problem }}</p>{% endif %}
         {% if a.letter.output %}{{ sentences(a.letter.output.sentences) }}{% endif %}
+        </details>
         {% endif %}
         {% if a.allowed %}
         <form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/decide" class="actions">
@@ -313,7 +348,7 @@
     {% for d in case.receipt.quarantined_downloads %}
     <tr><th scope="row">Quarantined download</th><td>{{ d.name }}, {{ d.bytes }} bytes, sha256 <code>{{ d.sha256 }}</code>. Never opened. Only the hash left the container; the file went with it.</td></tr>
     {% endfor %}
-    <tr><th scope="row">Teardown</th><td>{% if case.receipt.teardown.container_gone %}Container gone, checked {{ case.receipt.teardown.checked_at }}{% else %}<span class="notice">Container still present</span>{% endif %}</td></tr>
+    <tr><th scope="row">Teardown</th><td>{% if case.receipt.teardown.container_gone %}Container gone, checked {{ case.receipt.teardown.checked_at }}{% else %}<strong>Container still present</strong>{% endif %}</td></tr>
   </table>
   {% endif %}
 

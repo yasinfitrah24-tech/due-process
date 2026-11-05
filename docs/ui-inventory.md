@@ -1,7 +1,7 @@
 # UI inventory for the visual redesign
 
-State of the app at `b062073`, read from the code and from the public demo on 2026-11-04. Section g was measured at `72d1c43`, before
-the label on the reporter's text, which adds about one line to the Case from "Reporter alleges" down. Values marked VM are real values from the VM's database, cases 1 to 34. Private tokens are written as `<token>`.
+Updated for design 6A on branch `yasin/ui-6a`. Sections a to d describe screens and data; e to h are measured on that branch against a
+copy of the VM's data, cases 1 to 40. States with no VM example were staged in that copy for the screenshots in `docs/screens/`. Values marked VM are real values from the VM's database, cases 1 to 34. Private tokens are written as `<token>`.
 
 A state marked "no VM example" has never happened on the VM. Its text comes from the code, and it has not been seen rendered.
 
@@ -28,8 +28,9 @@ JSON API, no screen: `POST /api/reports`, `POST /api/test-url`, `GET /api/cases/
 
 ### Errors
 
-Only two errors have a designed place, both inside the Queue as a red line above the report form, status 422. Everything else
-is raw JSON in the browser, with no page around it, no link back and no style. A designed error page needs an app change.
+A browser gets a designed page for every error: what happened, what to do, and a link back. That page is sent only when the request
+accepts `text/html` and is not under `/api/` or `/partials/`. Everything else keeps the JSON below. A rejected report stays in the Queue
+as a notice in the form, status 422.
 
 | Case | Status | What the visitor sees | Source |
 |---|---|---|---|
@@ -46,7 +47,7 @@ is raw JSON in the browser, with no page around it, no link back and no style. A
 | Action not allowed | 403 | `{"detail":"'Suspend' is not allowed at level Not proven"}` | VM |
 | Case without verdict, already decided, already sent | 409 | `case has no verdict yet`, `case already decided`, `already sent` | code |
 
-The `error` block in `compare.html` is never filled: refusals on that screen are JSON too.
+The `error` block in `compare.html` is never filled: refusals on that screen use the error page too.
 
 ## b. States per screen
 
@@ -302,19 +303,18 @@ These carry a hard rule or an honest limit. A redesign may restyle them, not dro
 
 | Item | Now |
 |---|---|
-| Rendering | Jinja2 on the server, 10 template files, 4 of them partials used by polling |
+| Rendering | Jinja2 on the server, 11 template files, 4 of them partials used by polling |
 | HTMX | 2.0.4, one local file `app/static/htmx.min.js`, 50,917 bytes. Used only for polling |
 | Polling | `hx-get` every 1 s on Case and comparison, 2 s on Customer view, 3 s on the Queue rows. Case, Customer view and comparison replace the whole block with `outerHTML` |
-| Other JavaScript | None |
+| Other JavaScript | `app/static/js/app.js`: keeps sections open and focus in place across a swap, announces status, opens the evidence block once |
 | Build step | None. No Node, npm, bundler or framework. The image is `python:3.12-slim` and copies `app/` |
-| CSS | 0 CSS files. One `<style>` block in `base.html`, plus one inline width on the analyst input, twice |
-| Static serving | `/static` already mounted, so a CSS file needs no app change beyond the link |
-| Fonts | None loaded. `system-ui, sans-serif`, 15 px. No CDN anywhere |
+| CSS | One file, `app/static/css/app.css`. No inline styles |
+| Fonts | Source Sans 3 (400 to 800) and Source Code Pro (400, 500), Latin woff2 in `app/static/fonts/`, 104 KB, from `@fontsource` 5.3.1, OFL-1.1, licenses alongside |
 | External requests | None from the app's pages |
-| Images | Screenshots only, JPEG. No icons, logo or favicon |
+| Images | Screenshots, logo as inline SVG, `favicon.svg`, `favicon-16.png`, `favicon-32.png`, `apple-touch-icon.png` |
 | Dark mode | None |
-| Breakpoints | One, `max-width: 480px`. Grids use `auto-fit` |
-| Page width | `max-width: 1000px`, 16 px padding |
+| Breakpoints | One, 720 px |
+| Page width | `max-width: 1200px` |
 
 The design must keep these, or the app breaks:
 
@@ -323,110 +323,93 @@ The design must keep these, or the app breaks:
 - Button `name` and `value` pairs on actions and decisions.
 - Text that tests read. `tests/` checks page text in 6 files, so a wording change will fail them.
 
-Polling side effect: a full swap every second resets anything open inside the block, such as Technical evidence, and moves focus.
-It stops once the case is ready.
+Polling keeps open sections open and focus where it was, checked in a browser on a running case. Status changes go to one `aria-live` region
+outside the swapped block.
 
-Accessibility already there: `lang="en"`, viewport meta, labels around inputs, `aria-label="Analyst"`, `alt` on screenshots, native
-`button`, `details` and `table`. Levels are written in words, so color is not the only signal. Measured contrast on white: body 16.4,
-muted 5.7, error 7.8, Suspicious 5.4. Chips and the Not proven badge 12.2 to 13.5.
+Accessibility now: `lang="en"`, skip link, `main` landmark, labels on every field, `alt` on screenshots, `scope` on table headers, a visible
+focus ring on every control, reduced motion respected, and levels and steps always in words. No audit tool has been run.
 
-Missing: `aria-live` on progress, skip link, `scope` on table headers, visible focus style of our own, and a heading on some tables.
-No audit tool has been run.
+Focus order: on a wide screen the claim panel shows at the top left but comes after Action in the DOM. It has nothing to tab to there: the
+toggle leaves the tab order, and the full text sits under Show all, in its own place in the flow. On a phone the panel is where the DOM puts
+it, and its toggle works. On the front page at phone width, CSS `order` shows the Queue before the forms that come first in the DOM.
 
 ## f. Repeated components
 
 | Component | Class or macro | Used on |
 |---|---|---|
-| Level badge, filled | `.badge`, `.badge-Proven`, `.badge-Suspicious`, gray for Not proven | Case summary |
-| Level text, colored | `.level`, `.level-Proven`, `.level-Suspicious` | Queue rows, appeal table, compare result |
-| Kind chip | `.chip`, `kind()` macro | Case: comparison, signals, evidence, redirects, destinations, egress, password and hidden, appeal |
-| Model chips, or `template (code)` | `by()` macro | Case: evidence statement, comparison, vision, drafts, letter |
-| Source chip | `.chip`, gray | Timeline, live progress |
-| Signal id | `<code>[id]</code>` | Case sentences, signals table, appeal table, compare result |
-| Summary box | `.summary` | Case |
-| Card | `.columns section` | Compare result |
-| Example grid | `.examples` | Queue, Compare |
-| Table | plain `table` | Queue, Case in 11 places |
-| Quote | `blockquote` | Case: claim, vision, appeal text, sent text, unused model output. Compare, Customer view |
-| Button | plain `button`, one style | All screens. Suspend looks the same as Close |
-| Action row | `.actions` | Case: actions, appeal decision |
-| Red line | `.error` | Queue, Compare, Case: notes, problems, warnings, template |
-| Muted line | `.muted` | All screens |
-| Disclosure | `details.technical`, plain `details` | Case |
-| Progress | `progress()` macro, a table, no bar | Case, live and final |
-| Sentences | `sentences()` macro | Case: evidence statement, drafts, letter |
-| Problem | `problem()` macro | Case, each model section |
-
-`.error` currently means four things: a failure, a warning about a claim, a template notice and a rejected report.
+| Evidence block | `.solid`, navy | Front page, Case, Compare, Customer view |
+| Claim box | `.claim-box`, outlined | Front page, Case, Compare, Customer view, error pages |
+| Level | `.badge`, `.side-level`, `.visit-level`, `.big`, `.level` | Case, Compare, appeals, front page, Queue |
+| Kind chip | `.chip`, `kind()` macro | Case: comparison, signals, evidence, egress, appeal |
+| Model chips, `template (code)`, `not run` | `by()` macro | Case: every model section, letter |
+| Source chip | `.chip` | Timeline, live progress |
+| Signal id | `<code>[id]</code>` | Case, Compare |
+| Card | `.rec`, `.pad`, `.rec-body` | Case, Compare, Customer view, Queue |
+| Form card | `.form-card` | Front page, Compare |
+| Table | plain `table` | Queue, Case, Compare |
+| Quote | `blockquote` | Case, Compare, Customer view |
+| Button | `button`, `.btn`, `.primary`, `.link-button`, 48 px high | All screens |
+| Failure notice | `.notice`, dark bar, then what to do | Queue, Case |
+| Content warning | `.warn`, `.flag`, `.wrong`, yellow | Repeated page text, wrong baseline |
+| Demo line | `.demo-note` | All screens |
+| Disclosure | `details`, with `data-fold` to close on a phone and `data-lock` to stay open on a wide screen | Front page, Case |
+| Show all | `.clamp`, `.show-all` | Case |
+| Progress | `progress()` macro, a table | Case, live and final |
+| Appeal steps | `.steps` | Customer view |
 
 ## g. Positions at 375×812
 
-Measured in a browser on the public demo at 375×812, with VM data. y is the top of the element in CSS pixels from the page top. No
-page scrolls sideways. Heights depend on the data on that day, and Queue height grows with rows.
+Measured with device emulation at 375×812 on a copy of the VM's data. y is the top of the element in CSS pixels. No page scrolls sideways.
+Heights count the Drafts folded, as a phone first shows them.
 
-| Page | Height | Technical evidence open |
+| Page | Level y | Action y | Height | Height at the first inventory |
+|---|---|---|---|---|
+| Case, Proven (28) | 149 | 323 | 2233 | 3253 |
+| Case, Not proven (34) | 149 | 302 | 1927 | 2249 |
+| Case, containment (37) | 149 | 365 | 2716 | none |
+| Case, Suspicious, ready (staged) | 149 | 302 | 2015 | none |
+| Case, Warn decided (5) | 149 | decided | 1807 | 3473 |
+| Case, template (6) | 149 | decided | 2492 | 4076 |
+| Case, appeal ready (17) | 149 | Reinstate 2358 | 2581 | 4531 |
+| Case, visit failed (staged) | 149 | 408 | 1166 | none |
+| Case, cost limit (staged) | 149 | 365 | 2156 | none |
+| Test any URL (8) | 149 | none | 1111 | 1474 |
+| Twin case (11) | 149 | none | 1010 | 1205 |
+| Compare | | | 1174 | 812 |
+| Compare result | | | 1692 | 1125 |
+| Customer view (17) | | | 1931 | 917 |
+
+Front page at 375: height 4151, Queue at 1742, with 45 rows in the copy. Each Queue row adds about 47 px, so 100 rows, the limit, comes to
+about 6700 px.
+
+## h. Contrast
+
+WCAG ratios, computed from the tokens. Text needs 4.5:1.
+
+| Text | Background | Ratio |
 |---|---|---|
-| Queue, 28 rows | 4285 | |
-| Case, Proven, ready (28) | 3253 | 7582 |
-| Case, Not proven, ready (34) | 2249 | 5734 |
-| Case, Suspicious, decided (5) | 3473 | 9175 |
-| Case, Proven, template, decided (6) | 4076 | 11182 |
-| Case, appeal ready (17) | 4531 | 9788 |
-| Test any URL (8) | 1474 | 3711 |
-| Twin case (11) | 1205 | 4037 |
-| Compare | 812 | |
-| Compare result | 1125 | |
-| Customer view (17) | 917 | |
+| `#111418` body | `#F4F5F7` | 16.93 |
+| `#111418` body | `#FFFFFF` | 18.47 |
+| `#343B45` | `#F4F5F7` | 10.36 |
+| `#343B45` | `#FFFFFF` | 11.31 |
+| `#555E6B` | `#F4F5F7` | 6.02 |
+| `#555E6B` | `#FFFFFF` | 6.56 |
+| `#555E6B` | `#F8F9FB` table head | 6.23 |
+| `#555E6B` | `#E3E7EE` disabled button | 5.29 |
+| `#14336B` link | `#F4F5F7` | 11.22 |
+| `#14336B` link | `#FFFFFF` | 12.24 |
+| `#0E2552` hover | `#F4F5F7` | 13.70 |
+| `#0E2552` button hover | `#E3E7EE` | 12.05 |
+| `#FFFFFF` | `#14336B` | 12.24 |
+| `#FFFFFF` | `#0E2552` | 14.95 |
+| `#DCE4F4` | `#14336B` | 9.59 |
+| `#BCCBEA` | `#14336B` | 7.50 |
+| `#BCCBEA` | `#0E2552` chip on navy | 9.16 |
+| `#FFDD00` wrong baseline | `#14336B` | 9.09 |
+| `#8A5A00` | `#FFF4C2` | 5.35 |
+| `#111418` | `#FFDD00` | 13.71 |
+| `#343B45` chip | `#F8F9FB` | 10.73 |
+| `#0E2552` chip | `#DCE4F4` | 11.70 |
 
-Compare fits one screen: 812 is the viewport height. Cases 5 and 6 have no Timeline, which makes them shorter when open than a new
-case with the same content. Not measured: running states, which last seconds, and the states with no VM example.
-
-Queue:
-
-| Element | y |
-|---|---|
-| Try an example | 282 |
-| First button, Phishing login | 314 |
-| One report, two pages | 765 |
-| Try an appeal | 873 |
-| Send your own report | 1027 |
-| Submit report | 1246 |
-| Test any URL | 1436 |
-| Queue table heading | 1734 |
-
-Case:
-
-| Element | Proven 28 | Not proven 34 | Suspicious 5 | Template 6 | Appeal 17 |
-|---|---|---|---|---|---|
-| Title | 101 | 101 | 101 | 101 | 101 |
-| Summary box | 145 | 145 | 145 | 145 | 145 |
-| Badge | 158 | 158 | 158 | 158 | 158 |
-| First action button | 367 | 344 | decided | decided | decided |
-| Last action button | 413 | 344 | decided | decided | decided |
-| Evidence statement | 519 | 450 | 457 | 524 | 532 |
-| Reporter alleges | 1023 | 871 | 840 | 982 | 937 |
-| Vision | 1527 | 1397 | 1324 | 1522 | 1482 |
-| Repeat warning | 1874 | none | 1626 | 1824 | none |
-| Drafts | 2054 | 1686 | 1826 | 2024 | 1794 |
-| Template line | none | none | none | 2063 | none |
-| Reporter reply | 2849 | 1987 | 3055 | 3430 | 2633 |
-| Appeal 1 | none | none | none | none | 2959 |
-| Reinstate, Keep | none | none | none | none | 4429 |
-| Technical evidence | 3213 | 2209 | 3433 | 4036 | 4491 |
-
-Inside Technical evidence, case 28, when open: Signals 3261, Evidence 3995, Redirect chain 4592, Destinations 4781, Egress 4933, Password
-fields 5162, Sandbox receipt 5333, Timeline 5592, Audit log 6605.
-
-Test any URL (8): badge 158, Evidence statement 456, vision 938, Technical evidence 1434.
-
-Twin (11): badge 158, Evidence statement 433, vision 854, Technical evidence 1165.
-
-Compare: first button 339, second 435, third 530.
-
-Compare result: first card 286, its baseline 573, second card 680, its baseline 944.
-
-Customer view (17): What happened 243, Demo 540, Appeal 701, Appeal 1 787.
-
-On first screen, height 812: verdict and all action buttons on the Case, and the first five example buttons on the Queue. Below it:
-the report form, Test any URL and the Queue table itself, which starts more than two screens down. On the appeal case, the analyst's
-decision sits at 4429.
+Lines and controls, which need 3:1: field border `#8A93A0` on white 3.11, focus ring `#FFDD00` on `#111418` 13.71. The pending block's dashed
+border was 2.85 on `#F4F5F7`, so it now uses `#555E6B`, 6.02. Card borders `#D5DAE1` are 1.41: they are decoration, and no meaning depends on them.

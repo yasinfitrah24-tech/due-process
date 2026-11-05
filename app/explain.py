@@ -88,3 +88,24 @@ def status_line(case):
     if case["status"] == "decided":
         return f"{reproduced} Action taken (simulated)."
     return f"{reproduced} Awaiting an analyst." if case["mode"] == "demo" else reproduced
+
+
+def customer_headline(case, appeals, closed):
+    if any(a["decision"] == "Reinstate" for a in appeals):
+        return "Your page was reinstated (simulated)."
+    first = "Your page was suspended." if case["decided_action"] == "Suspend" else "You received a warning."
+    return first if closed else f"{first} You can appeal."
+
+
+def appeal_steps(case, appeals):
+    visited = any(a["status"] in ("drafting", "ready", "decided") for a in appeals)
+    action = "Suspended." if case["decided_action"] == "Suspend" else "Warned."
+    return [{"title": action, "text": "On browser evidence, approved by an analyst.", "done": True},
+            {"title": "Appeal sent.", "text": "Your text is stored as a claim.", "done": bool(appeals)},
+            {"title": "Re-visited.", "text": "A new disposable browser opens the page.", "done": visited},
+            {"title": "Decided.", "text": "Reinstate only if the re-visit finds a lower level than before.",
+             "done": any(a["decision"] for a in appeals)}]
+
+
+def appeal_status(appeals):
+    return f"Appeal {len(appeals)}: {appeals[-1]['status']}." if appeals else "No appeal yet."

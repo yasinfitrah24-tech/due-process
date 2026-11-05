@@ -1,24 +1,52 @@
-<div id="compare"{% if polling %} hx-get="/partials/compare/{{ comparison.token }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
-  <h1>Same report text, different pages</h1>
-  <p>The same report went to both pages:</p>
-  <blockquote>{{ twin.report }}</blockquote>
-  <div class="columns">
+<div id="compare" data-status="{{ status_line }}"{% if polling %} hx-get="/partials/compare/{{ comparison.token }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
+  <a class="back" href="/compare">Try another</a>
+  <h1 class="page-title">Same report text, different pages</h1>
+  <p class="page-lead">One report text was sent to two pages. A baseline that reads only the report text sits beside the browser result.</p>
+
+  <section class="claim-box report-once" aria-label="The report">
+    <p class="label">The same report went to both pages</p>
+    <blockquote class="said-big">&ldquo;{{ twin.report }}&rdquo;</blockquote>
+    <p class="small muted">Reporter's claim — untrusted. It cannot move the verdict.</p>
+  </section>
+
+  <div class="sides">
     {% for side in sides %}
-    <section>
-      <h2>{{ side.label }}</h2>
-      <p class="muted">{{ side.case.url }}</p>
-      <h3>Due Process</h3>
-      <p>Opened the page. {% if side.case.level %}Verdict: <span class="level level-{{ side.case.level|replace(' ', '') }}">{{ side.case.level }}</span>{% else %}Status: {{ side.case.status }}{% endif %}</p>
-      {% if side.present %}<p>Signals present: {% for s in side.present %}<code>{{ s }}</code> {% endfor %}</p>{% elif side.case.level %}<p>No signal present.</p>{% endif %}
-      {% if side.step %}<p class="muted">Latest: {{ side.step }}</p>{% endif %}
-      <p><a href="/cases/{{ side.case.ref }}">Open the case</a></p>
-      <h3>baseline: reads report text only</h3>
-      {% if side.baseline %}
-      <p>Decision: <strong>{{ side.baseline.action }}</strong></p>
-      {% if side.baseline.reason %}<p class="muted">Reason given by the baseline: {{ side.baseline.reason }}</p>{% endif %}
-      {% else %}<p class="muted">Waiting for the model.</p>{% endif %}
+    <div id="side-{{ loop.index }}" data-level="{{ side.case.level or '' }}">
+    <section class="side {{ 'pending' if not side.case.level else ('solid' if loop.first else 'claim-box') }}" aria-label="{{ side.label }}">
+      <p class="label">{{ side.label }}</p>
+      <p class="code host">{{ side.case.url }}</p>
+      {% if side.case.level %}
+      <p class="small verdict-label">Verdict, opened by Due Process</p>
+      <h2 class="side-level">{{ side.case.level }}</h2>
+      <p class="computed">Computed by code. No model output can change it.</p>
+      {% if side.why %}<p class="why">{{ side.why }}</p>{% endif %}
+      {% if side.present %}<p class="side-signals">Signals present: {% for s in side.present %}<code>{{ s }}</code> {% endfor %}</p>{% else %}<p class="side-signals">No signal present.</p>{% endif %}
+      <p class="side-allow">{{ side.case.level }} allows {{ side.allowed|join(', ') }}.</p>
+      {% else %}
+      <p class="why">Opened the page. Status: {{ side.case.status }}</p>
+      {% endif %}
+      {% if side.step %}<p class="small">Latest: {{ side.step }}</p>{% endif %}
+      <p class="side-link"><a href="/cases/{{ side.case.ref }}">Open the case</a></p>
     </section>
+    </div>
     {% endfor %}
   </div>
-  <p class="muted">This run only, on fictional test pages. These pages cannot be acted on here. <a href="/compare">Try another</a></p>
+
+  <section class="rec side-table" aria-labelledby="sbs">
+    <h2 id="sbs" class="rec-title">Side by side</h2>
+    <table>
+      <thead><tr><th scope="col"><span class="sr-only">Compared</span></th>{% for side in sides %}<th scope="col"><span class="code">{{ side.host }}</span></th>{% endfor %}</tr></thead>
+      <tr><th scope="row">Report text</th>{% for side in sides %}<td>Identical</td>{% endfor %}</tr>
+      <tr><th scope="row">Due Process, browser evidence</th>{% for side in sides %}<td>{% if side.case.level %}<strong>{{ side.case.level }}</strong>{% else %}Status: {{ side.case.status }}{% endif %}</td>{% endfor %}</tr>
+      <tr><th scope="row">Baseline</th>{% for side in sides %}<td>
+        <p class="small muted">baseline: reads report text only</p>
+        {% if side.baseline %}
+        <span{% if side.wrong %} class="flag"{% endif %}>Decision: <strong>{{ side.baseline.action }}</strong></span>{% if side.wrong %} on a page the browser did not prove{% endif %}
+        {% if side.baseline.reason %}<p class="small muted">Reason given by the baseline: {{ side.baseline.reason }}</p>{% endif %}
+        {% else %}<span class="muted">Waiting for the model.</span>{% endif %}
+      </td>{% endfor %}</tr>
+    </table>
+  </section>
+  <p class="demo-note page-note">This run only, on fictional test pages. These pages cannot be acted on here. <a href="/compare">Try another</a></p>
+  <p class="demo-note">On all 8 twin pairs in our test set, the browser separated the two pages and report text alone did not. This is a demo. Every customer and action is simulated.</p>
 </div>

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Queue - Due Process{% endblock %}
 {% block content %}
+<div class="front">
 <section class="hero">
   <h1>A report is a claim. Only reproduced evidence can move an action.</h1>
   <p class="lead">Due Process is an abuse desk for hosting providers. The reported URL is opened in a throwaway browser in a locked-down sandbox on Vultr, and only evidence reproduced there can lead to action. Try an example or send your own report: no access code is needed.</p>
@@ -19,7 +20,7 @@
   </div>
   <div class="solid reveal">
     {% if showcase.sides %}
-    <div class="versus"><div class="label">The browser saw</div><div class="label">baseline: reads report text only</div></div>
+    <div class="versus head"><div class="label">The browser saw</div><div class="label">baseline: reads report text only</div></div>
     {% for s in showcase.sides %}
     <div class="versus">
       <div>
@@ -27,9 +28,9 @@
         <p class="big">{{ s.level }}</p>
         <p class="why">{{ s.why }}</p>
       </div>
-      <div>
+      <div class="base">
         <p class="host spacer" aria-hidden="true">&nbsp;</p>
-        <p class="big {{ 'wrong' if s.wrong else 'quiet' }}">{{ s.baseline }}</p>
+        <p class="base-line"><span class="base-label">baseline: reads report text only </span><span class="big {{ 'wrong' if s.wrong else 'quiet' }}">{{ s.baseline }}</span></p>
         {% if s.wrong %}<p class="why">The baseline would act on a page the browser did not prove.</p>{% endif %}
       </div>
     </div>
@@ -44,52 +45,57 @@
   </div>
 </section>
 
-<div class="split">
-  <section aria-labelledby="try">
-    <h2 id="try" class="section-title">Try a case</h2>
-    <p class="section-note">Each one opens a fresh sandbox. 7 to 25 seconds.</p>
-    <ul class="tries">
-      {% for key, e in examples.items() %}
-      <li>
-        <form method="post" action="/try/{{ key }}">
-          <div class="top"><button type="submit" class="link-button">{{ e.title }}</button><span class="expected">Expected result: {{ e.expected }}</span></div>
-          <p class="hint">{{ e.hint }}</p>
-        </form>
-      </li>
-      {% endfor %}
-    </ul>
-  </section>
+<section class="try-box" aria-labelledby="try">
+  <h2 id="try" class="section-title">Try a case</h2>
+  <p class="section-note">Each one opens a fresh sandbox. 7 to 25 seconds.</p>
+  <ul class="tries">
+    {% for key, e in examples.items() %}
+    <li>
+      <form method="post" action="/try/{{ key }}">
+        <div class="top"><button type="submit" class="link-button">{{ e.title }}</button><span class="expected">Expected result: {{ e.expected }}</span></div>
+        <p class="hint">{{ e.hint }}</p>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
 
-  <form id="report" class="form-card" method="post" action="/reports" aria-labelledby="send">
-    <h2 id="send">Report a URL</h2>
-    {% if error %}<p class="notice" role="alert">Rejected: {{ error }}</p>{% endif %}
+<details class="form-card report-box" id="report"{% if not error %} data-fold{% endif %} data-lock open>
+  <summary><h2>Report a URL</h2></summary>
+  <form method="post" action="/reports">
+    {% if error %}<div class="notice" role="alert"><p>Rejected: {{ error }}</p><p class="next">{{ error_next }}</p></div>{% endif %}
     <label class="field">Reported URL <input class="code" type="text" name="url" required placeholder="http://tailspin-offers.test/start"></label>
     <label class="field">What the reporter says <textarea name="claim" rows="3" required placeholder="Write anything, even orders to the AI. Report text cannot move the verdict."></textarea></label>
     <button type="submit" class="primary">Send report</button>
     <p class="small muted">Our fictional customers are on these hosts: {{ hosts|join(', ') }}. Any other host gets "not our customer".</p>
   </form>
-</div>
+</details>
 
-<div class="pair">
-  <form class="form-card" method="post" action="/try/fixable" aria-labelledby="appeal">
-    <h2 id="appeal">Try an appeal</h2>
+<details class="form-card appeal-box" id="try-appeal" data-fold data-lock open>
+  <summary><h2>Try an appeal</h2></summary>
+  <form method="post" action="/try/fixable">
     <p class="small muted">{{ fixable.hint }}</p>
     <button type="submit">{{ fixable.title }}</button>
   </form>
-  <form class="form-card" method="post" action="/test-url" aria-labelledby="any">
-    <h2 id="any">Test any URL</h2>
+</details>
+
+<details class="form-card any-box" id="test-any" data-fold data-lock open>
+  <summary><h2>Test any URL</h2></summary>
+  <form method="post" action="/test-url">
     <p class="small muted">Opens an internet URL in a disposable browser, through the egress proxy. Evidence and a verdict only: no target, no action, and not a finding of abuse. The result is not listed here: keep the link you get.</p>
     <label class="field">URL <input class="code" type="text" name="url" required placeholder="https://example.com/"></label>
     <button type="submit">Test URL</button>
   </form>
-</div>
+</details>
 
-<section class="measures" aria-labelledby="measured">
-  <h2 id="measured" class="section-title">What we measured on 47 test cases</h2>
-  <div><p class="fact">8 of 8 twin pairs separated</p><p class="more">Text alone could not tell them apart.</p></div>
-  <div><p class="fact">2 of 22 abuse cases missed</p><p class="more">A plain fetch missed 13 of the same 22.</p></div>
-  <div><p class="fact">0 false citations</p><p class="more">Across 180 model outputs.</p></div>
-</section>
+<details class="measures" id="measured" data-fold data-lock open>
+  <summary><h2 class="section-title">What we measured on 47 test cases</h2></summary>
+  <div class="measure-row">
+    <div><p class="fact">8 of 8 twin pairs separated</p><p class="more">Text alone could not tell them apart.</p></div>
+    <div><p class="fact">2 of 22 abuse cases missed</p><p class="more">A plain fetch missed 13 of the same 22.</p></div>
+    <div><p class="fact">0 false citations</p><p class="more">Across 180 model outputs.</p></div>
+  </div>
+</details>
 
 <section class="queue" id="queue" aria-labelledby="queue-title">
   <h2 id="queue-title" class="section-title">Queue</h2>
@@ -102,4 +108,5 @@
     </table>
   </div>
 </section>
+</div>
 {% endblock %}
