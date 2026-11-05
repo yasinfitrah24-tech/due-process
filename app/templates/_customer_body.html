@@ -59,13 +59,13 @@
     {% if a.status in ('ready', 'decided') %}
     <div id="visits-{{ a.id }}" data-level="{{ a.level or '' }}">
     <section class="visits" aria-label="Re-check result">
-      <div class="claim-box">
+      <div class="claim-box" data-tone="{{ case.level|replace(' ', '') }}">
         <p class="label">Original visit</p>
-        <p class="visit-level">{{ case.level }}</p>
+        <p class="visit-level"><span class="pill pill-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></p>
       </div>
-      <div class="{{ 'solid' if a.level else 'claim-box' }}">
+      <div class="{{ 'solid' if a.level else 'claim-box' }}" data-tone="{{ (a.level or '')|replace(' ', '') }}">
         <p class="label">Re-visit, in a new browser</p>
-        <p class="visit-level">{{ a.level or 'No result' }}</p>
+        <p class="visit-level">{% if a.level %}<span class="pill pill-on-navy pill-{{ a.level|replace(' ', '') }}">{{ a.level }}</span>{% else %}No result{% endif %}</p>
         {% if a.not_reproduced %}<p>Re-visit did not reproduce the original evidence.</p>{% endif %}
         {% if not a.level %}<p>Nothing was reproduced. The action stays until an analyst decides.</p>{% endif %}
       </div>
@@ -75,8 +75,8 @@
     {% if a.decision or a.status in ('ready', 'decided') %}
     <section class="rec pad" aria-label="Analyst decision">
       <h2>Analyst decision</h2>
-      {% if a.decision == 'Reinstate' %}<p><strong>Decision: Reinstated</strong> (simulated).</p>
-      {% elif a.decision == 'Keep' %}<p><strong>Decision: Kept.</strong> The action stays in place.</p>
+      {% if a.decision == 'Reinstate' %}<p><span class="pill pill-Reinstate">Decision: Reinstated</span> (simulated).</p>
+      {% elif a.decision == 'Keep' %}<p><span class="pill pill-Keep">Decision: Kept.</span> The action stays in place.</p>
       {% else %}<p>Waiting for an analyst. Reinstate needs a second visit with a lower level than at the action.</p>{% endif %}
       {% if a.sent %}<blockquote>{{ a.sent|short_urls }}</blockquote>
       {% elif a.decision %}<p class="muted">The analyst has not sent the letter yet.</p>{% endif %}

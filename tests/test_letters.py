@@ -91,7 +91,7 @@ def test_both_versions_are_kept(client):  # noqa: F811
     assert event["detail"]["cited_draft"][0]["signals"]
     assert "[" not in event["detail"]["sent_text"] and "warned" in event["detail"]["sent_text"]
     page = client.get(f"/cases/{c['id']}").text
-    assert "Sent (simulated) as:" in page and "<code>[" in page
+    assert "Sent (simulated) as:" in page and '<code class="sig">' in page
 
 
 def test_documents_are_retried_once_with_the_reason(client, replies, log):  # noqa: F811

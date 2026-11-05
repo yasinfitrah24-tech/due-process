@@ -1,5 +1,5 @@
 <div id="compare" data-status="{{ status_line }}"{% if polling %} hx-get="/partials/compare/{{ comparison.token }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
-  <a class="back" href="/compare">Try another</a>
+  <div class="case-nav"><a class="back" href="/compare"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Try another</a></div>
   <h1 class="page-title">Same report text, different pages</h1>
   <p class="page-lead">One report text was sent to two pages. A baseline that reads only the report text sits beside the browser result.</p>
 
@@ -12,12 +12,12 @@
   <div class="sides">
     {% for side in sides %}
     <div id="side-{{ loop.index }}" data-level="{{ side.case.level or '' }}">
-    <section class="side {{ 'pending' if not side.case.level or side.case.note else ('solid' if loop.first else 'claim-box') }}" aria-label="{{ side.label }}">
+    <section class="side {{ 'pending' if not side.case.level or side.case.note else ('solid' if loop.first else 'claim-box') }}" data-tone="{{ (side.case.level or '')|replace(' ', '') }}" aria-label="{{ side.label }}">
       <p class="label">{{ side.label }}</p>
       <p class="code host url-line" title="{{ side.case.url }}">{{ side.case.url }}</p>
       {% if side.case.level %}
       <p class="small verdict-label">Verdict, opened by Due Process</p>
-      <h2 class="side-level">{{ side.case.level }}</h2>
+      <h2 class="side-level"><span class="badge badge-{{ side.case.level|replace(' ', '') }}">{{ side.case.level }}</span></h2>
       <p class="computed">Computed by code. No model output can change it.</p>
       {% if side.why %}<p class="why">{{ side.why }}</p>{% endif %}
       {% if side.case.note %}<p class="notice">{{ side.case.note }}</p>{% endif %}
@@ -38,7 +38,7 @@
     <table>
       <thead><tr><th scope="col"><span class="sr-only">Compared</span></th>{% for side in sides %}<th scope="col" title="{{ side.host }}"><span class="code url-line">{{ side.host }}</span></th>{% endfor %}</tr></thead>
       <tr><th scope="row">Report text</th>{% for side in sides %}<td>Identical</td>{% endfor %}</tr>
-      <tr><th scope="row">Due Process, browser evidence</th>{% for side in sides %}<td>{% if side.case.level %}<strong>{{ side.case.level }}</strong>{% else %}Status: {{ side.case.status }}{% endif %}</td>{% endfor %}</tr>
+      <tr><th scope="row">Due Process, browser evidence</th>{% for side in sides %}<td>{% if side.case.level %}<span class="pill pill-{{ side.case.level|replace(' ', '') }}">{{ side.case.level }}</span>{% else %}Status: {{ side.case.status }}{% endif %}</td>{% endfor %}</tr>
       <tr><th scope="row">Baseline</th>{% for side in sides %}<td>
         <p class="small muted">baseline: reads report text only</p>
         {% if side.baseline %}

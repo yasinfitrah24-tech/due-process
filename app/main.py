@@ -320,10 +320,10 @@ def showcase():
         case = db.get_case(comparison[f"{side}_case"])
         action = comparison[f"{side}_baseline"]["action"]
         if case["status"] != "ready" or case["note"]:
-            return {"report": twin["report"], "sides": []}
+            return {"report": twin["report"], "sides": [], "date": None}
         sides.append({"url": case["url"].split("://", 1)[1], "level": case["level"], "why": explain.why(case["signals"]),
                       "baseline": action, "wrong": baseline_is_wrong(case["level"], action)})
-    return {"report": twin["report"], "sides": sides}
+    return {"report": twin["report"], "sides": sides, "date": comparison["created_at"][:10] if comparison else None}
 
 
 def rejected_next(error):
