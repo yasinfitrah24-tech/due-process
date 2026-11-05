@@ -156,14 +156,14 @@
         {% if case.mode == 'demo' %}
         <h3>Reporter</h3>
         <p class="small">Reporter's claim — untrusted. It cannot move the verdict.</p>
-        <blockquote{% if long_claim %} class="clamp"{% endif %}>{{ case.claim }}</blockquote>
+        <blockquote>{% if long_claim %}<span class="clamp">{{ case.claim }}</span>{% else %}{{ case.claim }}{% endif %}</blockquote>
         {% endif %}
         {% if vision %}
         <h3>What the vision model reads</h3>
         <p>{{ by(vision) }}</p>
         {{ problem(vision, False) }}
         {% if vision.output %}
-        <blockquote{% if long_vision %} class="clamp"{% endif %}>{{ vision.output.description|short_urls }}</blockquote>
+        <blockquote>{% if long_vision %}<span class="clamp">{{ vision.output.description|short_urls }}</span>{% else %}{{ vision.output.description|short_urls }}{% endif %}</blockquote>
         <p class="small">Brand the page shows: {{ vision.output.imitated_brand or 'none named' }}. The model cannot tell whether that brand owns the page.</p>
         {% if repeats %}<p class="warn">This claim repeats text taken from the page. Those are the page's words, not a finding.</p>{% endif %}
         {% endif %}
