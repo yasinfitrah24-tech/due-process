@@ -364,24 +364,21 @@ Heights count the Drafts folded, as a phone first shows them.
 
 | Page | Level y | Action y | Height | Height at the first inventory |
 |---|---|---|---|---|
-| Case, Proven (28) | 146 | 320 | 2227 | 3253 |
-| Case, Not proven (34) | 146 | 299 | 1921 | 2249 |
-| Case, containment (37) | 146 | 362 | 2710 | none |
-| Case, Suspicious, ready (staged) | 146 | 299 | 2009 | none |
-| Case, Warn decided (5) | 146 | decided | 1801 | 3473 |
-| Case, template (6) | 146 | decided | 2486 | 4076 |
-| Case, appeal ready (17) | 146 | Reinstate 2395 | 2618 | 4531 |
-| Case, visit failed (staged) | 148 | 409 | 1164 | none |
-| Case, teardown failed (staged) | 148 | 539 | 1379 | none |
-| Case, cost limit (staged) | 146 | 362 | 2150 | none |
-| Test any URL (8) | 146 | none | 1107 | 1474 |
-| Twin case (15) | 146 | none | 906 | 1205 |
-| Compare | | | 1171 | 812 |
-| Compare result | | | 1734 | 1125 |
-| Customer view (17) | | | 1932 | 917 |
+| Case, Proven (28) | 141 | 318 | 2402 | 3253 |
+| Case, Not proven (34) | 141 | 297 | 2136 | 2249 |
+| Case, containment (37) | 141 | 360 | 2954 | none |
+| Case, Suspicious, ready (staged) | 141 | 297 | 2228 | none |
+| Case, appeal ready (17) | 141 | Reinstate 2596 | 2823 | 4531 |
+| Case, visit failed (staged) | 137 | 395 | 1248 | none |
+| Case, teardown failed (staged) | 137 | 521 | 1466 | none |
+| Test any URL (8) | 141 | none | 1183 | 1474 |
+| Twin case (15) | 141 | none | 962 | 1205 |
+| Compare | | | 1223 | 812 |
+| Compare result | | | 1830 | 1125 |
+| Customer view (17) | | | 2030 | 917 |
 
-Front page at 375: height 3668, Queue at 1734, with the 35 rows of the VM copy. Each Queue row adds about 47 px, so 100 rows, the limit, comes to
-about 6700 px.
+Front page at 375: height 3148, Queue at 1794, showing 12 of the 34 rows of the VM copy. Case pages are taller than in round 1 because sections
+are 40 px apart; level and Action moved up.
 
 ## h. Contrast
 
@@ -411,6 +408,26 @@ WCAG ratios, computed from the tokens. Text needs 4.5:1.
 | `#111418` | `#FFDD00` | 13.71 |
 | `#343B45` chip | `#F8F9FB` | 10.73 |
 | `#0E2552` chip | `#DCE4F4` | 11.70 |
+
+Levels and decisions, round 2:
+
+| Text | Background | Ratio |
+|---|---|---|
+| Proven `#A3221A` | `#FBEAE8` | 6.44 |
+| `#FFFFFF` | Proven `#B3261E` | 6.54 |
+| Suspicious `#9A4A06` | `#FDEFE0` | 5.54 |
+| `#FFFFFF` | Suspicious `#B45309` | 5.02 |
+| Not proven `#3E4A5C` | `#E9EDF3` | 7.64 |
+| `#FFFFFF` | Not proven `#4B5868` | 7.25 |
+| Reinstate `#1F6F4A` | `#E5F2EA` | 5.31 |
+| Suspend: `#FFFFFF` | `#B3261E` | 6.54 |
+| Suspend hover: `#FFFFFF` | `#A3221A` | 7.5 |
+| Warn: `#9A4A06` | `#FFFFFF` | 6.26 |
+| Warn hover: `#9A4A06` | `#FDEFE0` | 5.54 |
+| Close, Keep: `#3E4A5C` | `#FFFFFF` | 8.98 |
+| Close, Keep hover: `#3E4A5C` | `#E9EDF3` | 7.64 |
+| Reinstate: `#FFFFFF` | `#1F6F4A` | 6.12 |
+| Reinstate hover: `#FFFFFF` | `#185A3B` | 8.19 |
 
 Lines and controls, which need 3:1: field border `#8A93A0` on white 3.11, focus ring `#FFDD00` on `#111418` 13.71. The pending block's dashed
 border was 2.85 on `#F4F5F7`, so it now uses `#555E6B`, 6.02. Card borders `#D5DAE1` are 1.41: they are decoration, and no meaning depends on them.

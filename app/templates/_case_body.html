@@ -72,13 +72,13 @@
       <section class="rec pad action-card{{ '' if appealable else ' wide' }}" aria-labelledby="action-title">
         <h2 id="action-title">Action</h2>
         {% if case.decided_action %}
-        <p>{{ case.decided_action }} by {{ case.decided_by }} at {{ case.decided_at }} (simulated).</p>
+        <p><span class="pill pill-{{ case.decided_action }}">{{ case.decided_action }}</span> by {{ case.decided_by }} at {{ case.decided_at }} (simulated).</p>
         {% if case.appeal_token %}<p><a href="/appeal/{{ case.appeal_token }}">Customer view</a>: the link in the customer notice. Demo: anyone with the case link can act as the customer.</p>{% endif %}
         {% elif allowed %}
         <p class="allow">{{ case.level }} allows {{ allowed|join(', ') }}. Nothing is sent until an analyst sends it.</p>
         <form method="post" action="/cases/{{ case.ref }}/actions" class="actions" data-busy="Recording...">
           <input type="hidden" name="nonce" value="{{ nonce() }}">
-          {% for a in allowed %}<button type="submit" name="action" value="{{ a }}"{% if loop.first %} class="primary"{% endif %}><span class="long-label">{{ action_labels[a] }} (simulated)</span><span class="short-label">{{ a }}</span></button>{% endfor %}
+          {% for a in allowed %}<button type="submit" name="action" value="{{ a }}" class="act-{{ a }}"><span class="long-label">{{ action_labels[a] }} (simulated)</span><span class="short-label">{{ a }}</span></button>{% endfor %}
           <label class="analyst">Analyst <input type="text" name="analyst" value="analyst"></label>
         </form>
         <p class="demo-note">This is a demo. Every customer and action is simulated.</p>
@@ -231,13 +231,13 @@
       {% if a.status in ('drafting', 'ready', 'decided') %}
       <div id="visits-{{ a.id }}" data-level="{{ a.level or '' }}">
       <div class="visits in-card">
-        <div class="claim-box">
+        <div class="claim-box" data-tone="{{ case.level|replace(' ', '') }}">
           <p class="label">Original visit</p>
-          <p class="visit-level">{{ case.level }}</p>
+          <p class="visit-level"><span class="pill pill-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></p>
         </div>
-        <div class="{{ 'solid' if a.level else 'claim-box' }}">
+        <div class="{{ 'solid' if a.level else 'claim-box' }}" data-tone="{{ (a.level or '')|replace(' ', '') }}">
           <p class="label">Re-visit, in a new browser</p>
-          <p class="visit-level">{{ a.level or 'No result' }}</p>
+          <p class="visit-level">{% if a.level %}<span class="pill pill-on-navy pill-{{ a.level|replace(' ', '') }}">{{ a.level }}</span>{% else %}No result{% endif %}</p>
           {% if not a.level %}<p class="small">Nothing was reproduced.</p>{% endif %}
           {% if a.not_reproduced %}<p><strong>Re-visit did not reproduce the original evidence.</strong> A page can also show a clean version only to this browser.</p>{% endif %}
         </div>
@@ -271,12 +271,12 @@
         {% if a.allowed %}
         <form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/decide" class="actions" data-busy="Recording...">
           <input type="hidden" name="nonce" value="{{ nonce() }}">
-          {% for d in a.allowed %}<button type="submit" name="decision" value="{{ d }}"{% if loop.first %} class="primary"{% endif %}>{{ d }}</button>{% endfor %}
+          {% for d in a.allowed %}<button type="submit" name="decision" value="{{ d }}" class="act-{{ d }}">{{ d }}</button>{% endfor %}
           <label class="analyst">Analyst <input type="text" name="analyst" value="analyst"></label>
         </form>
         {% if 'Reinstate' not in a.allowed %}<p class="muted">Reinstate needs a second visit with a lower level than at the action.</p>{% endif %}
         {% elif a.decision %}
-        <p>{{ a.decision }} by {{ a.decided_by }} at {{ a.decided_at }} (simulated).</p>
+        <p><span class="pill pill-{{ a.decision }}">{{ a.decision }}</span> by {{ a.decided_by }} at {{ a.decided_at }} (simulated).</p>
         {% if a.sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ a.sent|short_urls }}</blockquote>
         {% elif a.letter %}<form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/send"><input type="hidden" name="nonce" value="{{ nonce() }}"><button type="submit">Send letter</button></form>{% endif %}
         {% endif %}

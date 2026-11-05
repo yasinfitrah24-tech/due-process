@@ -12,7 +12,7 @@ const A = "http://localhost:8765", R = "http://localhost:8766", E = "http://loca
 const post = (path, body, base = A) => ({ post: path, body, base });
 const groups = {
   all: [
-    ["front", R + "/"], ["front-empty", E + "/"],
+    ["front", R + "/"], ["queue", R + "/#queue"], ["front-empty", E + "/"],
     ["rejected-report", post("/reports", "url=http://unknown.test/&claim=x", R)],
     ["rejected-test-url", post("/test-url", "url=ftp://x.test/", R)],
     ...[["case-proven", 28], ["case-containment", 37], ["case-suspicious", 41], ["case-not-proven", 34], ["case-running", 45],

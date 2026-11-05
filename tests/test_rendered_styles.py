@@ -134,7 +134,7 @@ def test_menu_has_no_underlines_and_marks_the_page_and_the_back_button_fits_a_fi
     results = run_in_frames({"front": client.get("/").text, "case": client.get(f"/cases/{c['id']}").text}, NAVIGATION, tmp_path)
     for frame, n in results.items():
         assert set(n["lines"]) == {"none"} and min(n["heights"]) >= 44, f"{frame}: {n}"
-        assert n["current"] == (1 if frame.startswith("front") else 0), f"{frame}: {n}"
+        assert n["current"] == 1, f"{frame}: {n}"
         if frame.startswith("case"):
             assert n["back"] >= (44 if n["width"] <= 375 else 40), f"{frame}: {n}"
 
@@ -156,3 +156,50 @@ def test_the_front_page_shows_twelve_rows_until_asked(client, monkeypatch, tmp_p
     results = run_in_frames({"folded": page, "open": opened}, QUEUE_SHOWN, tmp_path)
     for frame, rows in results.items():
         assert rows == (12 if frame.startswith("folded") else 15), f"{frame}: {rows}"
+
+
+ACTIONS = """
+  return [...doc.querySelectorAll('[class*=act-]')].map(e => {
+    const s = win.getComputedStyle(e);
+    return {value: e.value, color: s.color, back: s.backgroundColor, border: s.borderTopColor};
+  });
+"""
+WHITE, CARD = "rgb(255, 255, 255)", "rgb(255, 255, 255)"
+DECISIONS = {"Suspend": (WHITE, "rgb(179, 38, 30)", "rgb(179, 38, 30)"), "Warn": ("rgb(154, 74, 6)", CARD, "rgb(180, 83, 9)"),
+             "Close": ("rgb(62, 74, 92)", CARD, "rgb(75, 88, 104)"), "Keep": ("rgb(62, 74, 92)", CARD, "rgb(75, 88, 104)"),
+             "Reinstate": (WHITE, "rgb(31, 111, 74)", "rgb(31, 111, 74)")}
+
+
+def assert_decision_colors(results, expected):
+    for frame, buttons in results.items():
+        assert {b["value"] for b in buttons} == expected, frame
+        for b in buttons:
+            assert (b["color"], b["back"], b["border"]) == DECISIONS[b["value"]], f"{frame}: {b}"
+
+
+def test_action_buttons_have_the_colors_of_their_decision(client, tmp_path):  # noqa: F811
+    c = run(client, URL_A)
+    results = run_in_frames({"case": client.get(f"/cases/{c['id']}").text}, ACTIONS, tmp_path)
+    assert_decision_colors(results, {"Suspend", "Warn", "Close"})
+
+
+def test_appeal_buttons_have_the_colors_of_their_decision(client, second, tmp_path):  # noqa: F811
+    c = suspended(client)
+    client.post(f"/appeal/{c['appeal_token']}", data={"choice": "fixed"})
+    results = run_in_frames({"case": client.get(f"/cases/{c['id']}").text}, ACTIONS, tmp_path)
+    assert_decision_colors(results, {"Reinstate", "Keep"})
+    assert_readable({"appeal": client.get(f"/cases/{c['id']}").text}, tmp_path)
+
+
+def test_levels_are_pills_on_compare_and_for_the_customer(twins, tmp_path):  # noqa: F811
+    page = twins.get(start(twins)).text
+    assert 'class="badge badge-Proven">Proven<' in page and 'class="badge badge-Notproven">Not proven<' in page
+    assert 'class="pill pill-Proven">Proven<' in page
+
+
+def test_appeal_visits_show_levels_as_pills(client, second):  # noqa: F811
+    c = suspended(client)
+    client.post(f"/appeal/{c['appeal_token']}", data={"choice": "fixed"})
+    page = client.get(f"/appeal/{c['appeal_token']}").text
+    assert 'class="pill pill-Proven">Proven<' in page and 'pill-on-navy pill-Notproven">Not proven<' in page
+    assert 'aria-current="page"' in page
