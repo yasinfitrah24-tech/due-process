@@ -4,6 +4,13 @@
 
 Live demo: <https://45-76-241-186.sslip.io>. No access code. Every customer and action there is simulated.
 
+> **A note on the demo address.** The demo runs on a Vultr VM and is served at
+> `45-76-241-186.sslip.io`, a free wildcard DNS name for the VM's IP. Some crypto wallet
+> extensions (for example OKX Wallet) block every `*.sslip.io` host because the service is
+> often abused by others. Google Safe Browsing reports no unsafe content for this address.
+> If your wallet extension shows a warning, the page itself is safe to open: every customer,
+> page and action in the demo is fictional and simulated.
+
 ## The problem
 
 Hosting providers get abuse reports all day: "there is a phishing site on your server". Acting on the report alone is
