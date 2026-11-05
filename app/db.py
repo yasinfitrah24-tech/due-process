@@ -229,6 +229,14 @@ def get_comparison(token):
     return {**dict(row), **{k: json.loads(row[k]) if row[k] else None for k in ("abuse_baseline", "legit_baseline")}}
 
 
+def latest_comparison(twin):
+    """The newest finished comparison of this pair, or None."""
+    with connect() as c:
+        row = c.execute("SELECT token FROM comparisons WHERE twin = ? AND abuse_baseline IS NOT NULL AND "
+                        "legit_baseline IS NOT NULL ORDER BY id DESC LIMIT 1", (twin,)).fetchone()
+    return get_comparison(row["token"]) if row else None
+
+
 def set_baseline(token, side, result):
     assert side in ("abuse", "legit")
     with connect() as c:

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Case 33, phone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;family=Source+Code+Pro:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F7}
+html{scrollbar-color:#14336B #E3E7EE;scrollbar-width:thin}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#E3E7EE}
+::-webkit-scrollbar-thumb{background:#14336B;border-radius:5px;border:2px solid #E3E7EE}
+::-webkit-scrollbar-thumb:hover{background:#0E2552}
+a{color:#14336B}
+.code{font-family:'Source Code Pro',ui-monospace,monospace}
+.btn{font:inherit;font-size:16px;font-weight:700;min-height:48px;width:100%;border-radius:4px;cursor:pointer}
+</style>
+</helmet>
+<div style="width:390px;height:844px;overflow:hidden;font-family:'Source Sans 3',ui-sans-serif,system-ui,sans-serif;background:#F4F5F7;color:#111418;box-sizing:border-box">
+  <header style="background:#fff;border-bottom:3px solid #14336B;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;align-items:center;gap:10px"><svg width="24" height="24" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="2.6"></rect><rect x="19" y="4" width="12" height="26" rx="1.5" fill="#14336B"></rect></svg><span style="font-weight:800;font-size:18px">Due Process</span></div>
+    <button type="button" aria-label="Menu" style="all:unset;width:44px;height:44px;display:grid;place-items:center;cursor:pointer"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" stroke="#111418" stroke-width="2"><path d="M3 6h16M3 11h16M3 16h16"></path></svg></button>
+  </header>
+  <main style="padding:16px">
+    <a href="#" style="font-size:14px">Back to queue</a>
+    <h1 style="margin:8px 0 0;font-size:28px;font-weight:800">Case 33</h1>
+    <p class="code" style="margin:2px 0 0;font-size:13px;color:#343B45;overflow-wrap:anywhere">northwind-verify.test/containment</p>
+    <p style="margin:4px 0 0;font-size:13px;color:#555E6B">Demo case. The customer is simulated.</p>
+
+    <section style="margin-top:14px;background:#14336B;color:#fff;border-radius:4px;padding:16px">
+      <p style="margin:0;font-size:13px;font-weight:700;color:#BCCBEA">Evidence the browser reproduced</p>
+      <p style="margin:6px 0 0;font-size:32px;font-weight:800;line-height:1">Proven</p>
+      <p style="margin:4px 0 0;font-size:12px;color:#BCCBEA">Computed by code. No model output can change it.</p>
+      <p style="margin:10px 0 0;font-size:15px;line-height:1.45">A form on the page sends data to another host, and the page asks for a password. The page also holds hidden text, tried to reach an address it may not reach and started a download that was held and never opened.</p>
+    </section>
+
+    <section style="margin-top:12px;background:#fff;border:1px solid #D5DAE1;border-radius:4px">
+      <h2 style="margin:0;font-size:16px;font-weight:800;padding:12px 14px;border-bottom:1px solid #D5DAE1">What was contained</h2>
+      <div style="padding:10px 14px;border-bottom:1px solid #E3E7EE;font-size:14px;line-height:1.45"><strong>Blocked</strong> a request for cloud credentials at <span class="code" style="font-size:12px">169.254.169.254</span></div>
+      <div style="padding:10px 14px;font-size:14px;line-height:1.45"><strong>Held</strong> <span class="code" style="font-size:12px">northwind-statement.txt</span>, never opened</div>
+    </section>
+
+    <details style="margin-top:12px;background:#fff;border:2px solid #14336B;border-radius:4px;padding:12px 14px;font-size:14px">
+      <summary style="font-weight:700;font-size:15px;cursor:pointer;min-height:24px">Claims, not used for the result</summary>
+      <p style="margin:8px 0 0">Model: the page says it is a safe internal test page.</p>
+    </details>
+
+    <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+      <button type="button" class="btn" style="background:#14336B;color:#fff;border:2px solid #14336B">Suspend customer (simulated)</button>
+      <button type="button" class="btn" style="background:#fff;color:#14336B;border:2px solid #14336B">Hold for review</button>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

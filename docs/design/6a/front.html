@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Front page</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;family=Source+Code+Pro:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F7}
+html{scrollbar-color:#14336B #E3E7EE;scrollbar-width:thin}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#E3E7EE}
+::-webkit-scrollbar-thumb{background:#14336B;border-radius:5px;border:2px solid #E3E7EE}
+::-webkit-scrollbar-thumb:hover{background:#0E2552}
+a{color:#14336B;text-underline-offset:3px}
+a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #FFDD00;outline-offset:0;box-shadow:0 0 0 6px #111418}
+.code{font-family:'Source Code Pro',ui-monospace,monospace}
+.btn{font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:0 22px;border-radius:4px;cursor:pointer}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-top:1px solid rgba(255,255,255,.18)}
+.row>div{padding:18px 26px}
+.lv{font-size:26px;font-weight:800}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:700}
+.fld input,.fld textarea{font:inherit;font-size:16px;font-weight:400;padding:10px 12px;border:2px solid #8A93A0;border-radius:4px;background:#fff;color:#111418}
+@media (prefers-reduced-motion: no-preference){
+.solid{animation:sl 1s cubic-bezier(.3,.7,.2,1) .3s both}
+@keyframes sl{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+}
+</style>
+</helmet>
+<div style="font-family:'Source Sans 3',ui-sans-serif,system-ui,sans-serif;background:#F4F5F7;color:#111418;min-height:1300px">
+  <header style="background:#fff;border-bottom:3px solid #14336B">
+    <div style="max-width:1200px;margin:0 auto;padding:16px 28px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:12px"><svg width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="2.4"></rect><rect x="19" y="4" width="12" height="26" rx="1.5" fill="#14336B"></rect></svg><span style="font-weight:800;font-size:21px">Due Process</span></div>
+      <nav aria-label="Main" style="display:flex;gap:26px;font-size:16px;font-weight:600"><a href="#">Queue</a><a href="#">Appeals</a><a href="#">Same report, two pages</a><a href="#">How it decides</a></nav>
+    </div>
+  </header>
+  <main style="max-width:1200px;margin:0 auto;padding:52px 28px 64px">
+    <h1 style="margin:0;max-width:900px;font-size:54px;line-height:1.04;font-weight:800;letter-spacing:-0.025em">A report is a claim. Only reproduced evidence can move an action.</h1>
+    <p style="margin:18px 0 0;max-width:640px;font-size:19px;line-height:1.6;color:#343B45">Due Process opens each reported URL in a disposable browser on Vultr. Code decides what the evidence proves, an analyst approves the action, and the customer can appeal against the same record.</p>
+    <div style="display:flex;gap:12px;margin-top:26px;flex-wrap:wrap">
+      <a href="#report" class="btn" style="display:inline-flex;align-items:center;text-decoration:none;background:#14336B;color:#fff;border:2px solid #14336B">Report a URL</a>
+      <button type="button" class="btn" style="background:#fff;color:#14336B;border:2px solid #14336B">Compare the two pages</button>
+    </div>
+    <p style="margin:12px 0 0;font-size:14px;color:#555E6B">This is a demo. Every customer and action is simulated.</p>
+
+    <section aria-label="One report, two pages" style="margin-top:40px;display:grid;grid-template-columns:minmax(0,0.8fr) minmax(0,1.4fr);border-radius:4px;overflow:hidden;box-shadow:0 20px 40px -28px rgba(17,20,24,.35)">
+      <div style="background:#fff;border:2px solid #14336B;border-right:0;padding:26px 28px;display:flex;flex-direction:column">
+        <p style="margin:0;font-size:15px;font-weight:700;color:#555E6B">The same report, sent twice</p>
+        <p style="margin:12px 0 0;font-size:23px;line-height:1.35;font-weight:600">“This page asks for my bank password and it looks fake to me.”</p>
+        <p style="margin:auto 0 0;padding-top:18px;font-size:15px;color:#555E6B">Reporter's claim — untrusted. It cannot move the verdict.</p>
+      </div>
+      <div class="solid" style="background:#14336B;color:#fff">
+        <div class="row" style="border-top:0"><div style="font-size:15px;font-weight:700;color:#BCCBEA">The browser saw</div><div style="font-size:15px;font-weight:700;color:#BCCBEA">Baseline: reads report text only</div></div>
+        <div class="row">
+          <div><p class="code" style="margin:0;font-size:14px;color:#BCCBEA">orchard-site.test/p/1042</p><p class="lv" style="margin:6px 0 0">Proven</p><p style="margin:4px 0 0;font-size:15px;color:#DCE4F4">A form sends data to another host, and the page asks for a password.</p></div>
+          <div><p style="margin:0;font-size:14px">&nbsp;</p><p class="lv" style="margin:6px 0 0;color:#DCE4F4">Suspend</p></div>
+        </div>
+        <div class="row">
+          <div><p class="code" style="margin:0;font-size:14px;color:#BCCBEA">birch-site.test/p/2291</p><p class="lv" style="margin:6px 0 0">Not proven</p><p style="margin:4px 0 0;font-size:15px;color:#DCE4F4">No form on the page sends data to another host.</p></div>
+          <div><p style="margin:0;font-size:14px">&nbsp;</p><p class="lv" style="margin:6px 0 0;color:#FFDD00">Suspend</p><p style="margin:4px 0 0;font-size:15px;color:#DCE4F4">The baseline would suspend a real page.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;margin-top:48px;align-items:start">
+      <section aria-labelledby="ex">
+        <h2 id="ex" style="margin:0 0 14px;font-size:26px;font-weight:800">Try a case</h2>
+        <p style="margin:-6px 0 14px;font-size:15px;color:#555E6B">Each one opens a fresh sandbox. 7 to 25 seconds.</p>
+        <ul style="list-style:none;margin:0;padding:0;background:#fff;border:1px solid #D5DAE1;border-radius:4px">
+          <li style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:15px 22px;border-bottom:1px solid #D5DAE1"><a href="#" style="font-weight:700;font-size:17px">Phishing login</a><span style="font-size:15px;color:#555E6B">Expected result: Proven</span></li>
+          <li style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:15px 22px;border-bottom:1px solid #D5DAE1"><a href="#" style="font-weight:700;font-size:17px">False report</a><span style="font-size:15px;color:#555E6B">Expected result: Not proven</span></li>
+          <li style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:15px 22px;border-bottom:1px solid #D5DAE1"><a href="#" style="font-weight:700;font-size:17px">Report that gives orders</a><span style="font-size:15px;color:#555E6B">Expected result: Not proven</span></li>
+          <li style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:15px 22px;border-bottom:1px solid #D5DAE1"><a href="#" style="font-weight:700;font-size:17px">Suspicious form</a><span style="font-size:15px;color:#555E6B">Expected result: Suspicious</span></li>
+          <li style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:15px 22px"><a href="#" style="font-weight:700;font-size:17px">Hostile page</a><span style="font-size:15px;color:#555E6B">Expected result: contained, then Proven</span></li>
+        </ul>
+      </section>
+      <form id="report" aria-labelledby="rp" style="background:#fff;border:1px solid #D5DAE1;border-top:4px solid #14336B;border-radius:4px;padding:22px 24px;display:flex;flex-direction:column;gap:16px">
+        <h2 id="rp" style="margin:0;font-size:22px;font-weight:800">Report a URL</h2>
+        <label class="fld">Reported URL<input type="url" class="code" placeholder="http://tailspin-offers.test/start"></label>
+        <label class="fld">What the reporter says<textarea rows="3" placeholder="Report text is stored as a claim. It cannot move the verdict."></textarea></label>
+        <button type="submit" class="btn" style="align-self:flex-start;background:#14336B;color:#fff;border:2px solid #14336B">Send report</button>
+      </form>
+    </div>
+
+    <section aria-labelledby="m" style="margin-top:48px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+      <h2 id="m" style="grid-column:1/-1;margin:0;font-size:26px;font-weight:800">What we measured on 47 test cases</h2>
+      <div style="padding:20px 22px;border-left:4px solid #14336B;background:#fff"><p style="margin:0;font-size:17px;font-weight:700">8 of 8 twin pairs separated</p><p style="margin:6px 0 0;font-size:15px;color:#343B45">Text alone could not tell them apart.</p></div>
+      <div style="padding:20px 22px;border-left:4px solid #14336B;background:#fff"><p style="margin:0;font-size:17px;font-weight:700">2 of 22 signals missed</p><p style="margin:6px 0 0;font-size:15px;color:#343B45">A plain fetch missed 13 of the same 22.</p></div>
+      <div style="padding:20px 22px;border-left:4px solid #14336B;background:#fff"><p style="margin:0;font-size:17px;font-weight:700">0 false citations</p><p style="margin:6px 0 0;font-size:15px;color:#343B45">Across 180 model outputs.</p></div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1300}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -1,7 +1,8 @@
+<tr hidden data-status="{{ cases|length }} cases in the queue, {{ cases|selectattr('status', 'in', ['queued', 'visiting', 'drafting'])|list|length }} running."><td colspan="6"></td></tr>
 {% for c in cases %}
 <tr>
   <td><a href="/cases/{{ c.id }}">#{{ c.id }}</a></td>
-  <td>{{ c.url }}</td>
+  <td><span class="code">{{ c.url }}</span></td>
   <td>{{ c.customer_name or 'Test any URL' }}</td>
   <td>{{ c.status }}</td>
   <td><span class="level level-{{ (c.level or '')|replace(' ', '') }}">{{ c.level or '...' }}</span></td>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Appeal</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;family=Source+Code+Pro:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F7}
+html{scrollbar-color:#14336B #E3E7EE;scrollbar-width:thin}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#E3E7EE}
+::-webkit-scrollbar-thumb{background:#14336B;border-radius:5px;border:2px solid #E3E7EE}
+::-webkit-scrollbar-thumb:hover{background:#0E2552}
+a{color:#14336B;text-underline-offset:3px}
+a:focus-visible,button:focus-visible,textarea:focus-visible{outline:3px solid #FFDD00;outline-offset:0;box-shadow:0 0 0 6px #111418}
+.btn{font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:0 22px;border-radius:4px;cursor:pointer}
+.rec{background:#fff;border:1px solid #D5DAE1;border-radius:4px}
+.step{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;padding:12px 0;font-size:16px;line-height:1.45}
+.dot{width:20px;height:20px;border-radius:50%;margin-top:2px;box-sizing:border-box}
+@media (prefers-reduced-motion: no-preference){
+.solid{animation:sl .9s cubic-bezier(.3,.7,.2,1) .2s both}
+@keyframes sl{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+}
+</style>
+</helmet>
+<div style="font-family:'Source Sans 3',ui-sans-serif,system-ui,sans-serif;background:#F4F5F7;color:#111418;min-height:1300px">
+  <header style="background:#fff;border-bottom:3px solid #14336B">
+    <div style="max-width:1200px;margin:0 auto;padding:16px 28px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:12px"><svg width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="2.4"></rect><rect x="19" y="4" width="12" height="26" rx="1.5" fill="#14336B"></rect></svg><span style="font-weight:800;font-size:21px">Due Process</span></div>
+      <nav aria-label="Main" style="display:flex;gap:26px;font-size:16px;font-weight:600"><a href="#">Queue</a><a href="#" aria-current="page" style="color:#111418">Appeals</a><a href="#">Same report, two pages</a><a href="#">How it decides</a></nav>
+    </div>
+  </header>
+  <main style="max-width:1200px;margin:0 auto;padding:32px 28px 64px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:32px;align-items:start">
+    <div style="min-width:0">
+      <p style="margin:0;font-size:15px;color:#555E6B">Customer view</p>
+      <h1 style="margin:2px 0 0;font-size:38px;font-weight:800;letter-spacing:-0.015em">Your page was suspended. You can appeal.</h1>
+      <p style="margin:10px 0 0;max-width:680px;font-size:18px;line-height:1.55;color:#343B45">You see the same record the analyst saw. Fix the page, then appeal. A new browser checks it again before anyone reinstates it.</p>
+
+      <section class="rec" aria-labelledby="w" style="margin-top:24px;padding:20px 24px">
+        <h2 id="w" style="margin:0;font-size:20px;font-weight:800">Why the page was suspended</h2>
+        <p style="margin:8px 0 0;font-size:17px;line-height:1.55">A form on the page sends data to another host, and the page asks for a password.</p>
+        <p style="margin:8px 0 0;font-size:14px;color:#555E6B">Level at the time of action: Proven. Computed by code. No model output can change it.</p>
+      </section>
+
+      <section class="rec" aria-labelledby="ap" style="margin-top:20px;padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+        <h2 id="ap" style="margin:0;font-size:20px;font-weight:800">Your appeal</h2>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:700">What did you change?<textarea rows="3" style="font:inherit;font-size:16px;font-weight:400;padding:10px 12px;border:2px solid #8A93A0;border-radius:4px" placeholder="Describe the fix. Your text is a claim; the re-visit decides."></textarea></label>
+        <button type="button" class="btn" style="align-self:flex-start;background:#14336B;color:#fff;border:2px solid #14336B">Send appeal and re-check the page</button>
+      </section>
+
+      <section aria-label="Re-check result" style="margin-top:24px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);border-radius:4px;overflow:hidden;box-shadow:0 20px 40px -30px rgba(17,20,24,.35)">
+        <div style="background:#fff;border:2px solid #14336B;border-right:0;padding:22px 24px">
+          <p style="margin:0;font-size:15px;font-weight:700;color:#555E6B">Original visit</p>
+          <p style="margin:8px 0 0;font-size:32px;font-weight:800;color:#14336B">Proven</p>
+          <p style="margin:6px 0 0;font-size:15px;color:#343B45">Form to another host, password field</p>
+        </div>
+        <div class="solid" style="background:#14336B;color:#fff;padding:22px 26px">
+          <p style="margin:0;font-size:15px;font-weight:700;color:#BCCBEA">Re-visit, in a new browser</p>
+          <p style="margin:8px 0 0;font-size:32px;font-weight:800">Not proven</p>
+          <p style="margin:6px 0 0;font-size:16px">Re-visit did not reproduce the original evidence.</p>
+        </div>
+      </section>
+      <section class="rec" aria-labelledby="d" style="margin-top:20px;padding:20px 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center">
+        <div><h2 id="d" style="margin:0;font-size:20px;font-weight:800">Analyst decision</h2><p style="margin:4px 0 0;font-size:15px;color:#343B45">The re-visit level is lower than at the time of action, so Reinstate is allowed.</p></div>
+        <button type="button" class="btn" style="background:#14336B;color:#fff;border:2px solid #14336B">Reinstate customer (simulated)</button>
+      </section>
+      <p style="margin:14px 0 0;font-size:14px;color:#555E6B">This is a demo. Every customer and action is simulated.</p>
+    </div>
+
+    <aside aria-labelledby="h" class="rec" style="padding:20px 22px;position:sticky;top:20px">
+      <h2 id="h" style="margin:0 0 6px;font-size:18px;font-weight:800">How an appeal works</h2>
+      <div class="step"><span class="dot" style="background:#14336B" aria-hidden="true"></span><span><strong>Suspended.</strong> On browser evidence, approved by an analyst.</span></div>
+      <div class="step"><span class="dot" style="background:#14336B" aria-hidden="true"></span><span><strong>Appeal sent.</strong> Your text is stored as a claim.</span></div>
+      <div class="step"><span class="dot" style="background:#14336B" aria-hidden="true"></span><span><strong>Re-visited.</strong> A new disposable browser opens the page.</span></div>
+      <div class="step"><span class="dot" style="border:3px solid #14336B" aria-hidden="true"></span><span><strong>Decided.</strong> Reinstate only if the re-visit finds a lower level than before.</span></div>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1300}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

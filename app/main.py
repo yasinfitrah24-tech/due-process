@@ -23,6 +23,8 @@ MAX_CLAIM_CHARS = 20000
 DOCUMENTS = {"statement_of_reasons": "Statement of reasons", "customer_notice": "Customer notice",
              "reporter_reply": "Reporter reply"}
 NEEDS_ENFORCEMENT = ("statement_of_reasons", "customer_notice")
+ACTION_LABELS = {"Suspend": "Suspend customer", "Warn": "Warn customer", "Close": "Close report"}
+SHOWCASE_TWIN = "login"
 
 templates = Jinja2Templates(directory=HERE / "templates")
 executor = ThreadPoolExecutor(max_workers=visitor.MAX_PARALLEL)
@@ -215,18 +217,37 @@ def case_context(ref):
     claim, vision = outputs.get("claim_extraction"), outputs.get("vision_claim")
     views = appeal_views(case, outputs)
     polling = case["status"] in ("queued", "visiting", "drafting") or any(a["status"] in appeals.PENDING for a in views)
+    allowed = policy.allowed_for(case) if case["status"] == "ready" else ()
     return {"case": case, "evidence": evidence, "audit": db.audit_log(case_id), "outputs": outputs, "appeals": views,
             "polling": polling, "choices": appeals.CHOICES, "timeline": timeline.rows(db.case_events(case_id)),
-            "why": explain.why(case["signals"]),
+            "why": explain.why(case["signals"]), "present": explain.present(case["signals"]),
+            "contained": explain.contained(evidence, case["receipt"]), "status_line": explain.status_line(case),
+            "action_labels": ACTION_LABELS, "appealable": bool(set(allowed) & set(policy.APPEALABLE)),
             "comparison": compare.rows(claim and claim["output"], case["signals"], evidence, vision and vision["output"]),
             "usage": db.case_usage(case_id), "documents": DOCUMENTS, "sent": sent_documents(case_id),
-            "allowed": policy.allowed_for(case) if case["status"] == "ready" else ()}
+            "allowed": allowed}
+
+
+def showcase():
+    """The front page's report and, once one has run, what a real comparison of it found. Nothing here is made up."""
+    twin = TWINS[SHOWCASE_TWIN]
+    comparison = db.latest_comparison(SHOWCASE_TWIN)
+    sides = []
+    for side in ("abuse", "legit") if comparison else ():
+        case = db.get_case(comparison[f"{side}_case"])
+        action = comparison[f"{side}_baseline"]["action"]
+        if case["status"] != "ready":
+            return {"report": twin["report"], "sides": []}
+        sides.append({"url": case["url"].split("://", 1)[1], "level": case["level"], "why": explain.why(case["signals"]),
+                      "baseline": action, "wrong": case["level"] == "Not proven" and action in policy.APPEALABLE})
+    return {"report": twin["report"], "sides": sides}
 
 
 def front_page(request, error=None, status_code=200):
     hosts = [h for c in inventory.CUSTOMERS if not c.get("eval_only") for h in c["hosts"]]
     return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": error, "hosts": hosts,
-                                                              "examples": EXAMPLES, "fixable": FIXABLE_EXAMPLE},
+                                                              "examples": EXAMPLES, "fixable": FIXABLE_EXAMPLE,
+                                                              "showcase": showcase()},
                                       status_code=status_code)
 
 
