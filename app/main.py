@@ -84,7 +84,7 @@ FOUND_NOTHING = {"Not Found": "We could not find that page.", "case not found": 
                  "no such appeal link": "This appeal link does not exist.",
                  "no such comparison": "This comparison does not exist."}
 NEXT_STEP = {403: "Go back and choose one of the actions shown there.",
-             404: "Check the link, or go back and start from there.",
+             404: "The link may be old, or the case number may not exist. Cases in this demo are reset from time to time.",
              405: "Go back and use the buttons on the page.",
              409: "Go back: the page shows where this stands now.",
              422: "Go back, check what you entered and send it again.",
@@ -109,9 +109,12 @@ def error_page(request, status, what):
     else:
         back, label = "/", "Back to the queue"
     sentence = what[0].upper() + what[1:]
+    sentence = sentence if sentence.endswith(".") else f"{sentence}."
+    missing = status == 404
     return templates.TemplateResponse(request, "error.html", {
-        "status": status, "what": sentence if sentence.endswith(".") else f"{sentence}.",
-        "next_step": NEXT_STEP.get(status, NEXT_STEP[409]), "back": back, "back_label": label}, status_code=status)
+        "status": status, "what": sentence, "headline": "There is no page at this address." if missing else sentence,
+        "next_step": f"{sentence} {NEXT_STEP[404]}" if missing else NEXT_STEP.get(status, NEXT_STEP[409]),
+        "back": back, "back_label": "Go to the queue" if missing and back == "/" else label}, status_code=status)
 
 
 def once(nonce, work):

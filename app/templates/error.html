@@ -1,10 +1,16 @@
 {% extends "base.html" %}
 {% block title %}{{ what }} - Due Process{% endblock %}
 {% block content %}
-<section class="claim-box error-page">
-  <p class="label">Error {{ status }}</p>
-  <h1>{{ what }}</h1>
-  <p class="error-next">{{ next_step }}</p>
-  <p><a class="btn primary" href="{{ back }}">{{ back_label }}</a></p>
+<section class="error-page">
+  <svg viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="1.6"/><rect x="19" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#C9D0DB" stroke-width="1.6" stroke-dasharray="2 2"/></svg>
+  <div>
+    <p class="label">{{ status }}</p>
+    <h1>{{ headline }}</h1>
+    <p class="error-next">{{ next_step }}</p>
+    <div class="btn-row">
+      <a class="btn primary" href="{{ back }}">{{ back_label }}</a>
+      {% if status == 404 %}<a class="btn" href="/#try">Run a real case</a>{% endif %}
+    </div>
+  </div>
 </section>
 {% endblock %}

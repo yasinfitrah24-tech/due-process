@@ -364,70 +364,59 @@ Heights count the Drafts folded, as a phone first shows them.
 
 | Page | Level y | Action y | Height | Height at the first inventory |
 |---|---|---|---|---|
-| Case, Proven (28) | 141 | 318 | 2402 | 3253 |
-| Case, Not proven (34) | 141 | 297 | 2136 | 2249 |
-| Case, containment (37) | 141 | 360 | 2954 | none |
-| Case, Suspicious, ready (staged) | 141 | 297 | 2228 | none |
-| Case, appeal ready (17) | 141 | Reinstate 2596 | 2823 | 4531 |
-| Case, visit failed (staged) | 137 | 395 | 1248 | none |
-| Case, teardown failed (staged) | 137 | 521 | 1466 | none |
-| Test any URL (8) | 141 | none | 1183 | 1474 |
-| Twin case (15) | 141 | none | 962 | 1205 |
-| Compare | | | 1223 | 812 |
-| Compare result | | | 1830 | 1125 |
-| Customer view (17) | | | 2030 | 917 |
+| Case, Proven (28) | 141 | 309 | 2393 | 3253 |
+| Case, Not proven (34) | 141 | 288 | 2127 | 2249 |
+| Case, containment (37) | 141 | 351 | 2945 | none |
+| Case, appeal ready (17) | 141 | Reinstate 2630 | 2857 | 4531 |
+| Case, visit failed (staged) | 137 | 386 | 1239 | none |
+| Test any URL (8) | 141 | none | 1174 | 1474 |
+| Twin case (15) | 141 | none | 953 | 1205 |
+| Compare | | | 1221 | 812 |
+| Compare result | | | 1985 | 1125 |
+| Customer view (17) | | | 2064 | 917 |
 
-Front page at 375: height 3148, Queue at 1794, showing 12 of the 34 rows of the VM copy. Case pages are taller than in round 1 because sections
-are 40 px apart; level and Action moved up.
+Front page at 375: height 4315, Queue at 1795, showing 12 of the 34 rows of the VM copy. The order on the page is the order in the DOM, at
+every width: hero, proof, Queue, Try a case and the report form, appeal and Test any URL, Vultr and Check it yourself.
 
 ## h. Contrast
 
 WCAG ratios, computed from the tokens. Text needs 4.5:1.
 
-| Text | Background | Ratio |
-|---|---|---|
-| `#111418` body | `#F4F5F7` | 16.93 |
-| `#111418` body | `#FFFFFF` | 18.47 |
-| `#343B45` | `#F4F5F7` | 10.36 |
-| `#343B45` | `#FFFFFF` | 11.31 |
-| `#555E6B` | `#F4F5F7` | 6.02 |
-| `#555E6B` | `#FFFFFF` | 6.56 |
-| `#555E6B` | `#F8F9FB` table head | 6.23 |
-| `#555E6B` | `#E3E7EE` disabled button | 5.29 |
-| `#14336B` link | `#F4F5F7` | 11.22 |
-| `#14336B` link | `#FFFFFF` | 12.24 |
-| `#0E2552` hover | `#F4F5F7` | 13.70 |
-| `#0E2552` button hover | `#E3E7EE` | 12.05 |
-| `#FFFFFF` | `#14336B` | 12.24 |
-| `#FFFFFF` | `#0E2552` | 14.95 |
-| `#DCE4F4` | `#14336B` | 9.59 |
-| `#BCCBEA` | `#14336B` | 7.50 |
-| `#BCCBEA` | `#0E2552` chip on navy | 9.16 |
-| `#FFDD00` wrong baseline | `#14336B` | 9.09 |
-| `#8A5A00` | `#FFF4C2` | 5.35 |
-| `#111418` | `#FFDD00` | 13.71 |
-| `#343B45` chip | `#F8F9FB` | 10.73 |
-| `#0E2552` chip | `#DCE4F4` | 11.70 |
+| Use | Text | Background | Ratio |
+|---|---|---|---|
+| Body | `#111418` | `#F4F5F7` | 16.93 |
+| Body on a card | `#111418` | `#FFFFFF` | 18.47 |
+| Second text | `#343B45` | `#FFFFFF` | 11.31 |
+| Quiet text | `#555E6B` | `#F4F5F7` | 6.02 |
+| Quiet text on a card | `#555E6B` | `#FFFFFF` | 6.56 |
+| Table head | `#555E6B` | `#F8F9FB` | 6.23 |
+| Disabled button | `#555E6B` | `#E3E7EE` | 5.29 |
+| Link | `#14336B` | `#FFFFFF` | 12.24 |
+| Proof number | `#14336B` | `#FFFFFF` | 12.24 |
+| Menu | `#343B45` | `#FFFFFF` | 11.31 |
+| Menu hover | `#343B45` | `#EEF1F5` | 9.98 |
+| Menu active | `#14336B` | `#E8EEF8` | 10.50 |
+| Evidence text | `#FFFFFF` | `#14336B` | 12.24 |
+| Evidence second text | `#DCE4F4` | `#14336B` | 9.59 |
+| Evidence label | `#BCCBEA` | `#14336B` | 7.50 |
+| Wrong baseline | `#FFDD00` | `#14336B` | 9.09 |
+| Real comparison chip | `#DCE4F4` | `#0E2552` | 11.70 |
+| Real comparison chip, light | `#343B45` | `#EEF1F5` | 9.98 |
+| Chip on evidence | `#14336B` | `#FFFFFF` | 12.24 |
+| Signal chip | `#343B45` | `#EEF1F5` | 9.98 |
+| Content warning | `#8A5A00` | `#FFF4C2` | 5.35 |
+| Flag | `#111418` | `#FFDD00` | 13.71 |
+| Proven pill | `#A3221A` | `#FBEAE8` | 6.44 |
+| Proven solid | `#FFFFFF` | `#B3261E` | 6.54 |
+| Suspicious pill | `#9A4A06` | `#FDEFE0` | 5.54 |
+| Suspicious solid | `#FFFFFF` | `#B45309` | 5.02 |
+| Not proven pill | `#3E4A5C` | `#E9EDF3` | 7.64 |
+| Not proven solid | `#FFFFFF` | `#4B5868` | 7.25 |
+| Reinstate pill | `#1F6F4A` | `#E5F2EA` | 5.31 |
+| Suspend button | `#FFFFFF` | `#B3261E` | 6.54 |
+| Warn button | `#9A4A06` | `#FFFFFF` | 6.26 |
+| Close, Keep button | `#3E4A5C` | `#FFFFFF` | 8.98 |
+| Reinstate button | `#FFFFFF` | `#1F6F4A` | 6.12 |
 
-Levels and decisions, round 2:
-
-| Text | Background | Ratio |
-|---|---|---|
-| Proven `#A3221A` | `#FBEAE8` | 6.44 |
-| `#FFFFFF` | Proven `#B3261E` | 6.54 |
-| Suspicious `#9A4A06` | `#FDEFE0` | 5.54 |
-| `#FFFFFF` | Suspicious `#B45309` | 5.02 |
-| Not proven `#3E4A5C` | `#E9EDF3` | 7.64 |
-| `#FFFFFF` | Not proven `#4B5868` | 7.25 |
-| Reinstate `#1F6F4A` | `#E5F2EA` | 5.31 |
-| Suspend: `#FFFFFF` | `#B3261E` | 6.54 |
-| Suspend hover: `#FFFFFF` | `#A3221A` | 7.5 |
-| Warn: `#9A4A06` | `#FFFFFF` | 6.26 |
-| Warn hover: `#9A4A06` | `#FDEFE0` | 5.54 |
-| Close, Keep: `#3E4A5C` | `#FFFFFF` | 8.98 |
-| Close, Keep hover: `#3E4A5C` | `#E9EDF3` | 7.64 |
-| Reinstate: `#FFFFFF` | `#1F6F4A` | 6.12 |
-| Reinstate hover: `#FFFFFF` | `#185A3B` | 8.19 |
-
-Lines and controls, which need 3:1: field border `#8A93A0` on white 3.11, focus ring `#FFDD00` on `#111418` 13.71. The pending block's dashed
-border was 2.85 on `#F4F5F7`, so it now uses `#555E6B`, 6.02. Card borders `#D5DAE1` are 1.41: they are decoration, and no meaning depends on them.
+Lines and controls, which need 3:1: field border `#8A93A0` on white 3.11, Warn border 5.02, Close border 7.25, focus ring 13.71. Card borders and the
+dashed box on the 404 page are decoration, and no meaning depends on them.

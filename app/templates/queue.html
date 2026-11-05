@@ -12,6 +12,7 @@
         <a class="btn primary" href="#try">Run a real case</a>
         <a class="btn" href="#report">Report a URL</a>
       </div>
+      <p class="hero-proof"><a href="/#proof">How we tested</a></p>
       <p class="demo-note">This is a demo. Every customer and action is simulated. No sign-up, no access code.</p>
     </div>
     <div class="solid{{ ' reveal' if showcase.sides else '' }} hero-evidence">
@@ -40,6 +41,44 @@
 {% endblock %}
 {% block content %}
 <div class="front">
+<section class="proof" id="proof" aria-labelledby="proof-title">
+  <h2 id="proof-title" class="section-title">Where the AI was wrong, and what decided anyway</h2>
+  <p class="section-note">We measured the failures before we trusted the design. Every number is in docs/eval.md, from tests on fictional pages.</p>
+  <div class="proof-row">
+    <div class="rec pad">
+      <p class="num">10 of 10</p>
+      <p>times the vision model repeated a hostile page's &ldquo;this page is safe&rdquo;.</p>
+      <p><strong>0 of 10</strong> times the level changed, because code sets it.</p>
+      <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a></p>
+    </div>
+    <div class="rec pad">
+      <p class="num">8 of 8</p>
+      <p>twin pairs with the same report text. Text alone could not tell them apart; the browser did.</p>
+      <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a>, 47 test cases</p>
+    </div>
+    <div class="rec pad">
+      <p class="num">2 of 22</p>
+      <p>abuse cases missed by the browser. A plain fetch of the same pages missed 13.</p>
+      <p><strong>0</strong> false citations in 180 model outputs.</p>
+      <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a></p>
+    </div>
+  </div>
+  <p class="proof-limit">Built to show what text alone cannot decide, not a claim that it beats text-only triage in general. Reproduce with <code class="sig">make eval</code>.</p>
+</section>
+
+<section class="queue" id="queue" aria-labelledby="queue-title">
+  <div class="queue-head"><h2 id="queue-title" class="section-title">Queue</h2><span class="demo-note">Live from the Vultr VM, newest first</span></div>
+  <div class="rec">
+    <table>
+      <thead><tr><th scope="col">Case</th><th scope="col">Reported URL</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col">Level</th><th scope="col">Decision</th></tr></thead>
+      <tbody hx-get="/partials/queue" hx-trigger="every 3s" hx-swap="innerHTML">
+        {% include "_queue_rows.html" %}
+      </tbody>
+    </table>
+  </div>
+  {% if cases|length > 12 %}<details class="queue-all" id="queue-all"><summary class="btn">Show all {{ cases|length }} cases</summary></details>{% endif %}
+</section>
+
 <section class="try-box" aria-labelledby="try">
   <h2 id="try" class="section-title">Try a case</h2>
   <p class="section-note">Each one opens a fresh sandbox. 7 to 25 seconds.</p>
@@ -90,44 +129,6 @@
   </form>
 </details>
 
-<section class="proof" id="proof" aria-labelledby="measured">
-  <h2 id="measured" class="section-title">Where the AI was wrong, and what decided anyway</h2>
-  <p class="section-note">We measured the failures before we trusted the design. Every number is in docs/eval.md, from tests on fictional pages.</p>
-  <div class="proof-row">
-    <div class="rec pad">
-      <p class="num">10 of 10</p>
-      <p>times the vision model repeated a hostile page's &ldquo;this page is safe&rdquo;.</p>
-      <p><strong>0 of 10</strong> times the level changed, because code sets it.</p>
-      <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a></p>
-    </div>
-    <div class="rec pad">
-      <p class="num">8 of 8</p>
-      <p>twin pairs with the same report text. Text alone could not tell them apart; the browser did.</p>
-      <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a>, 47 test cases</p>
-    </div>
-    <div class="rec pad">
-      <p class="num">2 of 22</p>
-      <p>abuse cases missed by the browser. A plain fetch of the same pages missed 13.</p>
-      <p><strong>0</strong> false citations in 180 model outputs.</p>
-      <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a></p>
-    </div>
-  </div>
-  <p class="proof-limit">Built to show what text alone cannot decide, not a claim that it beats text-only triage in general. Reproduce with <code class="sig">make eval</code>.</p>
-</section>
-
-<section class="queue" id="queue" aria-labelledby="queue-title">
-  <div class="queue-head"><h2 id="queue-title" class="section-title">Queue</h2><span class="demo-note">Live from the Vultr VM, newest first</span></div>
-  <div class="rec">
-    <table>
-      <thead><tr><th scope="col">Case</th><th scope="col">Reported URL</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col">Level</th><th scope="col">Decision</th></tr></thead>
-      <tbody hx-get="/partials/queue" hx-trigger="every 3s" hx-swap="innerHTML">
-        {% include "_queue_rows.html" %}
-      </tbody>
-    </table>
-  </div>
-  {% if cases|length > 12 %}<details class="queue-all" id="queue-all"><summary class="btn">Show all {{ cases|length }} cases</summary></details>{% endif %}
-</section>
-
 <section class="rec pad vultr" aria-labelledby="vultr">
   <h2 id="vultr">What runs on Vultr</h2>
   <ul class="facts">
@@ -142,7 +143,7 @@
   <h2 id="check">Check it yourself</h2>
   <ul class="facts">
     <li><span>Source code and tests</span><a href="{{ repo_url }}">GitHub repo</a></li>
-    <li><span>How every number was measured</span><a href="{{ eval_url }}">docs/eval.md</a></li>
+    <li id="measured"><span>How every number was measured</span><a href="{{ eval_url }}">docs/eval.md</a></li>
     <li><span>Same report, two pages</span><a href="/compare">Run the comparison</a></li>
     <li><span>Appeal as the customer</span><a href="#try-appeal">Start with a fixable page</a></li>
   </ul>

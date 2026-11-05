@@ -1,17 +1,17 @@
 <div id="customer" data-status="{{ status_line }}"{% if polling %} hx-get="/partials/appeal/{{ case.appeal_token }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
  <div class="customer-grid">
   <div class="customer-main">
-    <p class="eyebrow-always">Customer view</p>
+    <p class="eyebrow-always">Customer view: {{ case.customer_name }}, demo customer</p>
     <h1 class="page-title">{{ headline }}</h1>
     <p class="demo-note page-note">Simulated. This is what {{ case.customer_name }} would see. Demo: anyone with the case link can act as the customer.</p>
 
-    <section class="rec pad" aria-labelledby="happened">
-      <h2 id="happened">What happened</h2>
+    <section class="rec pad toned" data-tone="{{ case.level|replace(' ', '') }}" aria-labelledby="happened">
+      <div class="card-head"><h2 id="happened">What happened</h2><span class="pill pill-{{ case.decided_action }}">{{ case.decided_action }}</span></div>
       <p>{{ action_text }} Reported page:</p>
       <p class="code url-line" title="{{ case.url }}">{{ case.url }}</p>
       {% if why %}<p>{{ why }}</p>{% endif %}
       {% if notice %}<blockquote>{{ notice|short_urls }}</blockquote>{% endif %}
-      <p class="small muted">Level at the time of action: {{ case.level }}. Computed by code. No model output can change it.</p>
+      <p class="small muted">Level at the time of action: <span class="pill pill-{{ case.level|replace(' ', '') }}">{{ case.level }}</span> Computed by code. No model output can change it.</p>
     </section>
 
     {% if slug %}
@@ -59,12 +59,12 @@
     {% if a.status in ('ready', 'decided') %}
     <div id="visits-{{ a.id }}" data-level="{{ a.level or '' }}">
     <section class="visits" aria-label="Re-check result">
-      <div class="claim-box" data-tone="{{ case.level|replace(' ', '') }}">
-        <p class="label">Original visit</p>
-        <p class="visit-level"><span class="pill pill-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></p>
+      <div class="solid first" data-tone="{{ case.level|replace(' ', '') }}">
+        <p class="label">First visit</p>
+        <p class="visit-level"><span class="pill pill-on-navy pill-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></p>
       </div>
       <div class="{{ 'solid' if a.level else 'claim-box' }}" data-tone="{{ (a.level or '')|replace(' ', '') }}">
-        <p class="label">Re-visit, in a new browser</p>
+        <p class="label">Re-check, in a new browser</p>
         <p class="visit-level">{% if a.level %}<span class="pill pill-on-navy pill-{{ a.level|replace(' ', '') }}">{{ a.level }}</span>{% else %}No result{% endif %}</p>
         {% if a.not_reproduced %}<p>Re-visit did not reproduce the original evidence.</p>{% endif %}
         {% if not a.level %}<p>Nothing was reproduced. The action stays until an analyst decides.</p>{% endif %}
@@ -75,8 +75,8 @@
     {% if a.decision or a.status in ('ready', 'decided') %}
     <section class="rec pad" aria-label="Analyst decision">
       <h2>Analyst decision</h2>
-      {% if a.decision == 'Reinstate' %}<p><span class="pill pill-Reinstate">Decision: Reinstated</span> (simulated).</p>
-      {% elif a.decision == 'Keep' %}<p><span class="pill pill-Keep">Decision: Kept.</span> The action stays in place.</p>
+      {% if a.decision == 'Reinstate' %}<p><span class="pill pill-big pill-Reinstate">Decision: Reinstated</span> (simulated).</p>
+      {% elif a.decision == 'Keep' %}<p><span class="pill pill-big pill-Keep">Decision: Kept.</span> The action stays in place.</p>
       {% else %}<p>Waiting for an analyst. Reinstate needs a second visit with a lower level than at the action.</p>{% endif %}
       {% if a.sent %}<blockquote>{{ a.sent|short_urls }}</blockquote>
       {% elif a.decision %}<p class="muted">The analyst has not sent the letter yet.</p>{% endif %}
@@ -92,7 +92,7 @@
     <h2 id="how">How an appeal works</h2>
     <ol class="steps">
       {% for s in steps %}
-      <li class="{{ 'done' if s.done else 'todo' }}"><span class="dot" aria-hidden="true"></span><span><strong>{{ s.title }}</strong> {{ s.text }} <span class="sr-only">{{ 'Done.' if s.done else 'Not yet.' }}</span></span></li>
+      <li class="{{ 'done' if s.done else 'todo' }}{{ ' reinstated' if s.reinstated }}"><span class="dot" aria-hidden="true"></span><span><strong>{{ s.title }}</strong> {{ s.text }} <span class="sr-only">{{ 'Done.' if s.done else 'Not yet.' }}</span></span></li>
       {% endfor %}
     </ol>
   </aside>

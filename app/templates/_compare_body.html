@@ -4,16 +4,19 @@
   <p class="page-lead">One report text was sent to two pages. A baseline that reads only the report text sits beside the browser result.</p>
 
   <section class="claim-box report-once" aria-label="The report">
-    <p class="label">The same report went to both pages</p>
-    <blockquote class="said-big">&ldquo;{{ twin.report }}&rdquo;</blockquote>
-    <p class="small muted">Reporter's claim — untrusted. It cannot move the verdict.</p>
+    <div>
+      <p class="label">The claim, identical for both pages</p>
+      <blockquote class="said-big">&ldquo;{{ twin.report }}&rdquo;</blockquote>
+      <p class="small muted">Reporter's claim — untrusted. It cannot move the verdict.</p>
+    </div>
+    <p class="real-light">Real comparison, run on {{ comparison.created_at[:10] }}</p>
   </section>
 
   <div class="sides">
     {% for side in sides %}
     <div id="side-{{ loop.index }}" data-level="{{ side.case.level or '' }}">
-    <section class="side {{ 'pending' if not side.case.level or side.case.note else ('solid' if loop.first else 'claim-box') }}" data-tone="{{ (side.case.level or '')|replace(' ', '') }}" aria-label="{{ side.label }}">
-      <p class="label">{{ side.label }}</p>
+    <section class="side {{ 'pending' if not side.case.level or side.case.note else 'solid' }}" data-tone="{{ (side.case.level or '')|replace(' ', '') }}" aria-label="{{ side.label }}">
+      <p class="label">The evidence: {{ side.label }}</p>
       <p class="code host url-line" title="{{ side.case.url }}">{{ side.case.url }}</p>
       {% if side.case.level %}
       <p class="small verdict-label">Verdict, opened by Due Process</p>
@@ -48,6 +51,9 @@
       </td>{% endfor %}</tr>
     </table>
   </section>
-  <p class="demo-note page-note">This run only, on fictional test pages. These pages cannot be acted on here. <a href="/compare">Try another</a></p>
-  <p class="demo-note">On all 8 twin pairs in our test set, the browser separated the two pages and report text alone did not. This is a demo. Every customer and action is simulated.</p>
+  <div class="again">
+    <a class="btn primary" href="/compare">Run the comparison again</a>
+    <p class="demo-note">Opens two fresh sandboxes. On all 8 twin pairs in our tests, the browser separated the pages and report text alone did not.</p>
+  </div>
+  <p class="demo-note page-note">This run only, on fictional test pages. These pages cannot be acted on here. This is a demo. Every customer and action is simulated.</p>
 </div>

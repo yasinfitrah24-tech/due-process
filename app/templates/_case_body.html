@@ -232,12 +232,12 @@
       {% if a.status in ('drafting', 'ready', 'decided') %}
       <div id="visits-{{ a.id }}" data-level="{{ a.level or '' }}">
       <div class="visits in-card">
-        <div class="claim-box" data-tone="{{ case.level|replace(' ', '') }}">
-          <p class="label">Original visit</p>
-          <p class="visit-level"><span class="pill pill-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></p>
+        <div class="solid first" data-tone="{{ case.level|replace(' ', '') }}">
+          <p class="label">First visit</p>
+          <p class="visit-level"><span class="pill pill-on-navy pill-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></p>
         </div>
         <div class="{{ 'solid' if a.level else 'claim-box' }}" data-tone="{{ (a.level or '')|replace(' ', '') }}">
-          <p class="label">Re-visit, in a new browser</p>
+          <p class="label">Re-check, in a new browser</p>
           <p class="visit-level">{% if a.level %}<span class="pill pill-on-navy pill-{{ a.level|replace(' ', '') }}">{{ a.level }}</span>{% else %}No result{% endif %}</p>
           {% if not a.level %}<p class="small">Nothing was reproduced.</p>{% endif %}
           {% if a.not_reproduced %}<p><strong>Re-visit did not reproduce the original evidence.</strong> A page can also show a clean version only to this browser.</p>{% endif %}

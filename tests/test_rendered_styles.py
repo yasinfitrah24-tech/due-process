@@ -247,3 +247,47 @@ def test_the_front_page_names_the_configured_models(client, monkeypatch):  # noq
         model = "configured-model"
     monkeypatch.setattr("app.pipeline.llm.get_client", lambda role: Named())
     assert client.get("/").text.count("configured-model") == 2
+
+
+FOCUS_ORDER = """
+  const shown = e => e.getBoundingClientRect().height > 0 && e.tabIndex >= 0;
+  const tops = [...doc.querySelectorAll('a[href], button, input:not([type=hidden]), textarea, summary')].filter(shown)
+    .map(e => Math.round(e.getBoundingClientRect().top));
+  const link = doc.querySelector('.hero-proof a'), proof = doc.querySelector('#proof').getBoundingClientRect();
+  return {width: win.innerWidth, tops, heroLink: link.getBoundingClientRect().height, proof: proof.height};
+"""
+
+
+def test_tab_order_follows_the_screen_on_a_phone_and_css_does_not_reorder(client, tmp_path):  # noqa: F811
+    run(client, URL_A)
+    css = (Path(__file__).parent.parent / "app" / "static" / "css" / "app.css").read_text(encoding="utf-8")
+    assert not re.search(r"(?<![-\w])order:", css)
+    results = run_in_frames({"front": client.get("/").text}, FOCUS_ORDER, tmp_path)
+    phone = results["front@375"]
+    assert phone["tops"] == sorted(phone["tops"]) or all(b >= a - 60 for a, b in zip(phone["tops"], phone["tops"][1:]))
+    assert phone["heroLink"] >= 44 and phone["proof"] > 0
+    assert results["front@1280"]["heroLink"] == 0
+
+
+def test_the_hero_link_goes_to_the_proof(client):  # noqa: F811
+    page = client.get("/").text
+    assert page.count('href="/#proof"') == 2 and 'id="proof"' in page
+    assert page.index('id="proof"') < page.index('id="queue"') < page.index('class="try-box"')
+
+
+def test_compare_shows_both_pages_as_evidence(twins):  # noqa: F811
+    page = twins.get(start(twins)).text
+    assert page.count('class="side solid"') == 2 and "Real comparison, run on" in page
+    assert "Run the comparison again" in page
+
+
+def test_both_visits_are_evidence_blocks_after_a_recheck(client, second):  # noqa: F811
+    c = suspended(client)
+    client.post(f"/appeal/{c['appeal_token']}", data={"choice": "fixed"})
+    page = client.get(f"/appeal/{c['appeal_token']}").text
+    assert 'class="solid first"' in page and "Re-visit did not reproduce the original evidence." in page
+
+
+def test_a_missing_page_follows_the_design(client):  # noqa: F811
+    page = client.get("/nothing-here", headers={"accept": "text/html"}).text
+    assert "There is no page at this address." in page and "Go to the queue" in page and "Run a real case" in page
