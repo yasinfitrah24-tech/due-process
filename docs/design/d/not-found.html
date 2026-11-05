@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>D Not found</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F7}
+a{color:#14336B;text-underline-offset:3px}
+a:focus-visible{outline:3px solid #FFDD00;outline-offset:0;box-shadow:0 0 0 6px #111418}
+.wrap{max-width:1200px;margin:0 auto;padding:0 clamp(16px,5vw,48px)}
+.tab{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:999px;font-size:15px;font-weight:600;color:#343B45;text-decoration:none}
+.btn{display:inline-flex;align-items:center;font-size:16px;font-weight:700;min-height:48px;padding:0 22px;border-radius:4px;text-decoration:none}
+</style>
+</helmet>
+<div style="font-family:'Source Sans 3',ui-sans-serif,system-ui,sans-serif;background:#F4F5F7;color:#111418;min-height:640px">
+  <header style="background:#fff;border-bottom:1px solid #E3E7EE">
+    <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:64px">
+      <div style="display:flex;align-items:center;gap:12px"><svg width="28" height="28" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="2.4"></rect><rect x="19" y="4" width="12" height="26" rx="1.5" fill="#14336B"></rect></svg><span style="font-weight:800;font-size:20px">Due Process</span></div>
+      <nav aria-label="Main" style="display:flex;gap:4px"><a class="tab" href="#">Queue</a><a class="tab" href="#">Same report, two pages</a><a class="tab" href="#">How we tested</a></nav>
+    </div>
+  </header>
+  <main class="wrap" style="padding-top:80px;padding-bottom:64px">
+    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:32px;align-items:start;max-width:820px">
+      <svg width="120" height="120" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="1.6"></rect><rect x="19" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#C9D0DB" stroke-width="1.6" stroke-dasharray="2 2"></rect></svg>
+      <div>
+        <p style="margin:0;font-size:15px;font-weight:700;color:#555E6B">404</p>
+        <h1 style="margin:6px 0 0;font-size:36px;font-weight:800">There is no page at this address.</h1>
+        <p style="margin:12px 0 0;font-size:17px;line-height:1.55;color:#343B45">The link may be old, or the case number may not exist. Cases in this demo are reset from time to time.</p>
+        <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap"><a class="btn" href="#" style="background:#14336B;color:#fff;border:2px solid #14336B">Go to the queue</a><a class="btn" href="#" style="background:#fff;color:#14336B;border:2px solid #14336B">Run a real case</a></div>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":640}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

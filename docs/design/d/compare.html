@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>D Compare</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;family=Source+Code+Pro:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F7}
+a{color:#14336B;text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:3px solid #FFDD00;outline-offset:0;box-shadow:0 0 0 6px #111418}
+.code{font-family:'Source Code Pro',ui-monospace,monospace}
+.wrap{max-width:1200px;margin:0 auto;padding:0 clamp(16px,5vw,48px)}
+.tab{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:999px;font-size:15px;font-weight:600;color:#343B45;text-decoration:none}
+.tab[aria-current]{color:#14336B;background:#E8EEF8}
+.btn{display:inline-flex;align-items:center;font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:0 22px;border-radius:4px;cursor:pointer;text-decoration:none}
+.pill{display:inline-flex;align-items:center;font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.card{background:#fff;border:1px solid #E3E7EE;border-radius:10px;box-shadow:0 1px 2px rgba(17,20,24,.05)}
+table{border-collapse:collapse;width:100%;font-size:16px}
+th,td{text-align:left;padding:14px 22px;border-bottom:1px solid #EEF1F5;vertical-align:top}
+thead th{font-size:13px;font-weight:700;color:#555E6B;background:#F8F9FB}
+tbody th{font-weight:600}
+tr:last-child th,tr:last-child td{border-bottom:0}
+</style>
+</helmet>
+<div style="font-family:'Source Sans 3',ui-sans-serif,system-ui,sans-serif;background:#F4F5F7;color:#111418;min-height:1250px">
+  <header style="background:#fff;border-bottom:1px solid #E3E7EE">
+    <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:64px">
+      <div style="display:flex;align-items:center;gap:12px"><svg width="28" height="28" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="2.4"></rect><rect x="19" y="4" width="12" height="26" rx="1.5" fill="#14336B"></rect></svg><span style="font-weight:800;font-size:20px">Due Process</span></div>
+      <nav aria-label="Main" style="display:flex;gap:4px"><a class="tab" href="#">Queue</a><a class="tab" href="#" aria-current="page">Same report, two pages</a><a class="tab" href="#">How we tested</a></nav>
+    </div>
+  </header>
+  <main class="wrap" style="padding-top:40px;padding-bottom:64px">
+    <h1 style="margin:0;font-size:38px;font-weight:800;letter-spacing:-0.015em">One report, two pages</h1>
+    <p style="margin:8px 0 0;max-width:760px;font-size:18px;line-height:1.55;color:#343B45">The same report text goes to a fake login and a real one, on hosts of one fictional customer. Due Process opens both. A baseline reads the report text only.</p>
+    <p style="margin:6px 0 0;font-size:14px;color:#555E6B">Built to show what the text alone cannot decide, not how often real reports look like this.</p>
+
+    <section aria-label="The report" style="margin-top:28px;background:#fff;border:2px solid #14336B;border-radius:10px;padding:22px 26px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:baseline">
+      <div><p style="margin:0;font-size:14px;font-weight:700;color:#555E6B">The claim, identical for both pages</p><p style="margin:8px 0 0;font-size:24px;line-height:1.35;font-weight:600">“This page asks for my bank password and it looks fake to me.”</p><p style="margin:8px 0 0;font-size:14px;color:#555E6B">Reporter's claim — untrusted. It cannot move the verdict.</p></div>
+      <span class="pill" style="background:#EEF1F5;color:#343B45;font-weight:600">Real comparison, run on 2026-11-05</span>
+    </section>
+
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:24px">
+      <section aria-labelledby="o" style="background:#14336B;color:#fff;border-radius:10px;border-top:6px solid #B3261E;padding:22px 26px;box-shadow:0 20px 40px -28px rgba(17,20,24,.35)">
+        <p style="margin:0;font-size:14px;font-weight:700;color:#BCCBEA">The evidence</p>
+        <p class="code" style="margin:6px 0 0;font-size:14px;color:#DCE4F4">orchard-site.test/p/1042</p>
+        <h2 id="o" style="margin:12px 0 0"><span class="pill" style="background:#B3261E;color:#fff;font-size:22px;font-weight:800;padding:6px 16px">Proven</span></h2>
+        <p style="margin:12px 0 0;font-size:17px;line-height:1.5">A form sends data to another host, and the page asks for a password.</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#BCCBEA">Computed by code. No model output can change it.</p>
+        <p style="margin:16px 0 0;padding-top:12px;border-top:1px solid rgba(255,255,255,.2);font-size:15px">Proven allows Suspend, Warn, Close.</p>
+      </section>
+      <section aria-labelledby="b" style="background:#14336B;color:#fff;border-radius:10px;border-top:6px solid #4B5868;padding:22px 26px;box-shadow:0 20px 40px -28px rgba(17,20,24,.35)">
+        <p style="margin:0;font-size:14px;font-weight:700;color:#BCCBEA">The evidence</p>
+        <p class="code" style="margin:6px 0 0;font-size:14px;color:#DCE4F4">birch-site.test/p/2291</p>
+        <h2 id="b" style="margin:12px 0 0"><span class="pill" style="background:#4B5868;color:#fff;font-size:22px;font-weight:800;padding:6px 16px">Not proven</span></h2>
+        <p style="margin:12px 0 0;font-size:17px;line-height:1.5">No form on the page sends data to another host.</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#BCCBEA">Computed by code. No model output can change it.</p>
+        <p style="margin:16px 0 0;padding-top:12px;border-top:1px solid rgba(255,255,255,.2);font-size:15px">Not proven allows Close.</p>
+      </section>
+    </div>
+
+    <section class="card" aria-labelledby="t" style="margin-top:24px;overflow:hidden">
+      <h2 id="t" style="margin:0;font-size:20px;font-weight:800;padding:18px 22px;border-bottom:1px solid #E3E7EE">Side by side</h2>
+      <table>
+        <thead><tr><th scope="col" style="width:34%"></th><th scope="col">orchard-site.test/p/1042</th><th scope="col">birch-site.test/p/2291</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Report text</th><td>Identical</td><td>Identical</td></tr>
+          <tr><th scope="row">Due Process, browser evidence</th><td><span class="pill" style="color:#A3221A;background:#FBEAE8">Proven</span></td><td><span class="pill" style="color:#3E4A5C;background:#E9EDF3">Not proven</span></td></tr>
+          <tr><th scope="row">Baseline: reads report text only</th><td>Suspend</td><td><span style="background:#FFDD00;padding:1px 6px;border-radius:3px;font-weight:700">Suspend</span> a real page</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:24px">
+      <a class="btn" href="#" style="background:#14336B;color:#fff;border:2px solid #14336B">Run the comparison again</a>
+      <span style="font-size:14px;color:#555E6B">Opens two fresh sandboxes. On all 8 twin pairs in our tests, the browser separated the pages and report text alone did not.</span>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1250}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

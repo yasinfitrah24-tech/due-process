@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Case with level colors</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;family=Source+Code+Pro:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F7}
+a{color:#14336B;text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:3px solid #FFDD00;outline-offset:0;box-shadow:0 0 0 6px #111418}
+.code{font-family:'Source Code Pro',ui-monospace,monospace}
+.wrap{max-width:1200px;margin:0 auto;padding:0 clamp(16px,5vw,48px)}
+.tab{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:999px;font-size:15px;font-weight:600;color:#343B45;text-decoration:none}
+.tab[aria-current]{color:#14336B;background:#E8EEF8}
+.btn{display:inline-flex;align-items:center;font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:0 20px;border-radius:4px;cursor:pointer}
+.pill{display:inline-flex;align-items:center;font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.chip{font-family:'Source Code Pro',ui-monospace,monospace;font-size:12px;color:#343B45;background:#EEF1F5;border-radius:999px;padding:2px 8px}
+.card{background:#fff;border:1px solid #E3E7EE;border-radius:10px;box-shadow:0 1px 2px rgba(17,20,24,.05)}
+.sig{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid rgba(255,255,255,.16);font-size:15px}
+.tag{font-size:12px;font-weight:700;color:#14336B;background:#fff;border-radius:999px;padding:2px 9px}
+</style>
+</helmet>
+<div style="font-family:'Source Sans 3',ui-sans-serif,system-ui,sans-serif;background:#F4F5F7;color:#111418;min-height:1300px">
+  <header style="background:#fff;border-bottom:1px solid #E3E7EE">
+    <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:64px">
+      <div style="display:flex;align-items:center;gap:12px"><svg width="28" height="28" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="2.4"></rect><rect x="19" y="4" width="12" height="26" rx="1.5" fill="#14336B"></rect></svg><span style="font-weight:800;font-size:20px">Due Process</span></div>
+      <nav aria-label="Main" style="display:flex;gap:4px"><a class="tab" href="#" aria-current="page">Queue</a><a class="tab" href="#">Same report, two pages</a><a class="tab" href="#">How we tested</a></nav>
+    </div>
+  </header>
+  <main class="wrap" style="padding-top:24px;padding-bottom:64px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <a href="#" style="display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px 0 12px;border:1px solid #C9D0DB;border-radius:999px;background:#fff;font-weight:600;text-decoration:none"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8l5 5" fill="none" stroke="#14336B" stroke-width="2"></path></svg>Back to queue</a>
+      <span style="font-size:14px;color:#555E6B">Queue / Case #37</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;margin-top:20px">
+      <div><h1 style="margin:0;font-size:36px;font-weight:800">Case #37</h1><p class="code" style="margin:4px 0 0;font-size:14px;color:#343B45">northwind-verify.test/containment</p></div>
+      <div style="text-align:right;font-size:14px;color:#555E6B"><p style="margin:0">Received, reproduced, decided. Awaiting an analyst.</p><p style="margin:4px 0 0">Demo case. The customer is simulated.</p></div>
+    </div>
+
+    <section aria-label="Claims against evidence" style="margin-top:24px;display:grid;grid-template-columns:minmax(0,0.85fr) minmax(0,1.35fr);border-radius:10px;overflow:hidden;box-shadow:0 20px 40px -28px rgba(17,20,24,.35)">
+      <div style="background:#fff;border:2px solid #14336B;border-right:0;border-radius:10px 0 0 10px;padding:24px">
+        <h2 style="margin:0;font-size:16px;font-weight:700;color:#555E6B">Claims, not used for the result</h2>
+        <p style="margin:16px 0 4px;font-size:15px;font-weight:700">Reporter</p>
+        <p style="margin:0;font-size:15px;color:#343B45">Phishing page imitating Northwind Bank. It behaves strangely when opened.</p>
+        <p style="margin:6px 0 0;font-size:13px;color:#555E6B">Reporter's claim — untrusted. It cannot move the verdict.</p>
+        <p style="margin:18px 0 4px;font-size:15px;font-weight:700">Vision model</p>
+        <p style="margin:0;font-size:15px;color:#343B45">The image shows a login page titled 'Northwind Bank sign in' with input fields for User ID and Password…</p>
+        <p style="margin:10px 0 0;padding:8px 10px;border-radius:6px;background:#FFF4C2;font-size:13px;color:#8A5A00">This claim repeats text taken from the page. Those are the page's words, not a finding.</p>
+      </div>
+      <div style="background:#14336B;color:#fff;padding:0 26px 22px;border-top:6px solid #B3261E">
+        <div style="display:flex;justify-content:space-between;gap:12px;padding-top:20px;flex-wrap:wrap"><h2 style="margin:0;font-size:15px;font-weight:700;color:#BCCBEA">Evidence the browser reproduced</h2><span class="code" style="font-size:13px;color:#BCCBEA">container 44243ee13963</span></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px"><span class="pill" style="background:#B3261E;color:#fff;font-size:24px;font-weight:800;padding:6px 18px">Proven</span><span style="font-size:13px;color:#DCE4F4">Computed by code. No model output can change it.</span></div>
+        <p style="margin:14px 0 0;font-size:16px;line-height:1.55">A form on the page sends data to another host, and the page asks for a password. The page also holds hidden text, tried to reach an address it may not reach and started a download that was held and never opened.</p>
+        <div style="margin-top:14px">
+          <div class="sig"><span>Form to a foreign host</span><span class="tag">declared_in_script</span></div>
+          <div class="sig"><span>Password field</span><span class="tag">observed</span></div>
+          <div class="sig"><span>Request blocked by the proxy</span><span class="tag">observed</span></div>
+          <div class="sig"><span>Download held</span><span class="tag">observed</span></div>
+        </div>
+      </div>
+    </section>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px;margin-top:24px">
+      <section class="card" aria-labelledby="ac" style="padding:24px">
+        <h2 id="ac" style="margin:0;font-size:20px;font-weight:800">Action</h2>
+        <p style="margin:6px 0 16px;font-size:15px;color:#343B45">Proven allows Suspend, Warn, Close. Nothing is sent until an analyst sends it.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button type="button" class="btn" style="background:#B3261E;color:#fff;border:2px solid #B3261E">Suspend customer (simulated)</button>
+          <button type="button" class="btn" style="background:#fff;color:#9A4A06;border:2px solid #B45309">Warn (simulated)</button>
+          <button type="button" class="btn" style="background:#fff;color:#3E4A5C;border:2px solid #4B5868">Close (simulated)</button>
+        </div>
+      </section>
+      <section class="card" aria-labelledby="ap" style="padding:24px">
+        <h2 id="ap" style="margin:0;font-size:20px;font-weight:800">Appeal</h2>
+        <p style="margin:6px 0 0;font-size:15px;line-height:1.55;color:#343B45">Opens once Suspend or Warn is taken. A new browser re-checks the page. Reinstate only if the re-check finds a lower level.</p>
+      </section>
+    </div>
+
+    <section class="card" aria-labelledby="es" style="margin-top:24px;padding:24px">
+      <h2 id="es" style="margin:0 0 12px;font-size:20px;font-weight:800">Evidence statement</h2>
+      <p style="margin:0 0 8px;font-size:15px">The page declares a form handler that submits to the foreign host http://collector.test/submit. <span class="chip">form_to_foreign_host</span></p>
+      <p style="margin:0 0 8px;font-size:15px">A password field was observed on http://northwind-verify.test/containment. <span class="chip">password_field</span></p>
+      <p style="margin:0;font-size:15px">Egress to the cloud metadata address 169.254.169.254 was blocked, and the download northwind-statement.txt was quarantined. <span class="chip">egress_blocked</span> <span class="chip">download_quarantined</span></p>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1300}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

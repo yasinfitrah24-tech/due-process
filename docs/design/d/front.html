@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>D Split hero + proof</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;family=Source+Code+Pro:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F7}
+a{color:#14336B;text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:3px solid #FFDD00;outline-offset:0;box-shadow:0 0 0 6px #111418}
+.code{font-family:'Source Code Pro',ui-monospace,monospace}
+.wrap{max-width:1200px;margin:0 auto;padding:0 clamp(16px,5vw,48px)}
+.tab{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:999px;font-size:15px;font-weight:600;color:#343B45;text-decoration:none}
+.tab[aria-current]{color:#14336B;background:#E8EEF8}
+.btn{display:inline-flex;align-items:center;font:inherit;font-size:16px;font-weight:700;min-height:48px;padding:0 22px;border-radius:4px;text-decoration:none}
+.pill{display:inline-flex;align-items:center;font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.p-proven{color:#A3221A;background:#FBEAE8}.p-susp{color:#9A4A06;background:#FDEFE0}.p-np{color:#3E4A5C;background:#E9EDF3}
+.p-suspend{color:#A3221A;background:#fff;box-shadow:inset 0 0 0 1.5px #B3261E}
+.card{background:#fff;border:1px solid #E3E7EE;border-radius:10px;box-shadow:0 1px 2px rgba(17,20,24,.05)}
+.res{padding:18px 0;border-bottom:1px solid rgba(255,255,255,.18)}
+.num{font-size:40px;font-weight:800;line-height:1;letter-spacing:-0.02em;color:#14336B}
+.src{font-size:13px;color:#555E6B;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th{font-size:13px;font-weight:700;color:#555E6B;text-align:left;padding:12px 20px;background:#F8F9FB;border-bottom:1px solid #E3E7EE}
+td{padding:14px 20px;border-bottom:1px solid #EEF1F5}
+tr:last-child td{border-bottom:0}
+.stack{display:flex;flex-direction:column;gap:10px;font-size:15px}
+.stack li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #EEF1F5}
+@media (prefers-reduced-motion: no-preference){
+.solid{animation:sl 1s cubic-bezier(.3,.7,.2,1) .3s both}
+@keyframes sl{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+}
+</style>
+</helmet>
+<div style="font-family:'Source Sans 3',ui-sans-serif,system-ui,sans-serif;background:#F4F5F7;color:#111418;min-height:1900px">
+  <header style="background:#fff;border-bottom:1px solid #E3E7EE">
+    <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:64px">
+      <div style="display:flex;align-items:center;gap:12px"><svg width="28" height="28" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="2.4"></rect><rect x="19" y="4" width="12" height="26" rx="1.5" fill="#14336B"></rect></svg><span style="font-weight:800;font-size:20px">Due Process</span></div>
+      <nav aria-label="Main" style="display:flex;gap:4px"><a class="tab" href="#" aria-current="page">Queue</a><a class="tab" href="#">Same report, two pages</a><a class="tab" href="#">How we tested</a></nav>
+    </div>
+  </header>
+
+  <section aria-label="The claim and the evidence" style="background:linear-gradient(90deg,#fff 50%,#14336B 50%)"><div class="wrap" style="display:grid;grid-template-columns:1fr 1fr;min-height:540px">
+    <div style="background:#fff;border-right:3px solid #14336B">
+      <div style="padding:56px 48px 48px 0;box-sizing:border-box">
+        <p style="margin:0;font-size:14px;font-weight:700;color:#555E6B">The claim</p>
+        <h1 style="margin:12px 0 0;font-size:46px;line-height:1.05;font-weight:800;letter-spacing:-0.025em">A report is a claim. Only reproduced evidence can move an action.</h1>
+        <p style="margin:18px 0 0;font-size:18px;line-height:1.6;color:#343B45">An abuse desk for hosting providers. The reported URL opens in a throwaway browser on Vultr, and only what it reproduces can lead to action.</p>
+        <blockquote style="margin:24px 0 0;padding:14px 16px;border:2px solid #14336B;border-radius:10px;font-size:17px;font-weight:600;line-height:1.4">“This page asks for my bank password and it looks fake to me.”<span style="display:block;margin-top:6px;font-size:13px;font-weight:400;color:#555E6B">Reporter's claim — untrusted. It cannot move the verdict.</span></blockquote>
+        <div style="display:flex;gap:12px;margin-top:24px;flex-wrap:wrap">
+          <a class="btn" href="#" style="background:#14336B;color:#fff;border:2px solid #14336B">Run a real case</a>
+          <a class="btn" href="#" style="background:#fff;color:#14336B;border:2px solid #14336B">Report a URL</a>
+        </div>
+        <p style="margin:12px 0 0;font-size:14px;color:#555E6B">This is a demo. Every customer and action is simulated. No sign-up.</p>
+      </div>
+    </div>
+    <div class="solid" style="background:#14336B;color:#fff">
+      <div style="padding:56px 0 48px 48px;box-sizing:border-box">
+        <p style="margin:0;font-size:14px;font-weight:700;color:#BCCBEA">The evidence</p>
+        <p style="margin:12px 0 0;font-size:26px;line-height:1.2;font-weight:800">The same report, sent to two pages.</p>
+        <span class="pill" style="margin-top:12px;background:rgba(255,255,255,.12);color:#DCE4F4;font-weight:600">Real comparison, run on 2026-11-05</span>
+        <div class="res" style="margin-top:6px">
+          <p class="code" style="margin:0;font-size:13px;color:#BCCBEA">orchard-site.test/p/1042</p>
+          <span class="pill" style="margin-top:10px;background:#B3261E;color:#fff;font-size:15px;padding:4px 12px">Proven</span>
+          <p style="margin:8px 0 0;font-size:15px;color:#DCE4F4">A form sends data to another host, and the page asks for a password.</p>
+        </div>
+        <div class="res">
+          <p class="code" style="margin:0;font-size:13px;color:#BCCBEA">birch-site.test/p/2291</p>
+          <span class="pill" style="margin-top:10px;background:#4B5868;color:#fff;font-size:15px;padding:4px 12px">Not proven</span>
+          <p style="margin:8px 0 0;font-size:15px;color:#DCE4F4">No form on the page sends data to another host.</p>
+        </div>
+        <p style="margin:16px 0 0;font-size:15px;color:#DCE4F4">Baseline, reads report text only: <b style="color:#fff">Suspend</b> both. <b style="color:#FFDD00">One of them is a real page.</b></p>
+      </div>
+    </div>
+  </div></section>
+
+  <main class="wrap" style="padding-top:64px;padding-bottom:64px">
+    <section aria-labelledby="ai">
+      <h2 id="ai" style="margin:0;font-size:28px;font-weight:800">Where the AI was wrong, and what decided anyway</h2>
+      <p style="margin:8px 0 24px;font-size:16px;color:#343B45;max-width:720px">We measured the failures before we trusted the design. Every number links to the test that produced it.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px">
+        <div class="card" style="padding:24px"><p class="num">10 of 10</p><p style="margin:10px 0 0;font-size:16px;line-height:1.5">times the vision model repeated a hostile page's “this page is safe”.</p><p style="margin:8px 0 0;font-size:16px;line-height:1.5"><b>0 of 10</b> times the level changed, because code sets it.</p><p class="src">Source: docs/eval.md</p></div>
+        <div class="card" style="padding:24px"><p class="num">8 of 8</p><p style="margin:10px 0 0;font-size:16px;line-height:1.5">twin pairs with the same report text. Text alone could not tell them apart; the browser did.</p><p class="src">Source: docs/eval.md, 47 test cases</p></div>
+        <div class="card" style="padding:24px"><p class="num">2 of 22</p><p style="margin:10px 0 0;font-size:16px;line-height:1.5">abuse cases missed by the browser. A plain fetch of the same pages missed 13.</p><p style="margin:8px 0 0;font-size:16px;line-height:1.5"><b>0</b> false citations in 180 model outputs.</p><p class="src">Source: docs/eval.md</p></div>
+      </div>
+      <p style="margin:16px 0 0;font-size:14px;color:#555E6B">Built to show what text alone cannot decide, not a claim that it beats text-only triage in general. Reproduce with <span class="code" style="background:#EEF1F5;padding:1px 6px;border-radius:4px">[COMMAND FROM README]</span>.</p>
+    </section>
+
+    <section aria-labelledby="q" style="margin-top:64px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:16px"><h2 id="q" style="margin:0;font-size:26px;font-weight:800">Queue</h2><span style="font-size:14px;color:#555E6B">Live from the Vultr VM, newest first</span></div>
+      <div class="card" style="overflow:hidden">
+        <table>
+          <thead><tr><th scope="col">Case</th><th scope="col">Reported URL</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col">Level</th><th scope="col">Decision</th></tr></thead>
+          <tbody>
+            <tr><td><a href="#">#19</a></td><td class="code" style="font-size:13px">northwind-bank.test/branches</td><td>Northwind Bank</td><td style="color:#555E6B">ready</td><td><span class="pill p-np">Not proven</span></td><td></td></tr>
+            <tr><td><a href="#">#6</a></td><td class="code" style="font-size:13px">northwind-verify.test/containment</td><td>Tailspin Offers Ltd</td><td style="color:#555E6B">decided</td><td><span class="pill p-proven">Proven</span></td><td><span class="pill p-suspend">Suspend</span></td></tr>
+            <tr><td><a href="#">#4</a></td><td class="code" style="font-size:13px">tailspin-offers.test/verify-account</td><td>Tailspin Offers Ltd</td><td style="color:#555E6B">ready</td><td><span class="pill p-susp">Suspicious</span></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="v" style="margin-top:64px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px">
+      <div class="card" style="padding:24px">
+        <h2 id="v" style="margin:0 0 4px;font-size:20px;font-weight:800">What runs on Vultr</h2>
+        <ul class="stack" style="list-style:none;margin:12px 0 0;padding:0">
+          <li><span>Disposable browser per case</span><span class="code" style="font-size:13px;color:#555E6B">Docker on a Vultr VM</span></li>
+          <li><span>Vision claim</span><span class="code" style="font-size:13px;color:#555E6B">nemotron-3-nano-omni-30b</span></li>
+          <li><span>Text claims and drafts</span><span class="code" style="font-size:13px;color:#555E6B">deepseek-v4.1-flash</span></li>
+          <li style="border-bottom:0"><span>Models served by</span><span style="font-size:14px;color:#555E6B">Vultr Serverless Inference</span></li>
+        </ul>
+      </div>
+      <div class="card" style="padding:24px">
+        <h2 style="margin:0 0 4px;font-size:20px;font-weight:800">Check it yourself</h2>
+        <ul class="stack" style="list-style:none;margin:12px 0 0;padding:0">
+          <li><span>Source code and tests</span><a href="#">GitHub repo</a></li>
+          <li><span>How every number was measured</span><a href="#">docs/eval.md</a></li>
+          <li><span>Same report, two pages</span><a href="#">Run the comparison</a></li>
+          <li style="border-bottom:0"><span>Appeal as the customer</span><a href="#">Start with a fixable page</a></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

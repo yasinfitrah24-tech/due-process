@@ -26,7 +26,8 @@ MAX_CLAIM_CHARS = 20000
 DOCUMENTS = {"statement_of_reasons": "Statement of reasons", "customer_notice": "Customer notice",
              "reporter_reply": "Reporter reply"}
 NEEDS_ENFORCEMENT = ("statement_of_reasons", "customer_notice")
-ACTION_LABELS = {"Suspend": "Suspend customer", "Warn": "Warn customer", "Close": "Close report"}
+ACTION_LABELS = {"Suspend": "Suspend customer", "Warn": "Warn", "Close": "Close"}
+REPO_URL = "https://github.com/yasinfitrah24-tech/due-process"
 SHOWCASE_TWIN = "login"
 
 templates = Jinja2Templates(directory=HERE / "templates")
@@ -337,6 +338,9 @@ def front_page(request, error=None, status_code=200, form="report", values=None)
     return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": error, "hosts": hosts,
                                                               "examples": EXAMPLES, "fixable": FIXABLE_EXAMPLE,
                                                               "showcase": showcase(), "form": form,
+                                                              "models": {"vision": pipeline.llm.get_client("vision_claim").model,
+                                                                         "text": pipeline.llm.get_client("verdict_claim").model},
+                                                              "repo_url": REPO_URL, "eval_url": f"{REPO_URL}/blob/main/docs/eval.md",
                                                               "values": values or {},
                                                               "error_next": rejected_next(error)},
                                       status_code=status_code)

@@ -25,6 +25,7 @@
       <nav class="site-nav" aria-label="Main">
         <a href="/#queue"{% if request.url.path in ('/', '/reports', '/test-url') or request.url.path.startswith(('/cases', '/appeal')) %} aria-current="page"{% endif %}>Queue</a>
         <a href="/compare"{% if request.url.path.startswith('/compare') %} aria-current="page"{% endif %}><span class="long">Same report, two pages</span><span class="short">Compare</span></a>
+        <a class="long-only" href="/#proof">How we tested</a>
       </nav>
     </div>
   </header>
