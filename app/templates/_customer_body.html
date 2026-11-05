@@ -7,9 +7,10 @@
 
     <section class="rec pad" aria-labelledby="happened">
       <h2 id="happened">What happened</h2>
-      <p>{{ action_text }} Reported page: <span class="code">{{ case.url }}</span></p>
+      <p>{{ action_text }} Reported page:</p>
+      <p class="code url-line" title="{{ case.url }}">{{ case.url }}</p>
       {% if why %}<p>{{ why }}</p>{% endif %}
-      {% if notice %}<blockquote>{{ notice }}</blockquote>{% endif %}
+      {% if notice %}<blockquote>{{ notice|short_urls }}</blockquote>{% endif %}
       <p class="small muted">Level at the time of action: {{ case.level }}. Computed by code. No model output can change it.</p>
     </section>
 
@@ -77,7 +78,7 @@
       {% if a.decision == 'Reinstate' %}<p><strong>Decision: Reinstated</strong> (simulated).</p>
       {% elif a.decision == 'Keep' %}<p><strong>Decision: Kept.</strong> The action stays in place.</p>
       {% else %}<p>Waiting for an analyst. Reinstate needs a second visit with a lower level than at the action.</p>{% endif %}
-      {% if a.sent %}<blockquote>{{ a.sent }}</blockquote>
+      {% if a.sent %}<blockquote>{{ a.sent|short_urls }}</blockquote>
       {% elif a.decision %}<p class="muted">The analyst has not sent the letter yet.</p>{% endif %}
     </section>
     {% endif %}

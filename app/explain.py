@@ -1,4 +1,12 @@
 """Plain sentences written by code from the signals. No model is involved, so they cannot say more than the signals do."""
+import re
+
+LONG_URL = re.compile(r"https?://\S{70,}")
+
+
+def short_urls(text):
+    """For display only: a long URL inside a sentence is cut, so one report cannot fill a page. The record keeps it whole."""
+    return LONG_URL.sub(lambda m: f"{m[0][:70]}\u2026", text)
 
 
 def why(found):

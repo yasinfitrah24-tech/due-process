@@ -14,7 +14,7 @@
     <div id="side-{{ loop.index }}" data-level="{{ side.case.level or '' }}">
     <section class="side {{ 'pending' if not side.case.level or side.case.note else ('solid' if loop.first else 'claim-box') }}" aria-label="{{ side.label }}">
       <p class="label">{{ side.label }}</p>
-      <p class="code host">{{ side.case.url }}</p>
+      <p class="code host url-line" title="{{ side.case.url }}">{{ side.case.url }}</p>
       {% if side.case.level %}
       <p class="small verdict-label">Verdict, opened by Due Process</p>
       <h2 class="side-level">{{ side.case.level }}</h2>
@@ -36,7 +36,7 @@
   <section class="rec side-table" aria-labelledby="sbs">
     <h2 id="sbs" class="rec-title">Side by side</h2>
     <table>
-      <thead><tr><th scope="col"><span class="sr-only">Compared</span></th>{% for side in sides %}<th scope="col"><span class="code">{{ side.host }}</span></th>{% endfor %}</tr></thead>
+      <thead><tr><th scope="col"><span class="sr-only">Compared</span></th>{% for side in sides %}<th scope="col" title="{{ side.host }}"><span class="code url-line">{{ side.host }}</span></th>{% endfor %}</tr></thead>
       <tr><th scope="row">Report text</th>{% for side in sides %}<td>Identical</td>{% endfor %}</tr>
       <tr><th scope="row">Due Process, browser evidence</th>{% for side in sides %}<td>{% if side.case.level %}<strong>{{ side.case.level }}</strong>{% else %}Status: {{ side.case.status }}{% endif %}</td>{% endfor %}</tr>
       <tr><th scope="row">Baseline</th>{% for side in sides %}<td>

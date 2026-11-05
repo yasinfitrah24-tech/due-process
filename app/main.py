@@ -31,6 +31,7 @@ SHOWCASE_TWIN = "login"
 
 templates = Jinja2Templates(directory=HERE / "templates")
 templates.env.globals["nonce"] = lambda: secrets.token_urlsafe(16)
+templates.env.filters["short_urls"] = explain.short_urls
 executor = ThreadPoolExecutor(max_workers=visitor.MAX_PARALLEL)
 
 
