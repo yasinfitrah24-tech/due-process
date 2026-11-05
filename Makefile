@@ -16,7 +16,7 @@ else
 SSH ?= ssh
 endif
 
-.PHONY: up down sandbox-image test test-docker eval reset-demo reset-demo-vm
+.PHONY: up down sandbox-image test test-docker docker-running eval reset-demo reset-demo-vm
 
 up: sandbox-image
 	$(DOCKER) compose up -d --build --wait
@@ -31,8 +31,12 @@ test:
 	$(PY) -m pytest -q -m "not docker"
 
 # Runs real sandbox containers; needs `make up` first. Takes about two minutes (one visit hangs on purpose).
-test-docker:
+test-docker: docker-running
 	$(PY) -m pytest -q -m docker
+
+# Stops here with a clear message and a non-zero exit, instead of dozens of failures that look like bugs.
+docker-running:
+	@$(DOCKER) info >/dev/null 2>&1 || { echo "Docker is not running: start it, run make up, then run this again." >&2; exit 1; }
 
 # Needs `make up`. Real model calls, at most USD 0.50. Writes docs/eval.md and eval/results/.
 eval:
