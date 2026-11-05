@@ -72,7 +72,7 @@ button, .btn {
   border: 2px solid var(--navy); border-radius: var(--radius); background: var(--card); color: var(--navy);
   font: 700 16px/1.2 var(--sans); text-decoration: none; cursor: pointer;
 }
-.primary { background: var(--navy); color: var(--on-navy); }
+.primary, .primary:hover { background: var(--navy); color: var(--on-navy); }
 @media (hover: hover) and (pointer: fine) {
   button:hover:not(:disabled), .btn:hover { background: var(--line-soft); color: var(--navy-dark); }
   .primary:hover:not(:disabled) { background: var(--navy-dark); border-color: var(--navy-dark); color: var(--on-navy); }
@@ -126,7 +126,7 @@ blockquote { margin: 0; padding: 10px 12px; background: var(--head); border-left
 /* The claim box and the evidence block */
 .claim-box { background: var(--card); border: 2px solid var(--navy); min-width: 0; overflow-wrap: anywhere; }
 .solid { background: var(--navy); color: var(--on-navy); min-width: 0; overflow-wrap: anywhere; }
-.solid a { color: var(--on-navy); }
+.solid a:not(.btn) { color: var(--on-navy); }
 .solid code, .solid .code { color: var(--on-navy-2); }
 @media (prefers-reduced-motion: no-preference) {
   .reveal { animation: reveal 1s cubic-bezier(.3, .7, .2, 1) backwards; }
