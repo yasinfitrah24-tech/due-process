@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Queue - Due Process{% endblock %}
+{% block content %}
+<p>Due Process is an abuse desk for hosting providers. An abuse report is only a claim: the URL is opened in a throwaway browser in a locked-down sandbox on Vultr, and only evidence reproduced there can lead to action. Try an example or send your own report: no access code is needed, and every customer and action here is simulated.</p>
+
+<h2>Try an example</h2>
+<div class="examples">
+  {% for key, e in examples.items() %}
+  <form method="post" action="/try/{{ key }}">
+    <button type="submit">{{ e.title }}</button>
+    <p class="muted">{{ e.hint }}</p>
+  </form>
+  {% endfor %}
+</div>
+
+<h2>One report, two pages</h2>
+<p><a href="/compare">Send one report to two pages</a>, with a baseline that reads the report text only.</p>
+
+<h2>Try an appeal</h2>
+<form method="post" action="/try/fixable">
+  <button type="submit">{{ fixable.title }}</button>
+  <p class="muted">{{ fixable.hint }}</p>
+</form>
+
+<h2>Send your own report</h2>
+{% if error %}<p class="error">Rejected: {{ error }}</p>{% endif %}
+<form method="post" action="/reports">
+  <label>Reported URL <input type="text" name="url" required placeholder="http://tailspin-offers.test/start"></label>
+  <label>Claim <textarea name="claim" rows="3" required placeholder="Write anything, even orders to the AI. Report text cannot move the verdict."></textarea></label>
+  <button type="submit">Submit report</button>
+</form>
+<p class="muted">Our fictional customers are on these hosts: {{ hosts|join(', ') }}. Any other host gets "not our customer".</p>
+
+<h2>Test any URL</h2>
+<p class="muted">Opens an internet URL in a disposable browser, through the egress proxy. Evidence and a verdict only: no target, no action, and not a finding of abuse. The result is not listed here: keep the link you get.</p>
+<form method="post" action="/test-url">
+  <label>URL <input type="text" name="url" required placeholder="https://example.com/"></label>
+  <button type="submit">Test URL</button>
+</form>
+
+<h2>Queue</h2>
+<table>
+  <thead><tr><th>Case</th><th>URL</th><th>Customer</th><th>Status</th><th>Verdict</th><th>Action</th></tr></thead>
+  <tbody hx-get="/partials/queue" hx-trigger="every 3s" hx-swap="innerHTML">
+    {% include "_queue_rows.html" %}
+  </tbody>
+</table>
+{% endblock %}

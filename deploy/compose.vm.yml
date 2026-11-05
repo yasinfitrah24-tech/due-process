@@ -1,0 +1,22 @@
+# On the VM only (COMPOSE_FILE in .env). Caddy is the only published service; the app has no port of its own.
+services:
+  app:
+    ports: !reset []
+    environment:
+      TRUSTED_PROXY_HOST: caddy
+
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443"]
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?set PUBLIC_HOST in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on: [app]
+    restart: unless-stopped
+
+volumes:
+  caddydata:
+  caddyconfig:

@@ -1,0 +1,249 @@
+{% macro kind(k) %}{% if k %}<span class="chip {{ k }}">{{ k }}</span>{% endif %}{% endmacro %}
+{% macro sentences(items) %}{% for s in items %}<p>{{ s.text }}{% for id in s.signals %} <code>[{{ id }}]</code>{% endfor %}</p>{% endfor %}{% endmacro %}
+{% macro problem(o) %}{% if o.status not in ('accepted', 'template') %}
+<p class="error">Claim {{ o.status }}: {{ o.problem }}</p>
+{% if o.raw %}<details><summary>Model output (not used)</summary><blockquote>{{ o.raw }}</blockquote></details>{% endif %}
+{% endif %}{% endmacro %}
+{% macro by(o) %}{% if o.status == 'template' %}<span class="chip">template (code)</span>{% else %}<span class="chip model_claim">model_claim</span> <span class="chip">{{ o.model }}</span>{% endif %}{% endmacro %}
+{% macro progress(rows) %}
+  <table>
+    <thead><tr><th>Seconds</th><th>Source</th><th>What happened</th></tr></thead>
+    {% for t in rows %}
+    <tr><td>{{ '%.1f'|format(t.at) }}{% if t.visit == 'second visit' %} <span class="muted">(second visit)</span>{% endif %}</td>
+      <td><span class="chip">{{ t.source }}</span></td>
+      <td>{% if t.blocked %}<strong>{{ t.text }}</strong>{% else %}{{ t.text }}{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+{% endmacro %}
+<div id="case"{% if polling %} hx-get="/partials/cases/{{ case.ref }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
+  <h1>{% if case.mode == 'test' %}Test any URL{% elif case.mode == 'twin' %}One report, two pages{% else %}Case #{{ case.id }}{% endif %}</h1>
+
+  <section class="summary">
+    {% if case.level %}
+    <p><span class="badge badge-{{ case.level|replace(' ', '') }}">{{ case.level }}</span> <span class="muted">Computed by code. No model output can change it.</span></p>
+    {% else %}
+    <p class="muted">Status: {{ case.status }}</p>
+    {% endif %}
+    {% if case.mode == 'test' %}
+    <p>{{ case.url }}</p>
+    <p>Evidence and a verdict only. This page is not a customer of ours: there is no target and no action, and the verdict is not a finding of abuse. Only people with this link can see this page.</p>
+    {% elif case.mode == 'twin' %}
+    <p>{{ case.url }}</p>
+    <p>A fictional test page opened for a comparison. Nothing here can be acted on. Only people with this link can see this page.</p>
+    {% else %}
+    <p>Target: <strong>{{ case.customer_name }}</strong> ({{ case.customer_id }}), from host <code>{{ case.host }}</code> via the hosting inventory.</p>
+    {% endif %}
+    {% if why %}<p>{{ why }}</p>{% endif %}
+    {% if case.note %}<p class="error">{{ case.note }}</p>{% endif %}
+    {% if case.mode == 'demo' %}
+    {% if case.decided_action %}
+    <p>{{ case.decided_action }} by {{ case.decided_by }} at {{ case.decided_at }} (simulated).</p>
+    {% if case.appeal_token %}<p><a href="/appeal/{{ case.appeal_token }}">Customer view</a>: the link in the customer notice. Demo: anyone with the case link can act as the customer.</p>{% endif %}
+    {% elif allowed %}
+    <form method="post" action="/cases/{{ case.ref }}/actions" class="actions">
+      <input type="text" name="analyst" value="analyst" aria-label="Analyst" style="width: 110px">
+      {% for a in allowed %}<button type="submit" name="action" value="{{ a }}">{{ a }}</button>{% endfor %}
+    </form>
+    {% else %}<p class="muted">Actions open when the case is ready.</p>{% endif %}
+    {% endif %}
+    {% if usage.calls %}<p class="muted">Status: {{ case.status }}. {{ usage.calls }} model calls, USD {{ '%.5f'|format(usage.cost_usd) }}.</p>{% endif %}
+  </section>
+
+  {% if polling and timeline %}
+  <h2>Live progress</h2>
+  {{ progress(timeline) }}
+  {% endif %}
+
+  {% set verdict = outputs.get('verdict_claim') %}
+  {% if verdict %}
+  <h2>Evidence statement</h2>
+  <p>{{ by(verdict) }}</p>
+  {{ problem(verdict) }}
+  {% if verdict.output %}{{ sentences(verdict.output.sentences) }}{% endif %}
+  {% endif %}
+
+  {% set extraction = outputs.get('claim_extraction') %}
+  {% if case.mode == 'demo' %}
+  <h2>Reporter alleges vs evidence shows</h2>
+  <p>{{ case.url }}</p>
+  <p class="muted">Reporter's claim — untrusted. It cannot move the verdict.</p>
+  <blockquote>{{ case.claim }}</blockquote>
+  {% if extraction %}
+  <p>{{ by(extraction) }}</p>
+  {{ problem(extraction) }}
+  {% if comparison %}
+  <table>
+    <thead><tr><th></th><th>Reporter alleges</th><th>Evidence shows</th></tr></thead>
+    {% for r in comparison %}
+    <tr><th>{{ r.label }}</th><td>{{ r.alleged }}</td><td>{{ kind(r.kind) }} {{ r.shows }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+
+  {% set vision = outputs.get('vision_claim') %}
+  {% if vision %}
+  <h2>What the vision model reads</h2>
+  <p>{{ by(vision) }}</p>
+  {{ problem(vision) }}
+  {% if vision.output %}
+  <blockquote>{{ vision.output.description }}</blockquote>
+  <p>Brand the page shows: {{ vision.output.imitated_brand or 'none named' }}. The model cannot tell whether that brand owns the page.</p>
+  {% if vision.output.repeats_page_text %}
+  <p class="error">This claim repeats text taken from the page. Those are the page's words, not a finding.</p>
+  <table>
+    <thead><tr><th>Claim says</th><th>Page says</th></tr></thead>
+    {% for r in vision.output.repeats_page_text %}<tr><td>{{ r.claim }}</td><td>{{ r.page }}</td></tr>{% endfor %}
+  </table>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+
+  {% set drafts = outputs.get('documents') %}
+  {% if drafts %}
+  <h2>Drafts</h2>
+  {% if drafts.status == 'template' %}<p class="error">Template, model unavailable: {{ drafts.problem }}</p>{% endif %}
+  <p>{{ by(drafts) }} Nothing is sent until an analyst sends it. The result sentence comes from code on sending, and signal ids are removed.{% if case.level == 'Not proven' %} A sentence from code on what the visit found goes before it.{% endif %}</p>
+  {{ problem(drafts) }}
+  {% if drafts.output %}
+  {% for name, title in documents.items() if drafts.output[name] %}
+  <h3>{{ title }}</h3>
+  {{ sentences(drafts.output[name]) }}
+  {% if name in sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ sent[name] }}</blockquote>
+  {% elif case.decided_action and not (case.decided_action == 'Close' and name != 'reporter_reply') %}
+  <form method="post" action="/cases/{{ case.ref }}/documents/{{ name }}/send"><button type="submit">Send</button></form>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+  {% endif %}
+
+  {% for a in appeals %}
+  <h2>Appeal {{ loop.index }}</h2>
+  <p>{{ choices[a.choice] }}. Status: {{ a.status }}.</p>
+  {% if a.text %}<p class="muted">Customer says (untrusted, moves nothing):</p><blockquote>{{ a.text }}</blockquote>{% endif %}
+  {% if a.note %}<p class="error">{{ a.note }}</p>{% endif %}
+  {% if a.not_reproduced %}<p><strong>Re-visit did not reproduce the original evidence.</strong> A page can also show a clean version only to this browser.</p>{% endif %}
+  {% if a.status in ('drafting', 'ready', 'decided') %}
+  <table>
+    <thead><tr><th></th><th>First visit</th><th>Second visit</th></tr></thead>
+    <tr><th>Level</th><td><span class="level level-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></td>
+      <td><span class="level level-{{ (a.level or '')|replace(' ', '') }}">{{ a.level or 'No result' }}</span></td></tr>
+    {% for r in a.rows %}
+    <tr><td><code>{{ r.id }}</code> {{ kind(r.kind) }}</td><td>{{ r.before }}</td><td>{{ r.after if r.after is not none else 'No result' }}</td></tr>
+    {% endfor %}
+    {% if a.receipt %}
+    <tr><th>Container</th><td><code>{{ (case.receipt.container_id or '')[:12] }}</code></td><td><code>{{ (a.receipt.container_id or '')[:12] }}</code>{% if a.receipt.teardown.container_gone %}, gone{% endif %}</td></tr>
+    {% endif %}
+  </table>
+  {% endif %}
+  {% if a.shot %}<p>{{ kind('observed') }} Second visit</p><img src="/cases/{{ case.ref }}/appeals/{{ a.id }}/shots/{{ a.shot }}" alt="Screenshot of the second visit">{% endif %}
+  {% if a.letter %}
+  <h3>Letter to the customer</h3>
+  <p>{{ by(a.letter) }}{% if a.letter.status == 'template' %} <span class="error">Template, model unavailable: {{ a.letter.problem }}</span>{% endif %}</p>
+  {% if a.letter.output %}{{ sentences(a.letter.output.sentences) }}{% endif %}
+  {% endif %}
+  {% if a.allowed %}
+  <form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/decide" class="actions">
+    <input type="text" name="analyst" value="analyst" aria-label="Analyst" style="width: 110px">
+    {% for d in a.allowed %}<button type="submit" name="decision" value="{{ d }}">{{ d }}</button>{% endfor %}
+  </form>
+  {% if 'Reinstate' not in a.allowed %}<p class="muted">Reinstate needs a second visit with a lower level than at the action.</p>{% endif %}
+  {% elif a.decision %}
+  <p>{{ a.decision }} by {{ a.decided_by }} at {{ a.decided_at }} (simulated).</p>
+  {% if a.sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ a.sent }}</blockquote>
+  {% elif a.letter %}<form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/send"><button type="submit">Send letter</button></form>{% endif %}
+  {% endif %}
+  {% endfor %}
+
+  <details class="technical">
+  <summary>Technical evidence</summary>
+
+  {% if case.signals %}
+  <h2>Signals</h2>
+  <table>
+    <thead><tr><th>Signal</th><th>Value</th><th>Kind</th><th>Detail</th></tr></thead>
+    {% for s in case.signals %}
+    <tr><td><code>{{ s.id }}</code></td><td>{{ s.value }}</td><td>{{ kind(s.kind) }}</td>
+      <td>{% if s.detail is string %}{{ s.detail }}{% else %}{{ s.detail|join(', ') }}{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if evidence %}
+  <h2>Evidence</h2>
+  {% for p in evidence.pages if p.screenshot and p.screenshot.file %}
+  <p>{{ kind(p.screenshot.kind) }} {{ p.url }}</p>
+  <img src="/cases/{{ case.ref }}/shots/{{ p.screenshot.file }}" alt="Screenshot of {{ p.url }}">
+  {% endfor %}
+
+  <h2>Redirect chain</h2>
+  {% if evidence.redirects %}
+  <table>
+    {% for r in evidence.redirects %}
+    <tr><td>{{ kind(r.kind) }}</td><td>{{ r.type }}</td><td>{{ r.from }}</td><td>{{ r.to }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">None.</p>{% endif %}
+  <p>Final URL: {{ evidence.final_url }}</p>
+
+  <h2>Destinations</h2>
+  {% if evidence.destinations %}
+  <table>
+    <thead><tr><th>Kind</th><th>Via</th><th>URL</th><th>Foreign</th></tr></thead>
+    {% for d in evidence.destinations %}
+    <tr><td>{{ kind(d.kind) }}</td><td>{{ d.via }}</td><td>{{ d.url }}</td><td>{{ d.foreign }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">None.</p>{% endif %}
+
+  <h2>Egress (from the proxy log)</h2>
+  {% if evidence.egress %}
+  <table>
+    <thead><tr><th>Kind</th><th>Decision</th><th>Request</th><th>Reason</th></tr></thead>
+    {% for e in evidence.egress %}
+    <tr><td>{{ kind(e.kind) }}</td><td>{% if e.decision == 'blocked' %}<strong>blocked</strong>{% else %}{{ e.decision }}{% endif %}</td>
+      <td>{{ e.method }} {{ e.host }}:{{ e.port }}{{ e.path or '' }}</td><td>{{ e.reason or '' }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">None recorded.</p>{% endif %}
+
+  <h2>Password fields and hidden text</h2>
+  <table>
+    {% for p in evidence.password_fields %}
+    <tr><td>{{ kind(p.kind) }}</td><td>password field</td><td>{{ p.page }}</td></tr>
+    {% endfor %}
+    {% for h in evidence.hidden_text %}
+    <tr><td>{{ kind(h.kind) }}</td><td>hidden ({{ h.reason }})</td><td>{{ h.text }}</td></tr>
+    {% endfor %}
+    {% if not evidence.password_fields and not evidence.hidden_text %}<tr><td class="muted">None.</td></tr>{% endif %}
+  </table>
+  {% endif %}
+
+  {% if case.receipt %}
+  <h2>Sandbox receipt</h2>
+  <table>
+    <tr><th>Container</th><td><code>{{ case.receipt.container_id }}</code></td></tr>
+    <tr><th>Chromium sandbox</th><td>{{ case.receipt.chromium_sandbox.in_new_user_pid_net_ns }} of {{ case.receipt.chromium_sandbox.chromium_processes }} processes in new user, pid and net namespaces ({{ case.receipt.chromium_sandbox.isolated_types|join(', ') }})</td></tr>
+    <tr><th>Run time</th><td>{{ case.receipt.wall_s }} s, exit {{ case.receipt.exit_code }}</td></tr>
+    <tr><th>Egress</th><td>{{ case.receipt.egress_requests }} requests logged by the proxy</td></tr>
+    {% for d in case.receipt.quarantined_downloads %}
+    <tr><th>Quarantined download</th><td>{{ d.name }}, {{ d.bytes }} bytes, sha256 <code>{{ d.sha256 }}</code>. Never opened. Only the hash left the container; the file went with it.</td></tr>
+    {% endfor %}
+    <tr><th>Teardown</th><td>{% if case.receipt.teardown.container_gone %}Container gone, checked {{ case.receipt.teardown.checked_at }}{% else %}<span class="error">Container still present</span>{% endif %}</td></tr>
+  </table>
+  {% endif %}
+
+  {% if timeline and not polling %}
+  <h2>Timeline</h2>
+  {{ progress(timeline) }}
+  {% endif %}
+
+  <h2>Audit log</h2>
+  <table>
+    {% for a in audit %}
+    <tr><td>{{ a.ts }}</td><td>{{ a.actor }}</td><td>{{ a.event }}</td><td><code>{{ a.detail|tojson }}</code></td></tr>
+    {% endfor %}
+  </table>
+  </details>
+</div>

@@ -17,8 +17,9 @@ Principle: "A report is a claim. Only evidence reproduced in a disposable browse
 ## Stack
 - Python 3.12, FastAPI, SQLite, Jinja2 + HTMX (server-rendered, 3 screens: Queue, Case, Approval)
 - Sandbox: one Docker container per case from `sandbox/` image (Playwright Python on mcr.microsoft.com/playwright/python; the image does NOT include the Python `playwright` package, so the Dockerfile installs a pinned version)
+- Launcher: separate container, the only one holding the Docker socket; its whole API is POST /visit. The app has no socket and no Docker client
 - Egress: separate proxy container; sandbox reaches the outside only through it; proxy logs all requests and blocks private ranges and 169.254.169.254
-- Deploy: one Vultr VM (app + Docker sandbox + proxy + test site) via docker compose
+- Deploy: one Vultr VM (app + launcher + Docker sandbox + proxy + test site) via docker compose
 
 ## Sandbox contract (mode B3, proven in probe 1 Nov)
 docker run flags per case:
@@ -32,9 +33,10 @@ Max parallel sandboxes: 4.
 
 ## Layout
 app/       FastAPI app, templates, DB models, API (POST /api/reports, approvals)
-agent/     Vultr Inference client: planner, verdict claim, document drafts (schemas validated)
+agent/     Vultr Inference client and model roles: claim extraction, vision claim, verdict claim, document drafts (schemas validated)
 sandbox/   Dockerfile, runner (visit), seccomp/, launch + teardown
-egress/    proxy config
+launcher/  internal visit(url) service around sandbox/launch.py
+egress/    egress proxy
 testsite/  fictional-brand test pages (own container)
 corpus/    labeled reports + page list for eval
 eval/      baselines (text-only triage, fetch-without-browser) + run_eval.py
@@ -44,7 +46,7 @@ docs/      spec.md, architecture.md
 make up / make down / make test / make eval
 
 ## Prior work (disclose in README)
-Non-AI sandbox scaffolding (runner Dockerfile, seccomp profile + chroot patch, run/test scripts) comes from a probe built before the hackathon (Nov 1). Organizers allow pre-existing non-AI scaffolding if disclosed. All AI functionality (planner, verdict claims, document drafts) and the web app are built Nov 3-8.
+Non-AI sandbox scaffolding (runner Dockerfile, seccomp profile + chroot patch, run/test scripts) comes from a probe built before the hackathon (Nov 1). Organizers allow pre-existing non-AI scaffolding if disclosed. All AI functionality (claim extraction, vision claims, verdict claims, document drafts) and the web app are built Nov 3-8.
 
 ## Working rules
 - Commit, do not push. Branch per person and task: y/<task> (Yasin), v/<task> (Vincent). main changes only via PR merged by Yasin.

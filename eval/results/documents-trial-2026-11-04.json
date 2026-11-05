@@ -1,0 +1,230 @@
+{
+ "level": "Proven",
+ "runs": [
+  {
+   "effort": "low",
+   "max_tokens": 6000,
+   "run": 1,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 13.6,
+   "cost_usd": 0.002617,
+   "calls": 1
+  },
+  {
+   "effort": "low",
+   "max_tokens": 6000,
+   "run": 2,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 12.7,
+   "cost_usd": 0.0028,
+   "calls": 1
+  },
+  {
+   "effort": "low",
+   "max_tokens": 6000,
+   "run": 3,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 14.8,
+   "cost_usd": 0.003558,
+   "calls": 1
+  },
+  {
+   "effort": "low",
+   "max_tokens": 6000,
+   "run": 4,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 16.2,
+   "cost_usd": 0.003116,
+   "calls": 1
+  },
+  {
+   "effort": "low",
+   "max_tokens": 6000,
+   "run": 5,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 11.2,
+   "cost_usd": 0.002642,
+   "calls": 1
+  },
+  {
+   "effort": "low",
+   "max_tokens": 12000,
+   "run": 1,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 9.6,
+   "cost_usd": 0.002676,
+   "calls": 1
+  },
+  {
+   "effort": "low",
+   "max_tokens": 12000,
+   "run": 2,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 11.4,
+   "cost_usd": 0.003189,
+   "calls": 1
+  },
+  {
+   "effort": "low",
+   "max_tokens": 12000,
+   "run": 3,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 10.0,
+   "cost_usd": 0.002515,
+   "calls": 1
+  },
+  {
+   "effort": "low",
+   "max_tokens": 12000,
+   "run": 4,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 10.5,
+   "cost_usd": 0.002787,
+   "calls": 1
+  },
+  {
+   "effort": "low",
+   "max_tokens": 12000,
+   "run": 5,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 11.0,
+   "cost_usd": 0.003011,
+   "calls": 1
+  },
+  {
+   "effort": "minimal",
+   "max_tokens": 6000,
+   "run": 1,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 7.9,
+   "cost_usd": 0.001988,
+   "calls": 1
+  },
+  {
+   "effort": "minimal",
+   "max_tokens": 6000,
+   "run": 2,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 8.9,
+   "cost_usd": 0.002302,
+   "calls": 1
+  },
+  {
+   "effort": "minimal",
+   "max_tokens": 6000,
+   "run": 3,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 8.6,
+   "cost_usd": 0.002198,
+   "calls": 1
+  },
+  {
+   "effort": "minimal",
+   "max_tokens": 6000,
+   "run": 4,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 8.1,
+   "cost_usd": 0.002017,
+   "calls": 1
+  },
+  {
+   "effort": "minimal",
+   "max_tokens": 6000,
+   "run": 5,
+   "attempts": [
+    {
+     "status": "accepted",
+     "problem": null
+    }
+   ],
+   "final": "accepted",
+   "wall_s": 8.0,
+   "cost_usd": 0.002182,
+   "calls": 1
+  }
+ ]
+}

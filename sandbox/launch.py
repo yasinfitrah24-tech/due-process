@@ -1,0 +1,284 @@
+"""Run one URL visit in a disposable container and return its evidence plus a sandbox receipt.
+
+CLI: python -m sandbox.launch <url> [--case NAME] [--out DIR]
+The flags in docker_args() are the sandbox contract in CLAUDE.md: don't change them without being asked.
+"""
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import uuid
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from urllib.parse import urlsplit
+
+PW_VERSION = "v1.64.1"
+IMAGE = f"due-process-sandbox:{PW_VERSION}"
+NETWORK = "dp-sandbox"
+EGRESS_PROXY = "http://egress:3128"
+EGRESS_CONTAINER = "dp-egress"
+EVENT_PREFIX = "DPEVENT "
+MAX_EVENTS = 300
+SECCOMP = Path(__file__).resolve().parent / "seccomp" / f"playwright-{PW_VERSION}-chroot.json"
+HARD_TIMEOUT_S = 60
+VISIT_BUDGET_S = 53  # + visit.py's 5 s alarm margin + container start stays under HARD_TIMEOUT_S
+MAX_PARALLEL = 4
+
+_slots = threading.BoundedSemaphore(MAX_PARALLEL)
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def docker_args(name, cidfile):
+    return ["docker", "run", "--name", name, "--cidfile", str(cidfile),
+            "--network", NETWORK, "--user", "pwuser", "--read-only", "--tmpfs", "/tmp:rw,size=256m",
+            "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+            "--security-opt", f"seccomp={SECCOMP}",
+            "--memory", "1g", "--memory-swap", "1g", "--pids-limit", "256", "--shm-size", "512m",
+            "--cpus", "1", "--rm", IMAGE]
+
+
+def visit_args(url):
+    # "--" so a reported URL can never be read as an option by visit.py.
+    return ["--sandbox", "on", "--timeout", str(VISIT_BUDGET_S), "--proxy", EGRESS_PROXY, "--", url]
+
+
+def ensure_image():
+    """Build the sandbox image if it is missing. The CLI in the app image has no buildx."""
+    found = subprocess.run(["docker", "image", "inspect", IMAGE], capture_output=True)
+    if found.returncode != 0:
+        subprocess.run(["docker", "build", "-q", "-t", IMAGE, str(SECCOMP.parent.parent)], check=True,
+                       env={**os.environ, "DOCKER_BUILDKIT": "0"})
+
+
+def check_url(url):
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError(f"not an http(s) URL: {url!r}")
+
+
+def container_exists(cid):
+    out = subprocess.run(["docker", "ps", "-aq", "--no-trunc", "--filter", f"id={cid}"],
+                         capture_output=True, text=True, check=True).stdout
+    return bool(out.strip())
+
+
+def teardown(cid):
+    """--rm removes the container shortly after exit. Confirm it, and force it if it is still there."""
+    if not cid:
+        return {"container_gone": True, "forced_removal": False, "checked_at": now(), "note": "never started"}
+    for _ in range(20):
+        if not container_exists(cid):
+            return {"container_gone": True, "forced_removal": False, "checked_at": now()}
+        time.sleep(0.25)
+    subprocess.run(["docker", "rm", "-f", cid], capture_output=True)
+    return {"container_gone": not container_exists(cid), "forced_removal": True, "checked_at": now()}
+
+
+def egress_log(client_ip, since, started_at):
+    """This visit's lines from the proxy log, or None if the log cannot be read. A later container can get the same
+    address, so lines count only from the moment this visit started. The sandbox and the proxy share one clock."""
+    not_before = datetime.fromisoformat(started_at).timestamp()
+    r = subprocess.run(["docker", "logs", "--since", since, EGRESS_CONTAINER], capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    entries = []
+    for line in r.stdout.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if entry.get("client") == client_ip and entry.get("ts", 0) >= not_before:
+            entries.append({**entry, "kind": "observed"})
+    return entries
+
+
+def parse_event(line):
+    """The event in a line of the sandbox's stderr, or None."""
+    if not line.startswith(EVENT_PREFIX):
+        return None
+    try:
+        event = json.loads(line[len(EVENT_PREFIX):])
+    except ValueError:
+        return None
+    return event if isinstance(event, dict) and "kind" in event else None
+
+
+def proxy_event(entry):
+    kind = {"allowed": "egress_allowed", "blocked": "egress_blocked", "failed": "egress_failed"}.get(entry.get("decision"))
+    return {"ts": entry.get("ts"), "source": "proxy", "kind": kind, "method": entry.get("method"), "host": entry.get("host"),
+            "port": entry.get("port"), "reason": entry.get("reason")} if kind else None
+
+
+class ProxyTail:
+    """Follows the proxy log during one visit, so a block shows when it happens. The record that counts as evidence is
+    still read from the log after the visit."""
+
+    def __init__(self, since, client_ip, started_at, emit):
+        self.client_ip, self.emit = client_ip, emit
+        self.not_before = datetime.fromisoformat(started_at).timestamp()
+        self.proc = subprocess.Popen(["docker", "logs", "-f", "--since", since, EGRESS_CONTAINER], stdout=subprocess.PIPE,
+                                     stderr=subprocess.DEVNULL, text=True)
+        self.thread = threading.Thread(target=self.read, daemon=True)
+        self.thread.start()
+
+    def read(self):
+        for line in self.proc.stdout:
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if entry.get("client") == self.client_ip and entry.get("ts", 0) >= self.not_before:
+                event = proxy_event(entry)
+                if event:
+                    self.emit(event)
+
+    def stop(self):
+        time.sleep(0.3)  # the proxy logs at once; this lets the last line arrive
+        self.proc.terminate()
+        self.thread.join(timeout=2)
+
+
+def namespace_proof(evidence):
+    ev = (evidence or {}).get("browser", {}).get("sandbox_evidence") or {}
+    isolated = [p for p in ev.get("processes", [])
+                if p["new_user_ns"] and p["new_pid_ns"] and p["new_net_ns"]]
+    return {"chromium_processes": ev.get("chromium_processes", 0),
+            "in_new_user_pid_net_ns": ev.get("in_new_user_pid_net_ns", 0),
+            "isolated_types": sorted({p["type"] for p in isolated})}
+
+
+def run_visit(url, case="case", on_event=None):
+    """Returns {"ok", "evidence", "receipt"}. ok means: evidence came back, Chromium's sandbox was really on
+    (processes in new namespaces), the proxy logged the visit, and the container is confirmed gone.
+    on_event gets each event as it happens."""
+    check_url(url)
+    sent, lock = [0], threading.Lock()
+
+    def emit(event):
+        with lock:
+            if on_event and sent[0] < MAX_EVENTS:
+                sent[0] += 1
+                on_event(event)
+
+    def launcher_event(kind, **detail):
+        emit({"ts": round(time.time(), 3), "source": "launcher", "kind": kind, **detail})
+
+    name = f"dp-case-{re.sub(r'[^a-z0-9-]', '-', case.lower())[:40]}-{uuid.uuid4().hex[:8]}"
+    with _slots, tempfile.TemporaryDirectory() as tmp:
+        cidfile = Path(tmp) / "cid"
+        flags = docker_args(name, cidfile)
+        started_at, t0, hard_killed = now(), time.monotonic(), False
+        log_since = (datetime.now(timezone.utc) - timedelta(seconds=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        launcher_event("sandbox_requested")
+        proc = subprocess.Popen(flags + visit_args(url), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, stderr_lines, tails = [], [], []
+
+        def read_stdout():
+            output.append(proc.stdout.read())
+
+        def read_stderr():
+            for raw in proc.stderr:
+                line = raw.decode("utf-8", "replace").rstrip("\n")
+                event = parse_event(line)
+                if event is None:
+                    stderr_lines.append(line)
+                    continue
+                if event["kind"] == "visit_started":
+                    if cidfile.exists():
+                        launcher_event("container_started", container_id=cidfile.read_text().strip()[:12])
+                    if on_event and event.get("client_ip") and event.get("started_at"):
+                        tails.append(ProxyTail(log_since, event["client_ip"], event["started_at"], emit))
+                emit(event)
+
+        readers = [threading.Thread(target=read_stdout, daemon=True), threading.Thread(target=read_stderr, daemon=True)]
+        for reader in readers:
+            reader.start()
+        try:
+            proc.wait(timeout=HARD_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            hard_killed = True
+            subprocess.run(["docker", "kill", name], capture_output=True)
+            proc.wait()
+        for reader in readers:
+            reader.join()
+        for tail in tails:
+            tail.stop()
+        out, err = (output[0] if output else b""), "\n".join(stderr_lines).encode()
+        wall_s = round(time.monotonic() - t0, 3)
+        cid = cidfile.read_text().strip() if cidfile.exists() else None
+        gone = teardown(cid)
+        launcher_event("container_gone" if gone["container_gone"] else "container_not_gone",
+                       container_id=(cid or "none")[:12])
+
+    try:
+        evidence = json.loads(out)
+    except ValueError:
+        evidence = None
+    proof = namespace_proof(evidence)
+    # The proxy's record of the visit comes from the proxy, not from anything the sandbox reports about itself.
+    egress = egress_log(evidence["client_ip"], log_since, evidence["started_at"]) if evidence else None
+    if evidence:
+        evidence["egress"] = egress or []
+    downloads = (evidence or {}).get("downloads", [])
+    receipt = {
+        "container_id": cid,
+        "container_name": name,
+        "image": IMAGE,
+        "docker_flags": flags[flags.index("--network"):],
+        "started_at": started_at,
+        "wall_s": wall_s,
+        "exit_code": proc.returncode,
+        "hard_killed": hard_killed,
+        "chromium_sandbox": proof,
+        "egress_requests": None if egress is None else len(egress),
+        "quarantined_downloads": [{"name": d.get("suggested_filename"), "sha256": d.get("sha256"),
+                                   "bytes": d.get("bytes")} for d in downloads],
+        "teardown": gone,
+    }
+    if evidence is None:
+        receipt["stderr_tail"] = err.decode("utf-8", "replace")[-1000:]
+    ok = evidence is not None and proof["in_new_user_pid_net_ns"] > 0 and gone["container_gone"] and bool(egress)
+    return {"ok": ok, "evidence": evidence, "receipt": receipt}
+
+
+def summary(result):
+    e, r = result["evidence"] or {}, result["receipt"]
+    ns = r["chromium_sandbox"]
+    lines = [f"final url    {e.get('final_url')}",
+             *[f"egress       {x.get('decision')}: {x.get('method')} {x.get('host')}:{x.get('port')} "
+               f"{x.get('reason') or ''}" for x in e.get("egress", [])],
+             f"timed out    {e.get('timed_out')}  errors {len(e.get('errors', []))}"]
+    lines += [f"redirect     {x['type']}: {x['from']} -> {x['to']}" for x in e.get("redirects", [])]
+    lines += [f"destination  {d['via']} [{d['kind']}]: {d['url']} (same host: {d['same_host_as_page']})"
+              for d in e.get("destinations", [])]
+    lines += [f"password     {len(e.get('password_fields', []))} field(s)",
+              f"hidden text  {[h['text'] for h in e.get('hidden_text', [])]}",
+              f"screenshots  {sum(1 for p in e.get('pages', []) if p.get('screenshot'))}",
+              f"container    {(r['container_id'] or '')[:12]} exit {r['exit_code']} wall {r['wall_s']} s",
+              f"namespaces   {ns['in_new_user_pid_net_ns']}/{ns['chromium_processes']} Chromium processes "
+              f"in new user+pid+net ns {ns['isolated_types']}",
+              f"teardown     container gone: {r['teardown']['container_gone']}",
+              f"ok           {result['ok']}"]
+    return "\n".join(lines)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("url")
+    ap.add_argument("--case", default="cli")
+    a = ap.parse_args()
+    result = run_visit(a.url, a.case)
+    print(summary(result))
+    sys.exit(0 if result["ok"] else 1)
+
+
+if __name__ == "__main__":
+    main()
