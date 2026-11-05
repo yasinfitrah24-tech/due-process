@@ -12,7 +12,7 @@
   <div class="sides">
     {% for side in sides %}
     <div id="side-{{ loop.index }}" data-level="{{ side.case.level or '' }}">
-    <section class="side {{ 'pending' if not side.case.level else ('solid' if loop.first else 'claim-box') }}" aria-label="{{ side.label }}">
+    <section class="side {{ 'pending' if not side.case.level or side.case.note else ('solid' if loop.first else 'claim-box') }}" aria-label="{{ side.label }}">
       <p class="label">{{ side.label }}</p>
       <p class="code host">{{ side.case.url }}</p>
       {% if side.case.level %}
@@ -20,6 +20,7 @@
       <h2 class="side-level">{{ side.case.level }}</h2>
       <p class="computed">Computed by code. No model output can change it.</p>
       {% if side.why %}<p class="why">{{ side.why }}</p>{% endif %}
+      {% if side.case.note %}<p class="notice">{{ side.case.note }}</p>{% endif %}
       {% if side.present %}<p class="side-signals">Signals present: {% for s in side.present %}<code>{{ s }}</code> {% endfor %}</p>{% else %}<p class="side-signals">No signal present.</p>{% endif %}
       <p class="side-allow">{{ side.case.level }} allows {{ side.allowed|join(', ') }}.</p>
       {% else %}

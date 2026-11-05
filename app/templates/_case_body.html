@@ -22,7 +22,7 @@
 {% if case.mode == 'demo' %}<p class="demo-note">Demo case. The customer is simulated.</p>{% endif %}
 {% if usage.calls %}<p class="demo-note">Status: {{ case.status }}. {{ usage.calls }} model calls, USD {{ '%.5f'|format(usage.cost_usd) }}.</p>{% endif %}
 {% endmacro %}
-<div id="case" data-level="{{ case.level or '' }}" data-status="{{ status_line }}"{% if polling %} hx-get="/partials/cases/{{ case.ref }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
+<div id="case" data-level="{{ case.level or '' }}" data-status="{{ live_line }}"{% if polling %} hx-get="/partials/cases/{{ case.ref }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
   <a class="back" href="/">Back to queue</a>
   <div class="case-head">
     <div>
@@ -34,14 +34,17 @@
   </div>
 
   <div class="case-grid">
-    <section class="evidence {{ 'solid' if case.level else 'pending' }}" aria-label="Evidence the browser reproduced">
+    {% set left_running = case.receipt and case.receipt.teardown and not case.receipt.teardown.container_gone %}
+    {% set evidence_title = 'Nothing was reproduced' if case.note else 'Evidence the browser reproduced' %}
+    <section class="evidence {{ 'solid' if case.level and not case.note else 'pending' }}" aria-label="{{ evidence_title }}">
       <div class="evidence-top">
-        <h2>Evidence the browser reproduced</h2>
+        <h2>{{ evidence_title }}</h2>
         {% if case.receipt %}<span class="code">container {{ (case.receipt.container_id or '')[:12] }}</span>{% endif %}
       </div>
       {% if case.level %}
       <p class="badge badge-{{ case.level|replace(' ', '') }}">{{ case.level }}</p>
       <p class="computed">Computed by code. No model output can change it.</p>
+      {% if left_running %}<div class="notice"><p>Container still present</p><p class="next">The sandbox container <span class="code">{{ (case.receipt.container_id or '')[:12] }}</span> was not removed after this visit. An operator must remove it.</p></div>{% endif %}
       {% else %}
       <p class="why">Status: {{ case.status }}. The level appears when the browser has finished.</p>
       {% endif %}
@@ -70,7 +73,8 @@
         {% if case.appeal_token %}<p><a href="/appeal/{{ case.appeal_token }}">Customer view</a>: the link in the customer notice. Demo: anyone with the case link can act as the customer.</p>{% endif %}
         {% elif allowed %}
         <p class="allow">{{ case.level }} allows {{ allowed|join(', ') }}. Nothing is sent until an analyst sends it.</p>
-        <form method="post" action="/cases/{{ case.ref }}/actions" class="actions">
+        <form method="post" action="/cases/{{ case.ref }}/actions" class="actions" data-busy="Recording...">
+          <input type="hidden" name="nonce" value="{{ nonce() }}">
           {% for a in allowed %}<button type="submit" name="action" value="{{ a }}"{% if loop.first %} class="primary"{% endif %}><span class="long-label">{{ action_labels[a] }} (simulated)</span><span class="short-label">{{ a }}</span></button>{% endfor %}
           <label class="analyst">Analyst <input type="text" name="analyst" value="analyst"></label>
         </form>
@@ -204,7 +208,7 @@
           {{ sentences(drafts.output[name]) }}
           {% if name in sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ sent[name] }}</blockquote>
           {% elif case.decided_action and not (case.decided_action == 'Close' and name != 'reporter_reply') %}
-          <form method="post" action="/cases/{{ case.ref }}/documents/{{ name }}/send"><button type="submit">Send</button></form>
+          <form method="post" action="/cases/{{ case.ref }}/documents/{{ name }}/send"><input type="hidden" name="nonce" value="{{ nonce() }}"><button type="submit">Send</button></form>
           {% endif %}
         </div>
       </details>
@@ -228,13 +232,17 @@
           <p class="label">Original visit</p>
           <p class="visit-level">{{ case.level }}</p>
         </div>
-        <div class="solid">
+        <div class="{{ 'solid' if a.level else 'claim-box' }}">
           <p class="label">Re-visit, in a new browser</p>
           <p class="visit-level">{{ a.level or 'No result' }}</p>
+          {% if not a.level %}<p class="small">Nothing was reproduced.</p>{% endif %}
           {% if a.not_reproduced %}<p><strong>Re-visit did not reproduce the original evidence.</strong> A page can also show a clean version only to this browser.</p>{% endif %}
         </div>
       </div>
       </div>
+      {% if a.receipt and a.receipt.teardown and not a.receipt.teardown.container_gone %}
+      <div class="rec-body"><div class="notice"><p>Container still present</p><p class="next">The sandbox container <span class="code">{{ (a.receipt.container_id or '')[:12] }}</span> was not removed after the second visit. An operator must remove it.</p></div></div>
+      {% endif %}
       <details class="doc" id="visit-table-{{ a.id }}" data-fold open>
       <summary><h3>Both visits, signal by signal</h3></summary>
       <table>
@@ -258,7 +266,8 @@
         </details>
         {% endif %}
         {% if a.allowed %}
-        <form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/decide" class="actions">
+        <form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/decide" class="actions" data-busy="Recording...">
+          <input type="hidden" name="nonce" value="{{ nonce() }}">
           {% for d in a.allowed %}<button type="submit" name="decision" value="{{ d }}"{% if loop.first %} class="primary"{% endif %}>{{ d }}</button>{% endfor %}
           <label class="analyst">Analyst <input type="text" name="analyst" value="analyst"></label>
         </form>
@@ -266,7 +275,7 @@
         {% elif a.decision %}
         <p>{{ a.decision }} by {{ a.decided_by }} at {{ a.decided_at }} (simulated).</p>
         {% if a.sent %}<p class="muted">Sent (simulated) as:</p><blockquote>{{ a.sent }}</blockquote>
-        {% elif a.letter %}<form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/send"><button type="submit">Send letter</button></form>{% endif %}
+        {% elif a.letter %}<form method="post" action="/cases/{{ case.ref }}/appeals/{{ a.id }}/send"><input type="hidden" name="nonce" value="{{ nonce() }}"><button type="submit">Send letter</button></form>{% endif %}
         {% endif %}
       </div>
     </section>

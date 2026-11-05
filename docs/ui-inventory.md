@@ -306,7 +306,7 @@ These carry a hard rule or an honest limit. A redesign may restyle them, not dro
 | Rendering | Jinja2 on the server, 11 template files, 4 of them partials used by polling |
 | HTMX | 2.0.4, one local file `app/static/htmx.min.js`, 50,917 bytes. Used only for polling |
 | Polling | `hx-get` every 1 s on Case and comparison, 2 s on Customer view, 3 s on the Queue rows. Case, Customer view and comparison replace the whole block with `outerHTML` |
-| Other JavaScript | `app/static/js/app.js`: keeps sections open and focus in place across a swap, announces status, opens the evidence block once |
+| Other JavaScript | `app/static/js/app.js`: keeps sections open and focus in place across a swap, announces status, opens the evidence block once, shows a pressed button as busy |
 | Build step | None. No Node, npm, bundler or framework. The image is `python:3.12-slim` and copies `app/` |
 | CSS | One file, `app/static/css/app.css`. No inline styles |
 | Fonts | Source Sans 3 (400 to 800) and Source Code Pro (400, 500), Latin woff2 in `app/static/fonts/`, 104 KB, from `@fontsource` 5.3.1, OFL-1.1, licenses alongside |
@@ -368,18 +368,19 @@ Heights count the Drafts folded, as a phone first shows them.
 | Case, Not proven (34) | 149 | 302 | 1927 | 2249 |
 | Case, containment (37) | 149 | 365 | 2716 | none |
 | Case, Suspicious, ready (staged) | 149 | 302 | 2015 | none |
-| Case, Warn decided (5) | 149 | decided | 1807 | 3473 |
-| Case, template (6) | 149 | decided | 2492 | 4076 |
-| Case, appeal ready (17) | 149 | Reinstate 2358 | 2581 | 4531 |
-| Case, visit failed (staged) | 149 | 408 | 1166 | none |
+| Case, Warn decided (5) | 149 | decided | 1806 | 3473 |
+| Case, template (6) | 149 | decided | 2491 | 4076 |
+| Case, appeal ready (17) | 149 | Reinstate 2357 | 2580 | 4531 |
+| Case, visit failed (staged) | 151 | 412 | 1169 | none |
+| Case, teardown failed (staged) | 151 | 542 | 1384 | none |
 | Case, cost limit (staged) | 149 | 365 | 2156 | none |
-| Test any URL (8) | 149 | none | 1111 | 1474 |
-| Twin case (11) | 149 | none | 1010 | 1205 |
+| Test any URL (8) | 149 | none | 1113 | 1474 |
+| Twin case (15) | 149 | none | 911 | 1205 |
 | Compare | | | 1174 | 812 |
-| Compare result | | | 1692 | 1125 |
+| Compare result | | | 1695 | 1125 |
 | Customer view (17) | | | 1931 | 917 |
 
-Front page at 375: height 4151, Queue at 1742, with 45 rows in the copy. Each Queue row adds about 47 px, so 100 rows, the limit, comes to
+Front page at 375: height 3690, Queue at 1742, with the 35 rows of the VM copy. Each Queue row adds about 47 px, so 100 rows, the limit, comes to
 about 6700 px.
 
 ## h. Contrast

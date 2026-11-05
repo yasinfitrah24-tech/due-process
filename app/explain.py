@@ -90,6 +90,12 @@ def status_line(case):
     return f"{reproduced} Awaiting an analyst." if case["mode"] == "demo" else reproduced
 
 
+def live_line(case):
+    """What a screen reader hears when this changes: the level, as soon as there is one."""
+    line = status_line(case)
+    return f"Level: {case['level']}. {line}" if case["level"] else line
+
+
 def customer_headline(case, appeals, closed):
     if any(a["decision"] == "Reinstate" for a in appeals):
         return "Your page was reinstated (simulated)."
@@ -108,4 +114,8 @@ def appeal_steps(case, appeals):
 
 
 def appeal_status(appeals):
-    return f"Appeal {len(appeals)}: {appeals[-1]['status']}." if appeals else "No appeal yet."
+    if not appeals:
+        return "No appeal yet."
+    last = appeals[-1]
+    level = f" Second visit: {last['level']}." if last["level"] else ""
+    return f"Appeal {len(appeals)}: {last['status']}.{level}"

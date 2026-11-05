@@ -8,7 +8,8 @@
 {% if error %}<p class="notice">{{ error }}</p>{% endif %}
 <div class="pairs">
   {% for key, t in twins.items() %}
-  <form class="form-card" method="post" action="/compare/run/{{ key }}">
+  <form class="form-card" method="post" action="/compare/run/{{ key }}" data-busy="Opening both pages...">
+    <input type="hidden" name="nonce" value="{{ nonce() }}">
     <h2>{{ t.title }}</h2>
     <p class="said-small">&ldquo;{{ t.report }}&rdquo;</p>
     <p class="demo-note">Reporter's claim — untrusted. It cannot move the verdict.</p>

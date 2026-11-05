@@ -74,6 +74,11 @@ CREATE TABLE IF NOT EXISTS comparisons (
   abuse_baseline TEXT,
   legit_baseline TEXT
 );
+CREATE TABLE IF NOT EXISTS submissions (
+  nonce TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  location TEXT
+);
 CREATE TABLE IF NOT EXISTS model_prices (
   model TEXT PRIMARY KEY,
   prompt_usd REAL NOT NULL,
@@ -227,6 +232,38 @@ def get_comparison(token):
     if row is None:
         return None
     return {**dict(row), **{k: json.loads(row[k]) if row[k] else None for k in ("abuse_baseline", "legit_baseline")}}
+
+
+def claim_submission(nonce):
+    """True for the first request with this nonce, in one statement, so two at once cannot both win."""
+    with connect() as c:
+        c.execute("DELETE FROM submissions WHERE created_at < datetime('now', '-1 day')")
+        return c.execute("INSERT OR IGNORE INTO submissions (nonce, created_at) VALUES (?, datetime('now'))",
+                         (nonce,)).rowcount == 1
+
+
+def finish_submission(nonce, location):
+    with connect() as c:
+        c.execute("UPDATE submissions SET location = ? WHERE nonce = ?", (location, nonce))
+
+
+def release_submission(nonce):
+    with connect() as c:
+        c.execute("DELETE FROM submissions WHERE nonce = ?", (nonce,))
+
+
+def wait_for_submission(nonce, timeout_s=10):
+    """Where the first request ended, "/" if it is taking too long, or None if it failed and gave the nonce back."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        with connect() as c:
+            row = c.execute("SELECT location FROM submissions WHERE nonce = ?", (nonce,)).fetchone()
+        if row is None:
+            return None
+        if row["location"]:
+            return row["location"]
+        time.sleep(.05)
+    return "/"
 
 
 def latest_comparison(twin):

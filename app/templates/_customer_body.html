@@ -21,6 +21,7 @@
       <button type="button" disabled>Customer fix simulated</button>
       {% else %}
       <form method="post" action="/appeal/{{ case.appeal_token }}/simulate-fix">
+        <input type="hidden" name="nonce" value="{{ nonce() }}">
         <button type="submit">Simulate customer fix</button>
       </form>
       <p class="small muted">Changes this one test page to a clean version, as a customer's cleanup would.</p>
@@ -34,7 +35,8 @@
       <p class="muted">{{ closed }}.</p>
       {% else %}
       <p>We will open the page again in a new disposable browser. Only what that visit finds counts; an analyst then decides.</p>
-      <form class="stack-form" method="post" action="/appeal/{{ case.appeal_token }}">
+      <form class="stack-form" method="post" action="/appeal/{{ case.appeal_token }}" data-busy="Sending your appeal...">
+        <input type="hidden" name="nonce" value="{{ nonce() }}">
         <fieldset class="choices">
           <legend class="sr-only">Your appeal</legend>
           {% for value, label in choices.items() %}
@@ -60,10 +62,11 @@
         <p class="label">Original visit</p>
         <p class="visit-level">{{ case.level }}</p>
       </div>
-      <div class="solid">
+      <div class="{{ 'solid' if a.level else 'claim-box' }}">
         <p class="label">Re-visit, in a new browser</p>
         <p class="visit-level">{{ a.level or 'No result' }}</p>
         {% if a.not_reproduced %}<p>Re-visit did not reproduce the original evidence.</p>{% endif %}
+        {% if not a.level %}<p>Nothing was reproduced. The action stays until an analyst decides.</p>{% endif %}
       </div>
     </section>
     </div>
