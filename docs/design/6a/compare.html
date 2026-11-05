@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Same report, two pages</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;family=Source+Code+Pro:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#F4F5F7}
+html{scrollbar-color:#14336B #E3E7EE;scrollbar-width:thin}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#E3E7EE}
+::-webkit-scrollbar-thumb{background:#14336B;border-radius:5px;border:2px solid #E3E7EE}
+::-webkit-scrollbar-thumb:hover{background:#0E2552}
+a{color:#14336B;text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:3px solid #FFDD00;outline-offset:0;box-shadow:0 0 0 6px #111418}
+.code{font-family:'Source Code Pro',ui-monospace,monospace}
+.rec{background:#fff;border:1px solid #D5DAE1;border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:16px}
+th,td{text-align:left;padding:14px 22px;border-bottom:1px solid #E3E7EE;vertical-align:top;line-height:1.5}
+th{font-size:14px;font-weight:700;color:#555E6B;background:#F8F9FB}
+</style>
+</helmet>
+<div style="font-family:'Source Sans 3',ui-sans-serif,system-ui,sans-serif;background:#F4F5F7;color:#111418;min-height:1240px">
+  <header style="background:#fff;border-bottom:3px solid #14336B">
+    <div style="max-width:1200px;margin:0 auto;padding:16px 28px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:12px"><svg width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="2.4"></rect><rect x="19" y="4" width="12" height="26" rx="1.5" fill="#14336B"></rect></svg><span style="font-weight:800;font-size:21px">Due Process</span></div>
+      <nav aria-label="Main" style="display:flex;gap:26px;font-size:16px;font-weight:600"><a href="#">Queue</a><a href="#">Appeals</a><a href="#" aria-current="page" style="color:#111418">Same report, two pages</a><a href="#">How it decides</a></nav>
+    </div>
+  </header>
+  <main style="max-width:1200px;margin:0 auto;padding:32px 28px 64px">
+    <h1 style="margin:0;font-size:38px;font-weight:800;letter-spacing:-0.015em">Same report, two pages</h1>
+    <p style="margin:8px 0 0;max-width:720px;font-size:18px;line-height:1.55;color:#343B45">One report text was sent against a fake login and a real one. A baseline that reads only the report text sits beside the browser result.</p>
+
+    <section aria-label="The report" style="margin-top:26px;background:#fff;border:2px solid #14336B;border-radius:4px;padding:22px 26px">
+      <p style="margin:0;font-size:15px;font-weight:700;color:#555E6B">The report, identical for both pages</p>
+      <p style="margin:10px 0 0;font-size:24px;line-height:1.35;font-weight:600">“This page asks for my bank password and it looks fake to me.”</p>
+      <p style="margin:12px 0 0;font-size:15px;color:#555E6B">Reporter's claim — untrusted. It cannot move the verdict.</p>
+    </section>
+
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:20px">
+      <section aria-labelledby="o" style="background:#14336B;color:#fff;border-radius:4px;padding:24px 26px">
+        <p class="code" style="margin:0;font-size:14px;color:#BCCBEA">orchard-site.test/p/1042</p>
+        <h2 id="o" style="margin:8px 0 0;font-size:38px;font-weight:800;line-height:1">Proven</h2>
+        <p style="margin:6px 0 0;font-size:14px;color:#BCCBEA">Computed by code. No model output can change it.</p>
+        <p style="margin:14px 0 0;font-size:17px;line-height:1.5">A form sends data to another host, and the page asks for a password.</p>
+        <p style="margin:16px 0 0;padding-top:14px;border-top:1px solid rgba(255,255,255,.2);font-size:15px">Allowed action: Suspend</p>
+      </section>
+      <section aria-labelledby="b" style="background:#fff;border:2px solid #14336B;border-radius:4px;padding:22px 24px">
+        <p class="code" style="margin:0;font-size:14px;color:#555E6B">birch-site.test/p/2291</p>
+        <h2 id="b" style="margin:8px 0 0;font-size:38px;font-weight:800;line-height:1;color:#14336B">Not proven</h2>
+        <p style="margin:6px 0 0;font-size:14px;color:#555E6B">Computed by code. No model output can change it.</p>
+        <p style="margin:14px 0 0;font-size:17px;line-height:1.5">No form on the page sends data to another host.</p>
+        <p style="margin:16px 0 0;padding-top:14px;border-top:1px solid #E3E7EE;font-size:15px">Suspend is not allowed at this level</p>
+      </section>
+    </div>
+
+    <section class="rec" aria-labelledby="t" style="margin-top:24px">
+      <h2 id="t" style="margin:0;font-size:20px;font-weight:800;padding:18px 22px;border-bottom:1px solid #D5DAE1">Side by side</h2>
+      <table>
+        <thead><tr><th scope="col" style="width:34%"></th><th scope="col">orchard-site.test/p/1042</th><th scope="col">birch-site.test/p/2291</th></tr></thead>
+        <tbody>
+          <tr><th scope="row" style="background:none;color:#111418;font-size:16px">Report text</th><td>Identical</td><td>Identical</td></tr>
+          <tr><th scope="row" style="background:none;color:#111418;font-size:16px">Due Process, browser evidence</th><td><strong>Proven</strong></td><td><strong>Not proven</strong></td></tr>
+          <tr><th scope="row" style="background:none;color:#111418;font-size:16px">Baseline: reads report text only</th><td>Suspend</td><td><strong style="background:#FFDD00;padding:1px 6px;border-radius:2px">Suspend</strong> a real page</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <p style="margin:16px 0 0;font-size:15px;color:#555E6B">On all 8 twin pairs in our test set, the browser separated the two pages and report text alone did not. This is a demo. Every customer and action is simulated.</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1240}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

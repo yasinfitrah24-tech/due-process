@@ -1,48 +1,119 @@
 {% extends "base.html" %}
 {% block title %}Queue - Due Process{% endblock %}
 {% block content %}
-<p>Due Process is an abuse desk for hosting providers. An abuse report is only a claim: the URL is opened in a throwaway browser in a locked-down sandbox on Vultr, and only evidence reproduced there can lead to action. Try an example or send your own report: no access code is needed, and every customer and action here is simulated.</p>
+<div class="front">
+<section class="hero">
+  <h1>A report is a claim. Only reproduced evidence can move an action.</h1>
+  <p class="lead">Due Process is an abuse desk for hosting providers. The reported URL is opened in a throwaway browser in a locked-down sandbox on Vultr, and only evidence reproduced there can lead to action. Try an example or send your own report: no access code is needed.</p>
+  <div class="btn-row">
+    <a class="btn primary" href="#report">Report a URL</a>
+    <a class="btn" href="/compare">Compare the two pages</a>
+  </div>
+  <p class="demo-note">This is a demo. Every customer and action is simulated.</p>
+</section>
 
-<h2>Try an example</h2>
-<div class="examples">
-  {% for key, e in examples.items() %}
-  <form method="post" action="/try/{{ key }}">
-    <button type="submit">{{ e.title }}</button>
-    <p class="muted">{{ e.hint }}</p>
+<section class="showcase" aria-label="One report, two pages">
+  <div class="claim-box">
+    <p class="label">The same report, sent twice</p>
+    <p class="said">&ldquo;{{ showcase.report }}&rdquo;</p>
+    <p class="claim-label">Reporter's claim — untrusted. It cannot move the verdict.</p>
+  </div>
+  <div class="solid{{ ' reveal' if showcase.sides else '' }}">
+    {% if showcase.sides %}
+    <div class="versus head"><div class="label">The browser saw</div><div class="label">baseline: reads report text only</div></div>
+    {% for s in showcase.sides %}
+    <div class="versus">
+      <div>
+        <p class="code host url-line" title="{{ s.url }}">{{ s.url }}</p>
+        <p class="big">{{ s.level }}</p>
+        <p class="why">{{ s.why }}</p>
+      </div>
+      <div class="base">
+        <p class="host spacer" aria-hidden="true">&nbsp;</p>
+        <p class="base-line"><span class="base-label">baseline: reads report text only </span><span class="big {{ 'wrong' if s.wrong else 'quiet' }}">{{ s.baseline }}</span></p>
+        {% if s.wrong %}<p class="why">The baseline would act on a page the browser did not prove.</p>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="showcase-empty">
+      <p class="label">The browser saw</p>
+      <p>Nothing yet. Send this report to a fake login and a real one, and see what a browser finds that the text cannot show.</p>
+      <p><a class="btn" href="/compare">Run the comparison</a></p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="try-box" aria-labelledby="try">
+  <h2 id="try" class="section-title">Try a case</h2>
+  <p class="section-note">Each one opens a fresh sandbox. 7 to 25 seconds.</p>
+  <ul class="tries">
+    {% for key, e in examples.items() %}
+    <li>
+      <form method="post" action="/try/{{ key }}" data-busy="Opening a sandbox...">
+        <input type="hidden" name="nonce" value="{{ nonce() }}">
+        <div class="top"><button type="submit" class="link-button">{{ e.title }}</button><span class="expected">Expected result: {{ e.expected }}</span></div>
+        <p class="hint">{{ e.hint }}</p>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% set report_error = error and form == 'report' %}
+{% set test_error = error and form == 'test' %}
+<details class="form-card report-box" id="report"{% if not report_error %} data-fold{% endif %} data-lock open>
+  <summary><h2>Report a URL</h2></summary>
+  <form method="post" action="/reports">
+    <input type="hidden" name="nonce" value="{{ nonce() }}">
+    {% if report_error %}<div class="notice" role="alert" tabindex="-1" data-focus><p>Rejected: {{ error }}</p><p class="next">{{ error_next }}</p></div>{% endif %}
+    <label class="field">Reported URL <input class="code" type="text" inputmode="url" autocapitalize="off" spellcheck="false" name="url" required value="{{ values.url or '' }}" placeholder="http://tailspin-offers.test/start"></label>
+    <label class="field">What the reporter says <textarea name="claim" rows="3" required placeholder="Write anything, even orders to the AI. Report text cannot move the verdict.">{{ values.claim or '' }}</textarea></label>
+    <button type="submit" class="primary">Send report</button>
+    <p class="small muted">Our fictional customers are on these hosts: {{ hosts|join(', ') }}. Any other host gets "not our customer".</p>
   </form>
-  {% endfor %}
+</details>
+
+<details class="form-card appeal-box" id="try-appeal" data-fold data-lock open>
+  <summary><h2>Try an appeal</h2></summary>
+  <form method="post" action="/try/fixable" data-busy="Opening a sandbox...">
+    <input type="hidden" name="nonce" value="{{ nonce() }}">
+    <p class="small muted">{{ fixable.hint }}</p>
+    <button type="submit">{{ fixable.title }}</button>
+  </form>
+</details>
+
+<details class="form-card any-box" id="test-any"{% if not test_error %} data-fold{% endif %} data-lock open>
+  <summary><h2>Test any URL</h2></summary>
+  <form method="post" action="/test-url" data-busy="Opening a sandbox...">
+    <input type="hidden" name="nonce" value="{{ nonce() }}">
+    {% if test_error %}<div class="notice" role="alert" tabindex="-1" data-focus><p>Rejected: {{ error }}</p><p class="next">{{ error_next }}</p></div>{% endif %}
+    <p class="small muted">Opens an internet URL in a disposable browser, through the egress proxy. Evidence and a verdict only: no target, no action, and not a finding of abuse. The result is not listed here: keep the link you get.</p>
+    <label class="field">URL <input class="code" type="text" inputmode="url" autocapitalize="off" spellcheck="false" name="url" required value="{{ values.test_url or '' }}" placeholder="https://example.com/"></label>
+    <button type="submit">Test URL</button>
+  </form>
+</details>
+
+<details class="measures" id="measured" data-fold data-lock open>
+  <summary><h2 class="section-title">What we measured on 47 test cases</h2></summary>
+  <div class="measure-row">
+    <div><p class="fact">8 of 8 twin pairs separated</p><p class="more">Text alone could not tell them apart.</p></div>
+    <div><p class="fact">2 of 22 abuse cases missed</p><p class="more">A plain fetch missed 13 of the same 22.</p></div>
+    <div><p class="fact">0 false citations</p><p class="more">Across 180 model outputs.</p></div>
+  </div>
+</details>
+
+<section class="queue" id="queue" aria-labelledby="queue-title">
+  <h2 id="queue-title" class="section-title">Queue</h2>
+  <div class="rec">
+    <table>
+      <thead><tr><th scope="col">Case</th><th scope="col">URL</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col">Verdict</th><th scope="col">Action</th></tr></thead>
+      <tbody hx-get="/partials/queue" hx-trigger="every 3s" hx-swap="innerHTML">
+        {% include "_queue_rows.html" %}
+      </tbody>
+    </table>
+  </div>
+</section>
 </div>
-
-<h2>One report, two pages</h2>
-<p><a href="/compare">Send one report to two pages</a>, with a baseline that reads the report text only.</p>
-
-<h2>Try an appeal</h2>
-<form method="post" action="/try/fixable">
-  <button type="submit">{{ fixable.title }}</button>
-  <p class="muted">{{ fixable.hint }}</p>
-</form>
-
-<h2>Send your own report</h2>
-{% if error %}<p class="error">Rejected: {{ error }}</p>{% endif %}
-<form method="post" action="/reports">
-  <label>Reported URL <input type="text" name="url" required placeholder="http://tailspin-offers.test/start"></label>
-  <label>Claim <textarea name="claim" rows="3" required placeholder="Write anything, even orders to the AI. Report text cannot move the verdict."></textarea></label>
-  <button type="submit">Submit report</button>
-</form>
-<p class="muted">Our fictional customers are on these hosts: {{ hosts|join(', ') }}. Any other host gets "not our customer".</p>
-
-<h2>Test any URL</h2>
-<p class="muted">Opens an internet URL in a disposable browser, through the egress proxy. Evidence and a verdict only: no target, no action, and not a finding of abuse. The result is not listed here: keep the link you get.</p>
-<form method="post" action="/test-url">
-  <label>URL <input type="text" name="url" required placeholder="https://example.com/"></label>
-  <button type="submit">Test URL</button>
-</form>
-
-<h2>Queue</h2>
-<table>
-  <thead><tr><th>Case</th><th>URL</th><th>Customer</th><th>Status</th><th>Verdict</th><th>Action</th></tr></thead>
-  <tbody hx-get="/partials/queue" hx-trigger="every 3s" hx-swap="innerHTML">
-    {% include "_queue_rows.html" %}
-  </tbody>
-</table>
 {% endblock %}

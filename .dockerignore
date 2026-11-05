@@ -6,3 +6,5 @@ out
 prior-work
 tests
 **/__pycache__
+scripts
+docs

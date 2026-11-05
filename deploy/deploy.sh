@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run on the laptop: deploys origin/y/thin-slice to the VM. Safe to run again.
+# Run on the laptop: deploys origin/main to the VM. Safe to run again.
 # The VM has no access to the private repository, so the exact origin commit is sent as an archive.
 # Windows: SSH=/c/WINDOWS/System32/OpenSSH/ssh.exe deploy/deploy.sh
 set -euo pipefail
@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 SSH=${SSH:-ssh}
 HOST=${HOST:-dp-vm}
 PUBLIC_IP=${PUBLIC_IP:-45.76.241.186}
-BRANCH=y/thin-slice
+BRANCH=main
 APP_DIR=/opt/due-process
 
 git fetch -q origin "$BRANCH"

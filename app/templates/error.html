@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ what }} - Due Process{% endblock %}
+{% block content %}
+<section class="claim-box error-page">
+  <p class="label">Error {{ status }}</p>
+  <h1>{{ what }}</h1>
+  <p class="error-next">{{ next_step }}</p>
+  <p><a class="btn primary" href="{{ back }}">{{ back_label }}</a></p>
+</section>
+{% endblock %}

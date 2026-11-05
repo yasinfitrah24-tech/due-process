@@ -5,3 +5,5 @@ __pycache__/
 *.db
 .venv/
 data/
+.claude/
+skills-lock.json

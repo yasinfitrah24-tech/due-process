@@ -1,46 +1,100 @@
-<div id="customer"{% if polling %} hx-get="/partials/appeal/{{ case.appeal_token }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
-  <h1>Customer view</h1>
-  <p class="muted">Simulated. This is what {{ case.customer_name }} would see. Demo: anyone with the case link can act as the customer.</p>
+<div id="customer" data-status="{{ status_line }}"{% if polling %} hx-get="/partials/appeal/{{ case.appeal_token }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+ <div class="customer-grid">
+  <div class="customer-main">
+    <p class="eyebrow-always">Customer view</p>
+    <h1 class="page-title">{{ headline }}</h1>
+    <p class="demo-note page-note">Simulated. This is what {{ case.customer_name }} would see. Demo: anyone with the case link can act as the customer.</p>
 
-  <h2>What happened</h2>
-  <p>{{ action_text }} Reported page: {{ case.url }}</p>
-  {% if notice %}<blockquote>{{ notice }}</blockquote>{% endif %}
+    <section class="rec pad" aria-labelledby="happened">
+      <h2 id="happened">What happened</h2>
+      <p>{{ action_text }} Reported page:</p>
+      <p class="code url-line" title="{{ case.url }}">{{ case.url }}</p>
+      {% if why %}<p>{{ why }}</p>{% endif %}
+      {% if notice %}<blockquote>{{ notice|short_urls }}</blockquote>{% endif %}
+      <p class="small muted">Level at the time of action: {{ case.level }}. Computed by code. No model output can change it.</p>
+    </section>
 
-  {% if slug %}
-  <h2>Demo</h2>
-  {% if fixed %}
-  <p><strong>Fix applied.</strong> This test page now shows a clean version. Send an appeal to have it checked again.</p>
-  <button type="button" disabled>Customer fix simulated</button>
-  {% else %}
-  <form method="post" action="/appeal/{{ case.appeal_token }}/simulate-fix">
-    <button type="submit">Simulate customer fix</button>
-  </form>
-  <p class="muted">Changes this one test page to a clean version, as a customer's cleanup would.</p>
-  {% endif %}
-  {% endif %}
+    {% if slug %}
+    <section class="rec pad" aria-labelledby="demo">
+      <h2 id="demo">Demo</h2>
+      {% if fixed %}
+      <p><strong>Fix applied.</strong> This test page now shows a clean version. Send an appeal to have it checked again.</p>
+      <button type="button" disabled>Customer fix simulated</button>
+      {% else %}
+      <form method="post" action="/appeal/{{ case.appeal_token }}/simulate-fix">
+        <input type="hidden" name="nonce" value="{{ nonce() }}">
+        <button type="submit">Simulate customer fix</button>
+      </form>
+      <p class="small muted">Changes this one test page to a clean version, as a customer's cleanup would.</p>
+      {% endif %}
+    </section>
+    {% endif %}
 
-  <h2>Appeal</h2>
-  {% if closed %}
-  <p class="muted">{{ closed }}.</p>
-  {% else %}
-  <p>We will open the page again in a new disposable browser. Only what that visit finds counts; an analyst then decides.</p>
-  <form method="post" action="/appeal/{{ case.appeal_token }}">
-    {% for value, label in choices.items() %}
-    <label><input type="radio" name="choice" value="{{ value }}" required> {{ label }}</label>
+    <section class="rec pad" aria-labelledby="your-appeal">
+      <h2 id="your-appeal">Appeal</h2>
+      {% if closed %}
+      <p class="muted">{{ closed }}.</p>
+      {% else %}
+      <p>We will open the page again in a new disposable browser. Only what that visit finds counts; an analyst then decides.</p>
+      <form class="stack-form" method="post" action="/appeal/{{ case.appeal_token }}" data-busy="Sending your appeal...">
+        <input type="hidden" name="nonce" value="{{ nonce() }}">
+        <fieldset class="choices">
+          <legend class="sr-only">Your appeal</legend>
+          {% for value, label in choices.items() %}
+          <label class="choice"><input type="radio" name="choice" value="{{ value }}" required> {{ label }}</label>
+          {% endfor %}
+        </fieldset>
+        <label class="field">Anything you want the analyst to read <textarea name="text" rows="3" maxlength="2000" placeholder="Your text is a claim; the re-visit decides."></textarea></label>
+        <button type="submit" class="primary">Send appeal and re-check the page</button>
+      </form>
+      {% endif %}
+    </section>
+
+    {% for a in appeals %}
+    <section class="rec pad" aria-labelledby="appeal-{{ a.id }}">
+      <h2 id="appeal-{{ a.id }}">Appeal {{ loop.index }}</h2>
+      <p>{{ choices[a.choice] }}. Status: {{ a.status }}.</p>
+      {% if a.note %}<p class="notice">{{ a.note }}</p>{% endif %}
+    </section>
+    {% if a.status in ('ready', 'decided') %}
+    <div id="visits-{{ a.id }}" data-level="{{ a.level or '' }}">
+    <section class="visits" aria-label="Re-check result">
+      <div class="claim-box">
+        <p class="label">Original visit</p>
+        <p class="visit-level">{{ case.level }}</p>
+      </div>
+      <div class="{{ 'solid' if a.level else 'claim-box' }}">
+        <p class="label">Re-visit, in a new browser</p>
+        <p class="visit-level">{{ a.level or 'No result' }}</p>
+        {% if a.not_reproduced %}<p>Re-visit did not reproduce the original evidence.</p>{% endif %}
+        {% if not a.level %}<p>Nothing was reproduced. The action stays until an analyst decides.</p>{% endif %}
+      </div>
+    </section>
+    </div>
+    {% endif %}
+    {% if a.decision or a.status in ('ready', 'decided') %}
+    <section class="rec pad" aria-label="Analyst decision">
+      <h2>Analyst decision</h2>
+      {% if a.decision == 'Reinstate' %}<p><strong>Decision: Reinstated</strong> (simulated).</p>
+      {% elif a.decision == 'Keep' %}<p><strong>Decision: Kept.</strong> The action stays in place.</p>
+      {% else %}<p>Waiting for an analyst. Reinstate needs a second visit with a lower level than at the action.</p>{% endif %}
+      {% if a.sent %}<blockquote>{{ a.sent|short_urls }}</blockquote>
+      {% elif a.decision %}<p class="muted">The analyst has not sent the letter yet.</p>{% endif %}
+    </section>
+    {% endif %}
     {% endfor %}
-    <label>Anything you want the analyst to read <textarea name="text" rows="3" maxlength="2000"></textarea></label>
-    <button type="submit">Send appeal</button>
-  </form>
-  {% endif %}
 
-  {% for a in appeals %}
-  <h2>Appeal {{ loop.index }}</h2>
-  <p>{{ choices[a.choice] }}. Status: {{ a.status }}.</p>
-  {% if a.decision == 'Reinstate' %}<p><strong>Decision: Reinstated</strong> (simulated).</p>
-  {% elif a.decision == 'Keep' %}<p><strong>Decision: Kept.</strong> The action stays in place.</p>{% endif %}
-  {% if a.sent %}<blockquote>{{ a.sent }}</blockquote>
-  {% elif a.decision %}<p class="muted">The analyst has not sent the letter yet.</p>{% endif %}
-  {% endfor %}
+    <p class="demo-note">This is a demo. Every customer and action is simulated.</p>
+    <p class="demo-note">Demo: <a href="/cases/{{ case.id }}">Back to the analyst view (case #{{ case.id }})</a></p>
+  </div>
 
-  <p class="muted">Demo: <a href="/cases/{{ case.id }}">Back to the analyst view (case #{{ case.id }})</a></p>
+  <aside class="rec pad how" aria-labelledby="how">
+    <h2 id="how">How an appeal works</h2>
+    <ol class="steps">
+      {% for s in steps %}
+      <li class="{{ 'done' if s.done else 'todo' }}"><span class="dot" aria-hidden="true"></span><span><strong>{{ s.title }}</strong> {{ s.text }} <span class="sr-only">{{ 'Done.' if s.done else 'Not yet.' }}</span></span></li>
+      {% endfor %}
+    </ol>
+  </aside>
+ </div>
 </div>

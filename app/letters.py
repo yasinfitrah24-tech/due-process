@@ -11,6 +11,7 @@ ACTION_TEXT = {
 }
 APPEAL_CLOSING = "If you have fixed this or believe it is wrong, use the appeal link below."
 CITATION = re.compile(r"\s*\[[A-Za-z0-9_.-]+\]")
+REQUEST = re.compile(r"(?:please|let us know)\b", re.I)
 
 
 TEMPLATE_MODEL = "template, model unavailable"
@@ -62,8 +63,16 @@ def outcome_sentence(level, action):
     return f"Result of our review: {level}. {ACTION_TEXT[action]}"
 
 
+def is_request(sentence):
+    return not sentence.get("factual", True) and REQUEST.match(sentence["text"])
+
+
 def sent_text(sentences, level, action, appeal_url=None, why=None):
-    """At Not proven the draft may name no absent signal, so code says what cleared the page."""
-    reason = f"{why}\n\n" if why and level == "Not proven" else ""
-    text = f"{clean(sentences)}\n\n{reason}{outcome_sentence(level, action)}"
+    """At Not proven the draft may name no absent signal, so code says what cleared the page. The reader then gets the
+    reason, the result, and last what is asked of them."""
+    if level == "Not proven":
+        requests = [s for s in sentences if is_request(s)]
+        parts = [clean([s for s in sentences if not is_request(s)]), why, outcome_sentence(level, action), clean(requests)]
+        return "\n\n".join(p for p in parts if p)
+    text = f"{clean(sentences)}\n\n{outcome_sentence(level, action)}"
     return f"{text}\n\n{APPEAL_CLOSING}\n{appeal_url}" if appeal_url else text

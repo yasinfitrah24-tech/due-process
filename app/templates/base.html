@@ -4,46 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Due Process{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="/static/favicon-16.png" type="image/png" sizes="16x16">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="preload" href="/static/fonts/source-sans-3-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/source-sans-3-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/css/app.css">
   <script src="/static/htmx.min.js"></script>
-  <style>
-    body { font: 15px/1.5 system-ui, sans-serif; max-width: 1000px; margin: 0 auto; padding: 16px; color: #1c2024; background: #fff; }
-    header { display: flex; gap: 16px; align-items: baseline; border-bottom: 1px solid #d9dde1; margin-bottom: 16px; }
-    header a { color: inherit; text-decoration: none; font-weight: 600; }
-    h2 { font-size: 16px; margin: 24px 0 8px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e6e8eb; vertical-align: top; overflow-wrap: anywhere; }
-    label { display: block; margin: 8px 0; }
-    input[type=text], input[type=url], textarea { width: 100%; box-sizing: border-box; padding: 6px; font: inherit; }
-    button { font: inherit; padding: 6px 14px; cursor: pointer; }
-    blockquote { margin: 0; padding: 8px 12px; background: #f4f5f6; border-left: 3px solid #b8bec4; white-space: pre-wrap; overflow-wrap: anywhere; }
-    img { max-width: 100%; border: 1px solid #d9dde1; }
-    .error { color: #a4161a; font-weight: 600; }
-    .muted { color: #5f6870; }
-    .chip { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 12px; background: #e6e8eb; white-space: nowrap; }
-    .chip.observed { background: #d3ecd8; }
-    .chip.declared_in_script { background: #fbe7bd; }
-    .chip.model_claim { background: #dcdcf7; }
-    .level { font-weight: 700; }
-    .level-Proven { color: #a4161a; }
-    .level-Suspicious { color: #9a5b00; }
-    .examples { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-    .examples p { margin: 6px 0 0; font-size: 13px; }
-    .columns { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-    .columns section { border: 1px solid #d9dde1; padding: 0 12px 8px; overflow-wrap: anywhere; }
-    th { overflow-wrap: normal; word-break: normal; }
-    .summary { border: 1px solid #d9dde1; border-radius: 6px; padding: 4px 12px; margin-bottom: 16px; }
-    .summary p { margin: 8px 0; }
-    .badge { display: inline-block; padding: 2px 10px; border-radius: 4px; font-weight: 700; background: #e6e8eb; }
-    .badge-Proven { background: #a4161a; color: #fff; }
-    .badge-Suspicious { background: #9a5b00; color: #fff; }
-    .technical { margin-top: 24px; }
-    .technical > summary { cursor: pointer; font-weight: 600; font-size: 16px; }
-    @media (max-width: 480px) { th, td { padding: 4px; font-size: 13px; } h1 { font-size: 24px; margin: 8px 0; } }
-    .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  </style>
+  <script src="/static/js/app.js" defer></script>
 </head>
 <body>
-  <header><a href="/">Due Process</a><span class="muted">A report is a claim. Only evidence reproduced in a disposable browser can move an action.</span></header>
-  {% block content %}{% endblock %}
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="site-header-in">
+      <a class="brand" href="/" aria-label="Due Process, home">
+        <svg viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="2.4"/><rect x="19" y="4" width="12" height="26" rx="1.5" fill="#14336B"/></svg>
+        <span>Due Process</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/#queue"{% if request.url.path in ('/', '/reports', '/test-url') %} aria-current="page"{% endif %}>Queue</a>
+        <a href="/compare"{% if request.url.path.startswith('/compare') %} aria-current="page"{% endif %}><span class="long">Same report, two pages</span><span class="short">Two pages</span></a>
+      </nav>
+    </div>
+  </header>
+  <main id="main">
+    {% block content %}{% endblock %}
+  </main>
+  <p id="live" class="sr-only" aria-live="polite"></p>
 </body>
 </html>

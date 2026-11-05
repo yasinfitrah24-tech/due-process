@@ -1,12 +1,13 @@
+<tr hidden data-status="{{ cases|length }} cases in the queue, {{ cases|selectattr('status', 'in', ['queued', 'visiting', 'drafting'])|list|length }} running."><td colspan="6"></td></tr>
 {% for c in cases %}
 <tr>
   <td><a href="/cases/{{ c.id }}">#{{ c.id }}</a></td>
-  <td>{{ c.url }}</td>
-  <td>{{ c.customer_name or 'Test any URL' }}</td>
+  <td class="url-cell" title="{{ c.url }}"><span class="code url-line">{{ c.url }}</span></td>
+  <td title="{{ c.customer_name or 'Test any URL' }}">{{ c.customer_name or 'Test any URL' }}</td>
   <td>{{ c.status }}</td>
   <td><span class="level level-{{ (c.level or '')|replace(' ', '') }}">{{ c.level or '...' }}</span></td>
   <td>{{ c.decided_action or '' }}</td>
 </tr>
 {% else %}
-<tr><td colspan="6" class="muted">No reports yet.</td></tr>
+<tr><td colspan="6" class="muted">No reports yet. <a href="#try">Try a case</a> to see one here.</td></tr>
 {% endfor %}

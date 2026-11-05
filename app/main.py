@@ -9,10 +9,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import appeals, compare, db, explain, inventory, letters, pipeline, policy, ratelimit, signals, timeline, visitor
 from app.examples import EXAMPLES, FIXABLE_EXAMPLE
@@ -23,8 +26,12 @@ MAX_CLAIM_CHARS = 20000
 DOCUMENTS = {"statement_of_reasons": "Statement of reasons", "customer_notice": "Customer notice",
              "reporter_reply": "Reporter reply"}
 NEEDS_ENFORCEMENT = ("statement_of_reasons", "customer_notice")
+ACTION_LABELS = {"Suspend": "Suspend customer", "Warn": "Warn customer", "Close": "Close report"}
+SHOWCASE_TWIN = "login"
 
 templates = Jinja2Templates(directory=HERE / "templates")
+templates.env.globals["nonce"] = lambda: secrets.token_urlsafe(16)
+templates.env.filters["short_urls"] = explain.short_urls
 executor = ThreadPoolExecutor(max_workers=visitor.MAX_PARALLEL)
 
 
@@ -49,6 +56,79 @@ async def lifespan(_):
 
 app = FastAPI(title="Due Process", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request, error):
+    if not wants_page(request):
+        return await http_exception_handler(request, error)
+    return error_page(request, error.status_code, FOUND_NOTHING.get(error.detail, str(error.detail)))
+
+
+@app.exception_handler(RequestValidationError)
+async def form_error(request, error):
+    if not wants_page(request):
+        return await request_validation_exception_handler(request, error)
+    return error_page(request, 422, "That form was incomplete or not valid.")
+
+
+@app.exception_handler(Exception)
+async def server_error(request, error):
+    if not wants_page(request):
+        return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
+    return error_page(request, 500, "Something went wrong on our side.")
+
+
+FOUND_NOTHING = {"Not Found": "We could not find that page.", "case not found": "We could not find that case.",
+                 "no such appeal link": "This appeal link does not exist.",
+                 "no such comparison": "This comparison does not exist."}
+NEXT_STEP = {403: "Go back and choose one of the actions shown there.",
+             404: "Check the link, or go back and start from there.",
+             405: "Go back and use the buttons on the page.",
+             409: "Go back: the page shows where this stands now.",
+             422: "Go back, check what you entered and send it again.",
+             429: "Wait ten minutes, then try again.",
+             500: "Nothing was lost. Go back and try again in a moment.",
+             503: "Wait a few minutes, then try again."}
+
+
+def wants_page(request):
+    """A person in a browser gets a page. The API, polling and anything else that asks for data get what they had."""
+    path = request.url.path
+    return "text/html" in request.headers.get("accept", "") and not path.startswith(("/api/", "/partials/"))
+
+
+def error_page(request, status, what):
+    """One sentence on what happened, one on what to do, and a way back. Only this app's own paths are linked."""
+    match = re.match(r"/(cases|appeal)/([\w-]+)", request.url.path) if request.method == "POST" else None
+    if match:
+        back, label = f"/{match[1]}/{match[2]}", "Back to the case"
+    elif request.url.path.startswith("/compare"):
+        back, label = "/compare", "Back to One report, two pages"
+    else:
+        back, label = "/", "Back to the queue"
+    sentence = what[0].upper() + what[1:]
+    return templates.TemplateResponse(request, "error.html", {
+        "status": status, "what": sentence if sentence.endswith(".") else f"{sentence}.",
+        "next_step": NEXT_STEP.get(status, NEXT_STEP[409]), "back": back, "back_label": label}, status_code=status)
+
+
+def once(nonce, work):
+    """Every form carries a nonce, spent by its first request. A repeat starts nothing: it follows the first one to where
+    it ended. Without a nonce, as from the API, this does nothing and the rate limits apply. A request that fails gives
+    the nonce back, so the same form can be sent again."""
+    if nonce and not db.claim_submission(nonce):
+        location = db.wait_for_submission(nonce)
+        return once(nonce, work) if location is None else RedirectResponse(location, status_code=303)
+    try:
+        location = work()
+    except Exception:
+        if nonce:
+            db.release_submission(nonce)
+        raise
+    if nonce:
+        db.finish_submission(nonce, location)
+    return RedirectResponse(location, status_code=303)
 
 
 class Rejected(Exception):
@@ -215,18 +295,50 @@ def case_context(ref):
     claim, vision = outputs.get("claim_extraction"), outputs.get("vision_claim")
     views = appeal_views(case, outputs)
     polling = case["status"] in ("queued", "visiting", "drafting") or any(a["status"] in appeals.PENDING for a in views)
+    allowed = policy.allowed_for(case) if case["status"] == "ready" else ()
     return {"case": case, "evidence": evidence, "audit": db.audit_log(case_id), "outputs": outputs, "appeals": views,
             "polling": polling, "choices": appeals.CHOICES, "timeline": timeline.rows(db.case_events(case_id)),
-            "why": explain.why(case["signals"]),
+            "why": explain.why(case["signals"]), "present": explain.present(case["signals"]),
+            "contained": explain.contained(evidence, case["receipt"]), "status_line": explain.status_line(case),
+            "live_line": explain.live_line(case),
+            "action_labels": ACTION_LABELS, "appealable": bool(set(allowed) & set(policy.APPEALABLE)),
             "comparison": compare.rows(claim and claim["output"], case["signals"], evidence, vision and vision["output"]),
             "usage": db.case_usage(case_id), "documents": DOCUMENTS, "sent": sent_documents(case_id),
-            "allowed": policy.allowed_for(case) if case["status"] == "ready" else ()}
+            "allowed": allowed}
 
 
-def front_page(request, error=None, status_code=200):
+def baseline_is_wrong(level, action):
+    return level == "Not proven" and action in policy.APPEALABLE
+
+
+def showcase():
+    """The front page's report and, once one has run, what a real comparison of it found. Nothing here is made up."""
+    twin = TWINS[SHOWCASE_TWIN]
+    comparison = db.latest_comparison(SHOWCASE_TWIN)
+    sides = []
+    for side in ("abuse", "legit") if comparison else ():
+        case = db.get_case(comparison[f"{side}_case"])
+        action = comparison[f"{side}_baseline"]["action"]
+        if case["status"] != "ready" or case["note"]:
+            return {"report": twin["report"], "sides": []}
+        sides.append({"url": case["url"].split("://", 1)[1], "level": case["level"], "why": explain.why(case["signals"]),
+                      "baseline": action, "wrong": baseline_is_wrong(case["level"], action)})
+    return {"report": twin["report"], "sides": sides}
+
+
+def rejected_next(error):
+    if error == "not our customer":
+        return "Use one of the hosts listed below, or try the address under Test any URL."
+    return "Check the address and send it again."
+
+
+def front_page(request, error=None, status_code=200, form="report", values=None):
     hosts = [h for c in inventory.CUSTOMERS if not c.get("eval_only") for h in c["hosts"]]
     return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": error, "hosts": hosts,
-                                                              "examples": EXAMPLES, "fixable": FIXABLE_EXAMPLE},
+                                                              "examples": EXAMPLES, "fixable": FIXABLE_EXAMPLE,
+                                                              "showcase": showcase(), "form": form,
+                                                              "values": values or {},
+                                                              "error_next": rejected_next(error)},
                                       status_code=status_code)
 
 
@@ -236,15 +348,18 @@ def queue(request: Request):
 
 
 @app.post("/try/{key}")
-def try_example(request: Request, key: str):
+def try_example(request: Request, key: str, nonce: str = Form(default="", max_length=64)):
     if key != "fixable" and key not in EXAMPLES:
         raise HTTPException(404, "no such example")
-    guard(request)
-    if key == "fixable":  # each try gets its own page, so one visitor's fix does not touch another's case
-        case_id = create_report(f"http://{appeals.FIXABLE_HOST}/shop/{secrets.token_hex(8)}", FIXABLE_EXAMPLE["claim"])
-    else:
-        case_id = create_report(EXAMPLES[key]["url"], EXAMPLES[key]["claim"])
-    return RedirectResponse(f"/cases/{case_id}", status_code=303)
+
+    def work():
+        guard(request)
+        if key == "fixable":  # each try gets its own page, so one visitor's fix does not touch another's case
+            case_id = create_report(f"http://{appeals.FIXABLE_HOST}/shop/{secrets.token_hex(8)}", FIXABLE_EXAMPLE["claim"])
+        else:
+            case_id = create_report(EXAMPLES[key]["url"], EXAMPLES[key]["claim"])
+        return f"/cases/{case_id}"
+    return once(nonce, work)
 
 
 def compare_guard(request):
@@ -265,18 +380,21 @@ def compare_page(request: Request):
 
 
 @app.post("/compare/run/{key}")
-def compare_run(request: Request, key: str):
+def compare_run(request: Request, key: str, nonce: str = Form(default="", max_length=64)):
     if key not in TWINS:
         raise HTTPException(404, "no such pair")
-    compare_guard(request)
-    twin = TWINS[key]
-    abuse_case, legit_case = twin_case(twin["abuse_url"], twin["report"]), twin_case(twin["legit_url"], twin["report"])
-    token = db.create_comparison(key, abuse_case, legit_case)
-    for case_id in (abuse_case, legit_case):
-        db.audit(case_id, "public", "comparison_started", twin=key)
-        submit(case_id)
-    submit_baseline(token)
-    return RedirectResponse(f"/compare/{token}", status_code=303)
+
+    def work():
+        compare_guard(request)
+        twin = TWINS[key]
+        abuse_case, legit_case = twin_case(twin["abuse_url"], twin["report"]), twin_case(twin["legit_url"], twin["report"])
+        token = db.create_comparison(key, abuse_case, legit_case)
+        for case_id in (abuse_case, legit_case):
+            db.audit(case_id, "public", "comparison_started", twin=key)
+            submit(case_id)
+        submit_baseline(token)
+        return f"/compare/{token}"
+    return once(nonce, work)
 
 
 def compare_context(token):
@@ -288,11 +406,17 @@ def compare_context(token):
     for side in ("abuse", "legit"):
         case = db.get_case(comparison[f"{side}_case"])
         steps = timeline.rows(db.case_events(case["id"]))
-        sides.append({"label": twin[f"{side}_label"], "case": case, "baseline": comparison[f"{side}_baseline"],
+        baseline = comparison[f"{side}_baseline"]
+        sides.append({"label": twin[f"{side}_label"], "case": case, "baseline": baseline,
                       "present": [s["id"] for s in case["signals"] or [] if s["value"]],
-                      "step": steps[-1]["text"] if steps and case["status"] != "ready" else None})
+                      "step": steps[-1]["text"] if steps and case["status"] != "ready" else None,
+                      "why": explain.why(case["signals"]), "host": case["url"].split("://", 1)[1],
+                      "allowed": policy.ALLOWED_ACTIONS.get(case["level"], ()),
+                      "wrong": bool(baseline) and baseline_is_wrong(case["level"], baseline["action"])})
     polling = any(s["case"]["status"] != "ready" or not s["baseline"] for s in sides)
-    return {"comparison": comparison, "twin": twin, "sides": sides, "polling": polling}
+    levels = " ".join(f"{s['label']}: {s['case']['level']}." for s in sides if s["case"]["level"])
+    status_line = " ".join(filter(None, [levels, "" if not polling else "Opening both pages and asking the baseline."]))
+    return {"comparison": comparison, "twin": twin, "sides": sides, "polling": polling, "status_line": status_line}
 
 
 @app.get("/compare/{token}")
@@ -318,8 +442,11 @@ def customer_context(token):
     views = appeal_views(case, outputs)
     draft = outputs.get("documents")
     notice = draft["output"]["customer_notice"] if draft and draft["output"] else None
-    return {"case": case, "appeals": views, "choices": appeals.CHOICES, "closed": appeals.closed_reason(case, views),
+    closed = appeals.closed_reason(case, views)
+    return {"case": case, "appeals": views, "choices": appeals.CHOICES, "closed": closed,
             "polling": any(a["status"] in appeals.PENDING for a in views), "slug": appeals.fixable_slug(case),
+            "why": explain.why(case["signals"]), "headline": explain.customer_headline(case, views, closed),
+            "steps": explain.appeal_steps(case, views), "status_line": explain.appeal_status(views),
             "fixed": fix_simulated(case["id"]),
             "notice": letters.clean(notice) if notice else None,
             "action_text": letters.outcome_sentence(case["level"], case["decided_action"])}
@@ -346,33 +473,40 @@ def customer_partial(request: Request, token: str):
 
 @app.post("/appeal/{token}")
 def appeal_form(request: Request, token: str, choice: str = Form(),
-                text: str = Form(default="", max_length=appeals.MAX_TEXT_CHARS)):
+                text: str = Form(default="", max_length=appeals.MAX_TEXT_CHARS),
+                nonce: str = Form(default="", max_length=64)):
     """Takes a choice and text. Neither is read by anything that decides; the second visit is what counts."""
     case = find_appealed_case(token)
     if choice not in appeals.CHOICES:
         raise HTTPException(422, "unknown choice")
-    appeal_guard(request)
-    reason = appeals.closed_reason(case, db.case_appeals(case["id"]))
-    if reason:
-        db.audit(case["id"], "customer", "appeal_refused", reason=reason)
-        raise HTTPException(409, reason)
-    appeal_id = db.create_appeal(case["id"], choice, text)
-    db.audit(case["id"], "customer", "appeal_received", appeal_id=appeal_id, choice=choice)
-    submit_appeal(appeal_id)
-    return RedirectResponse(f"/appeal/{token}", status_code=303)
+
+    def work():
+        appeal_guard(request)
+        reason = appeals.closed_reason(case, db.case_appeals(case["id"]))
+        if reason:
+            db.audit(case["id"], "customer", "appeal_refused", reason=reason)
+            raise HTTPException(409, reason)
+        appeal_id = db.create_appeal(case["id"], choice, text)
+        db.audit(case["id"], "customer", "appeal_received", appeal_id=appeal_id, choice=choice)
+        submit_appeal(appeal_id)
+        return f"/appeal/{token}"
+    return once(nonce, work)
 
 
 @app.post("/appeal/{token}/simulate-fix")
-def simulate_fix(request: Request, token: str):
+def simulate_fix(request: Request, token: str, nonce: str = Form(default="", max_length=64)):
     case = find_appealed_case(token)
     slug = appeals.fixable_slug(case)
     if slug is None:
         raise HTTPException(404, "this page cannot be changed")
-    if not fix_simulated(case["id"]):
-        appeal_guard(request)
-        visitor.simulate_fix(slug)
-        db.audit(case["id"], "customer", "customer_fix_simulated", url=case["url"])
-    return RedirectResponse(f"/appeal/{token}", status_code=303)
+
+    def work():
+        if not fix_simulated(case["id"]):
+            appeal_guard(request)
+            visitor.simulate_fix(slug)
+            db.audit(case["id"], "customer", "customer_fix_simulated", url=case["url"])
+        return f"/appeal/{token}"
+    return once(nonce, work)
 
 
 def find_appeal(ref, appeal_id):
@@ -417,15 +551,21 @@ def send_appeal_letter(ref, appeal_id, analyst):
 
 
 @app.post("/cases/{ref}/appeals/{appeal_id}/decide")
-def appeal_decide_form(ref: str, appeal_id: int, decision: str = Form(), analyst: str = Form(default="analyst", max_length=100)):
-    decide_appeal(ref, appeal_id, decision, analyst)
-    return RedirectResponse(f"/cases/{ref}", status_code=303)
+def appeal_decide_form(ref: str, appeal_id: int, decision: str = Form(), analyst: str = Form(default="analyst", max_length=100),
+                       nonce: str = Form(default="", max_length=64)):
+    def work():
+        decide_appeal(ref, appeal_id, decision, analyst)
+        return f"/cases/{ref}"
+    return once(nonce, work)
 
 
 @app.post("/cases/{ref}/appeals/{appeal_id}/send")
-def appeal_send_form(ref: str, appeal_id: int, analyst: str = Form(default="analyst", max_length=100)):
-    send_appeal_letter(ref, appeal_id, analyst)
-    return RedirectResponse(f"/cases/{ref}", status_code=303)
+def appeal_send_form(ref: str, appeal_id: int, analyst: str = Form(default="analyst", max_length=100),
+                     nonce: str = Form(default="", max_length=64)):
+    def work():
+        send_appeal_letter(ref, appeal_id, analyst)
+        return f"/cases/{ref}"
+    return once(nonce, work)
 
 
 @app.get("/cases/{ref}/appeals/{appeal_id}/shots/{name}")
@@ -443,23 +583,26 @@ def queue_rows(request: Request):
 
 
 @app.post("/reports")
-def report_form(request: Request, url: str = Form(max_length=2000), claim: str = Form(max_length=MAX_CLAIM_CHARS)):
-    guard(request)
+def report_form(request: Request, url: str = Form(max_length=2000), claim: str = Form(max_length=MAX_CLAIM_CHARS),
+                nonce: str = Form(default="", max_length=64)):
+    def work():
+        guard(request)
+        return f"/cases/{create_report(url, claim)}"
     try:
-        case_id = create_report(url, claim)
+        return once(nonce, work)
     except Rejected as e:
-        return front_page(request, e.message, 422)
-    return RedirectResponse(f"/cases/{case_id}", status_code=303)
+        return front_page(request, e.message, 422, values={"url": url, "claim": claim})
 
 
 @app.post("/test-url")
-def test_url_form(request: Request, url: str = Form(max_length=2000)):
-    guard(request)
+def test_url_form(request: Request, url: str = Form(max_length=2000), nonce: str = Form(default="", max_length=64)):
+    def work():
+        guard(request)
+        return f"/cases/{create_test(url)}"
     try:
-        ref = create_test(url)
+        return once(nonce, work)
     except Rejected as e:
-        return front_page(request, e.message, 422)
-    return RedirectResponse(f"/cases/{ref}", status_code=303)
+        return front_page(request, e.message, 422, form="test", values={"test_url": url})
 
 
 @app.get("/cases/{ref}")
@@ -481,15 +624,21 @@ def screenshot(ref: str, name: str):
 
 
 @app.post("/cases/{ref}/actions")
-def action_form(ref: str, action: str = Form(), analyst: str = Form(default="analyst", max_length=100)):
-    apply_action(ref, action, analyst)
-    return RedirectResponse(f"/cases/{ref}", status_code=303)
+def action_form(ref: str, action: str = Form(), analyst: str = Form(default="analyst", max_length=100),
+                nonce: str = Form(default="", max_length=64)):
+    def work():
+        apply_action(ref, action, analyst)
+        return f"/cases/{ref}"
+    return once(nonce, work)
 
 
 @app.post("/cases/{ref}/documents/{name}/send")
-def document_form(request: Request, ref: str, name: str, analyst: str = Form(default="analyst", max_length=100)):
-    send_document(request, ref, name, analyst)
-    return RedirectResponse(f"/cases/{ref}", status_code=303)
+def document_form(request: Request, ref: str, name: str, analyst: str = Form(default="analyst", max_length=100),
+                  nonce: str = Form(default="", max_length=64)):
+    def work():
+        send_document(request, ref, name, analyst)
+        return f"/cases/{ref}"
+    return once(nonce, work)
 
 
 @app.post("/api/test-url", status_code=202)
