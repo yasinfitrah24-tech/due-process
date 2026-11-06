@@ -89,6 +89,8 @@ How to read this:
 | Text-only triage | `sso-same-customer`, `false-login`, `p1-legit`, `p2-legit`, `p4-legit`, `p5-legit`, `p7-legit`, `p8-legit`, `mixed-false-tailspin`, `mixed-false-tailspin-login`, `mixed-false-verify-host` | `p3-abuse`, `mixed-phish-northwind`, `mixed-verify-northwind` | none | `p6-legit` |
 | Fetch without browser | `sso-third-party` | `phish-redirects`, `phish-direct`, `phish-delegated`, `phish-inline`, `phish-tampering`, `phish-runtime-url`, `phish-iframe`, `containment`, `inject-protect-phish`, `p1-abuse`, `p3-abuse`, `p7-abuse`, `p8-abuse` | `inject-protect-phish` | `suspicious-newsletter` |
 
+`sso-third-party` is the one wrongful suspend by Due Process. It is a legitimate Northwind Bank login whose password form posts to a third-party identity provider, `login.fabrikam-id.test`, so the code rule sees the same pattern as phishing and computes Proven, which allows Suspend. This is a known false alarm: the count shows the strongest action the level allows, and in the product an analyst sees the evidence and approves every action.
+
 ## Model claims in Due Process
 
 - Citations of signals that do not exist: 0 across 180 model outputs.
