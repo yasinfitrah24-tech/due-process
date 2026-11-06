@@ -59,7 +59,7 @@ def page(title, body, head=""):
             f'fill="{accent}"/><text x="16" y="23" text-anchor="middle" font-size="20" font-weight="700" '
             f'fill="{color}">{letter}</text></svg>')
     return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TEST PAGE - {title}</title><style>:root{{--brand:{color};--accent:{accent}}}{STYLE}</style>{head}</head>
-<body>{BANNER}<header class="tp-head">{logo}<span>{name}</span></header><main class="tp-main"><div><h1>{title}</h1><p class="tp-lead">{lead}</p></div><div class="tp-card" id="page-body">{body}</div></main><footer class="tp-foot">{name} is a fictional brand used only in Due Process test pages.</footer></body></html>""".encode()
+<body>{BANNER}<header class="tp-head">{logo}<span>{name}</span></header><main class="tp-main"><div><h1>{title}</h1><p class="tp-lead">{lead}</p></div><div class="tp-card" id="page-body">{body}</div></main><footer class="tp-foot">{name} is a fictional brand.</footer></body></html>""".encode()
 
 
 STEP2 = page("Northwind Bank offer", "<p>Taking you to your offer&hellip;</p>",

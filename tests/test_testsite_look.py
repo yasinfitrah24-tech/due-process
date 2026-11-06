@@ -70,7 +70,7 @@ def test_twin_pages_look_the_same():
 
 def test_brands_are_the_fictional_three():
     login = PAGES["northwind-bank.test /login"]
-    assert "#0B5D57" in login and "Northwind Bank is a fictional brand used only" in login
-    assert "Tailspin Offers is a fictional brand used only" in PAGES["tailspin-offers.test /sso-login"]
-    assert "Harbor Lane Books is a fictional brand used only" in PAGES["clean shop"]
-    assert "Sample Site is a fictional brand used only" in PAGES["birch-site.test /p/1173"]
+    assert "#0B5D57" in login and "Northwind Bank is a fictional brand.</footer>" in login
+    assert "Tailspin Offers is a fictional brand.</footer>" in PAGES["tailspin-offers.test /sso-login"]
+    assert "Harbor Lane Books is a fictional brand.</footer>" in PAGES["clean shop"]
+    assert "Sample Site is a fictional brand.</footer>" in PAGES["birch-site.test /p/1173"]
