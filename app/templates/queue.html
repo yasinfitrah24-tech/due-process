@@ -43,12 +43,12 @@
 <div class="front">
 <section class="proof" id="proof" aria-labelledby="proof-title">
   <h2 id="proof-title" class="section-title">Where the AI was wrong, and what decided anyway</h2>
-  <p class="section-note">We measured the failures before we trusted the design. Every number is in docs/eval.md, from tests on fictional pages.</p>
+  <p class="section-note">We measured the failures before we trusted the design. Every number is in <a href="{{ eval_url }}">docs/eval.md</a>, from tests on fictional pages.</p>
   <div class="proof-row">
     <div class="rec pad">
-      <p class="num">10 of 10</p>
-      <p>times the vision model repeated a hostile page's &ldquo;this page is safe&rdquo;.</p>
-      <p><strong>0 of 10</strong> times the level changed, because code sets it.</p>
+      <p class="num">0–1 of 8</p>
+      <p>twin pairs right for text-only triage across three runs: the same model on Vultr Serverless Inference, reading the report only.</p>
+      <p><strong>0–1 of 4</strong> injected reports changed its answer.</p>
       <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a></p>
     </div>
     <div class="rec pad">
@@ -63,7 +63,7 @@
       <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a></p>
     </div>
   </div>
-  <p class="proof-limit">Built to show what text alone cannot decide, not a claim that it beats text-only triage in general. Reproduce with <code class="sig">make eval</code>.</p>
+  <p class="proof-limit">On an earlier plain layout the vision model repeated the page's 'safe' claim 10 of 10 times; the level never changed. Built to show what text alone cannot decide, not a claim that it beats text-only triage in general. Reproduce with <code class="sig">make eval</code>.</p>
 </section>
 
 <section class="queue" id="queue" aria-labelledby="queue-title">

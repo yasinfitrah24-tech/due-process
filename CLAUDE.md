@@ -40,7 +40,7 @@ egress/    egress proxy
 testsite/  fictional-brand test pages (own container)
 corpus/    labeled reports + page list for eval
 eval/      baselines (text-only triage, fetch-without-browser) + run_eval.py
-docs/      spec.md, architecture.md
+docs/      architecture.md, deploy.md, eval.md
 
 ## Commands
 make up / make down / make test / make eval
