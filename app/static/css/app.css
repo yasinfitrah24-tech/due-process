@@ -526,8 +526,8 @@ input[type=radio]:focus-visible { outline: 3px solid var(--yellow); box-shadow: 
 }
 @media (max-width: 767px) {
   .proof-row { gap: var(--s2); }
-  .proof-row .rec { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 0 var(--s3); padding: var(--s3); font-size: 14px; line-height: 1.4; }
+  .proof-row .rec { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 0 var(--s2); padding: var(--s3); font-size: 14px; line-height: 1.4; }
   .proof-row .rec > * { grid-column: 2; margin-top: 0; }
-  .proof-row .rec > .num { grid-column: 1; grid-row: 1 / span 3; font-size: 22px; line-height: 1.1; }
-  .proof-row .source { margin-top: var(--s1); }
+  .proof-row .rec > .num { grid-column: 1; grid-row: 1 / span 3; font-size: 20px; line-height: 1.1; }
+  .proof-row .source { display: none; }
 }

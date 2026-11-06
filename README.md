@@ -79,7 +79,7 @@ More detail: [docs/architecture.md](docs/architecture.md).
 
 | Service | Use |
 |---|---|
-| Vultr Cloud Compute | One VM runs the whole stack, including every sandbox |
+| Vultr Cloud Compute | One VM (`vx1-g-4c-16g-240s`, Seattle) runs the whole stack, including every sandbox |
 | Vultr Serverless Inference | All model calls: `deepseek-v4.1-flash-1017` for text, `nemotron-3-nano-omni-30b-a3b-reasoning` for screenshots |
 
 The models extract what the reporter alleges, describe the screenshot, write the evidence statement, and draft the
@@ -110,22 +110,25 @@ make eval
 
 ## Evaluation
 
-From `make eval`: 47 labeled cases on fictional test pages, one run each. Every case and the earlier 26-case version are in
-[docs/eval.md](docs/eval.md).
+From `make eval`: 47 labeled cases on fictional test pages, one run each per eval. The numbers below come from the run at
+commit `f16b1e1`, and ranges cover three full runs. Every case, and all three runs, are in [docs/eval.md](docs/eval.md).
 
 - **Text alone cannot tell two pages apart.** In 8 twin pairs, one identical report goes to two pages, one abuse and one
-  legitimate, on neutral hosts of one customer. Due Process got 8 of 8 pairs right; text-only triage got 0 of 8. This test
-  is built to show that limit, and the result is close to fixed by the design, so it says nothing about how often real
+  legitimate, on neutral hosts of one customer. Due Process got 8 of 8 pairs right. Text-only triage, the same model on Vultr
+  Serverless Inference reading the report only, got 0–1 of 8 across three runs, missed 3–5 of 22 abuse cases, and let an
+  injected report change its answer in 0–1 of 4. This test is built to show that limit, and the result is close to fixed by the design, so it says nothing about how often real
   reports are like this.
 - **The browser matters.** With the same rules and only an HTTP GET, 13 of 22 abuse cases were missed, against 2 of 22
   with the browser.
 - **Containment held.** In 10 runs on a hostile page, the cloud metadata request was blocked 10 of 10 and the download was
   quarantined 10 of 10.
-- **A vision model repeated the page's claim, and it changed nothing.** It repeated "safe" 10 of 10 times. The page-text flag
-  caught all 10, and the verdict changed 0 of 10 times.
+- **A vision model can repeat a page's claim, and it changes nothing.** On the earlier plain layout it repeated "safe" 10 of
+  10 times and the page-text flag caught all 10. On a layout with a tagline it repeated it 10 of 10 times and the flag caught
+  5. On the current layout it repeated it 0 of 10 times. The vision model's behaviour depends on page layout; the level
+  computed by code did not change in any of the 30 runs.
 
 **This does not show that Due Process beats text-only triage in general.** On the 26 original cases, text-only triage
-missed 0 of 12 abuse cases and Due Process missed 2 of 12. Reading a report can be a good and much cheaper guess. What it
+missed 0–1 of 12 abuse cases across three runs and Due Process missed 2 of 12. Reading a report can be a good and much cheaper guess. What it
 cannot do is tell two pages apart, or give evidence for its decision.
 
 ## Known limits
@@ -139,7 +142,8 @@ cannot do is tell two pages apart, or give evidence for its decision.
 - **B3 depends on Docker's `docker-default` AppArmor profile.** Chromium's sandbox works on Ubuntu 24.04 because the
   container runs under that profile, as shown in [docs/FINDINGS.md](docs/FINDINGS.md). A Docker or AppArmor change could
   break it. The failure is safe: a visit with no namespace proof comes back Not proven.
-- **Vision claims can repeat page text.** This happens, and it is flagged. It never moves a verdict.
+- **Vision claims can repeat page text.** This happens, and the flag can miss a reworded claim: it caught 5 of 10 on one
+  layout. A claim never moves a verdict.
 - **Cloaking.** A page that shows a clean version to the sandbox can open Reinstate on appeal. The case then says the
   re-visit did not reproduce the original evidence, not that the page is fixed, and the decision stays with the analyst.
 - **Citation checks prove that a signal id exists**, not that the sentence describes it truly.

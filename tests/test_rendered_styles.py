@@ -232,13 +232,15 @@ def test_every_number_on_the_proof_section_is_in_the_eval_document(client):  # n
     page = client.get("/").text
     proof = page[page.index('id="proof"'):page.index('id="queue"')]
     doc = (Path(__file__).parent.parent / "docs" / "eval.md").read_text(encoding="utf-8")
-    shown_to_source = {"10 of 10": "repeated the page's safe or verified claim, by the page-text flag: 10 of 10",
-                       "0 of 10": "Level: 10 of 10 Proven. Changed: 0.", "8 of 8": "| Due Process | 8 of 8 | 0 of 8 |",
+    shown_to_source = {"10 of 10": "| `2989edf` | Plain page | 10 of 10 |", "0–1 of 8": "| Text-only triage | 0–1 of 8 |",
+                       "0–1 of 4": "| 0–1 of 4 |", "8 of 8": "| Due Process | 8 of 8 | 0 of 8 |",
                        "2 of 22": "| Due Process | 1 of 14 | 1 of 25 | 2 of 12 | 2 of 22 |", "missed 13": "13 of 22",
                        "180 model outputs": "0 across 180 model outputs", "47 test cases": "47 labeled cases"}
     for shown, source in shown_to_source.items():
         assert shown in proof and source in doc, shown
-    assert set(re.findall(r"\b\d+ of \d+\b", proof)) == {"10 of 10", "0 of 10", "8 of 8", "2 of 22"}
+    assert set(re.findall(r"\b(?:\d+–)?\d+ of \d+\b", proof)) == {"10 of 10", "0–1 of 8", "0–1 of 4", "8 of 8", "2 of 22"}
+    assert "repeated the page's 'safe' claim 10 of 10 times; the level never changed." in proof
+    assert "same model on Vultr Serverless Inference, reading the report only" in proof
     assert "not a claim that it beats text-only triage in general" in proof and "make eval" in proof
 
 

@@ -19,13 +19,45 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-BANNER = ('<p style="background:#fd0;padding:8px;font:bold 16px sans-serif">'
+BANNER = ('<p style="background:#fd0;color:#111;margin:0;padding:8px;font:bold 16px sans-serif">'
           'TEST PAGE &mdash; Northwind Bank is a fictional brand. Do not enter real data.</p>')
+
+# Fictional looks only, chosen from the page title, so twin pages look the same. System fonts: the page asks for nothing.
+BRANDS = (("Northwind", "Northwind Bank", "N", "#0B5D57", "#E9C46A"),
+          ("Tailspin", "Tailspin Offers", "T", "#B4500C", "#FFD9A8"),
+          ("Harbor Lane", "Harbor Lane Books", "H", "#7A1F2B", "#EBCFB2"))
+NEUTRAL = ("", "Sample Site", "S", "#4B5563", "#D1D5DB")
+STYLE = """
+*{box-sizing:border-box}
+body{margin:0;background:#F4F5F2;color:#1E2522;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.tp-head{display:flex;align-items:center;gap:12px;padding:14px 32px;background:var(--brand);color:#fff;
+  border-bottom:4px solid var(--accent);font-size:20px;font-weight:700}
+.tp-head svg{display:block}
+.tp-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:start;
+  max-width:1040px;margin:0 auto;padding:48px 32px}
+.tp-main h1{margin:0 0 12px;color:var(--brand);font-size:36px;line-height:1.15}
+.tp-card{background:#fff;border:1px solid #DDE1DC;border-top:4px solid var(--brand);border-radius:8px;padding:24px}
+.tp-card p{margin:0 0 12px}
+.tp-card ul{margin:0;padding-left:20px}
+.tp-card label{display:block;margin-bottom:12px;font-weight:600}
+.tp-card br{display:none}
+.tp-card input:not([type=hidden]){display:block;width:100%;margin-top:4px;padding:10px;font:inherit;
+  border:1px solid #8A938E;border-radius:6px}
+.tp-card button{padding:10px 20px;font:inherit;font-weight:700;color:#fff;background:var(--brand);border:0;border-radius:6px}
+.tp-card a{color:var(--brand)}
+.tp-card iframe{max-width:100%;border:1px solid #DDE1DC}
+@media (max-width:760px){.tp-main{grid-template-columns:minmax(0,1fr);gap:20px;padding:20px 16px}
+  .tp-head{padding:10px 16px}.tp-main h1{font-size:26px}}
+"""
 
 
 def page(title, body, head=""):
-    return f"""<!doctype html><html><head><meta charset="utf-8"><title>TEST PAGE - {title}</title>{head}</head>
-<body>{BANNER}<h1>{title}</h1>{body}</body></html>""".encode()
+    _, name, letter, color, accent = next((b for b in BRANDS if b[0] in title), NEUTRAL)
+    logo = (f'<svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" '
+            f'fill="{accent}"/><text x="16" y="23" text-anchor="middle" font-size="20" font-weight="700" '
+            f'fill="{color}">{letter}</text></svg>')
+    return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TEST PAGE - {title}</title><style>:root{{--brand:{color};--accent:{accent}}}{STYLE}</style>{head}</head>
+<body>{BANNER}<header class="tp-head">{logo}<span>{name}</span></header><main class="tp-main"><div><h1>{title}</h1></div><div class="tp-card" id="page-body">{body}</div></main></body></html>""".encode()
 
 
 STEP2 = page("Northwind Bank offer", "<p>Taking you to your offer&hellip;</p>",

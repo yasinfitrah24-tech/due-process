@@ -375,7 +375,7 @@ Heights count the Drafts folded, as a phone first shows them.
 | Compare result | | | 1985 | 1125 |
 | Customer view (17) | | | 2064 | 917 |
 
-Front page at 375: height 4315, Queue at 1795. The order on the page is the order in the DOM, at
+Front page at 375: height about 4274, Queue at about 1753. These are the last full measures (4315, 1795) less the 42 px the new proof section saves on an empty front page. The order on the page is the order in the DOM, at
 every width: hero, proof, Queue, Try a case and the report form, appeal and Test any URL, Vultr and Check it yourself.
 
 ## h. Contrast

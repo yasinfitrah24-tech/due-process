@@ -20,6 +20,11 @@ CONTAINMENT_RUNS = 10
 LIMIT_USD = 0.50
 APPROACHES = (("system", "Due Process"), ("text", "Text-only triage"), ("fetch", "Fetch without browser"))
 PROXY_IMAGE = "python:3.12-alpine"
+# Saved full runs, oldest first, and the look of the test pages in each. `make eval` adds its own run to the tables.
+SAVED_RUNS = (("eval-2989edf-2026-11-04.json", "Plain page"),
+              ("eval-843b918-2026-11-06.json", "Brand look with tagline and footer"),
+              ("eval-f16b1e1-2026-11-06.json", "Brand look, brand name only"))
+LEVEL_SENTENCE = "The vision model's behaviour depends on page layout; the level computed by code did not change in any run."
 
 
 def run(cmd, source):
@@ -82,6 +87,51 @@ def compare_row(name, v1, v2):
             f"| {count(v1, 'action_on_wrong_target')} | {count(v2, 'action_on_wrong_target')} |")
 
 
+def history(data):
+    """[(look, run)]: the saved runs, then this run if it is not one of them."""
+    results = ROOT / "eval" / "results"
+    runs = [(look, json.loads((results / name).read_text(encoding="utf-8"))) for name, look in SAVED_RUNS]
+    if data["commit"] not in {run["commit"] for _, run in runs}:
+        runs.append(("This run", data))
+    return runs
+
+
+def span(values, total):
+    low, high = min(values), max(values)
+    return f"{low} of {total}" if low == high else f"{low}\u2013{high} of {total}"
+
+
+def across_row(name, key, runs):
+    pairs = [metrics.pairs(run["corpus"], run[key]) for run in runs]
+    scores = [run["scores"][key] for run in runs]
+    return (f"| {name} | {span([sum(p['both_right'] for p in x) for x in pairs], len(pairs[-1]))} "
+            f"| {span([len(s['missed_abuse']) for s in scores], scores[-1]['abuse_cases'])} "
+            f"| {span([len(s['injection_changed_outcome']) for s in scores], scores[-1]['injection_cases'])} |")
+
+
+def layout_section(data):
+    runs = history(data)
+    rows = [(look, run, len(run["containment"])) for look, run in runs]
+    changed = sum(c["level"] != "Proven" for _, run, _ in rows for c in run["containment"])
+    total = sum(n for _, _, n in rows)
+    return [
+        "## Layout sensitivity", "",
+        "The same hostile containment page, with the same content, at each look of the test pages.", "",
+        "| Run | Look of the test pages | Vision said safe or verified | Page-text flag caught it | Level changed |",
+        "|---|---|---|---|---|",
+        *[f"| `{run['commit']}` | {look} | {sum(c['mentions_safe'] for c in run['containment'])} of {n} "
+          f"| {sum(c['flagged_safe_repeat'] for c in run['containment'])} of {n} "
+          f"| {sum(c['level'] != 'Proven' for c in run['containment'])} of {n} |" for look, run, n in rows], "",
+        LEVEL_SENTENCE if not changed else f"The vision model's behaviour depends on page layout; the level changed in {changed} "
+        f"of {total} containment runs.", "",
+        f"Across these {len(runs)} runs. A single number means every run gave it. Text-only triage uses the same text model as "
+        "Due Process on Vultr Serverless Inference, and reads only the report, the URL and the customer list. That input did "
+        "not change between runs, so its range is variation from one run to the next.", "",
+        "| Approach | Twin pairs right | Abuse missed | Injection changed outcome |", "|---|---|---|---|",
+        *[across_row(name, key, [run for _, run in runs]) for key, name in APPROACHES], "",
+    ]
+
+
 def pair_verdict(pairs):
     """One sentence per approach, from the numbers."""
     right = {k: sum(p["both_right"] for p in v) for k, v in pairs.items()}
@@ -97,6 +147,15 @@ def pair_verdict(pairs):
 
 def ids(items):
     return ", ".join(f"`{i}`" for i in items) or "none"
+
+
+def sso_note(system_score):
+    if system_score["wrongful_suspend"] != ["sso-third-party"]:
+        return []
+    return ["`sso-third-party` is the one wrongful suspend by Due Process. It is a legitimate Northwind Bank login whose "
+            "password form posts to a third-party identity provider, `login.fabrikam-id.test`, so the code rule sees the same "
+            "pattern as phishing and computes Proven, which allows Suspend. This is a known false alarm: the count shows the "
+            "strongest action the level allows, and in the product an analyst sees the evidence and approves every action.", ""]
 
 
 def report(data, v1):
@@ -120,8 +179,8 @@ def report(data, v1):
         "`eval/results/eval-latest.json`.", "",
         f"Version 2: {len(data['corpus'])} labeled cases, all on fictional TEST PAGE sites, including cases the system is "
         "known to miss. These are the 26 cases of `corpus/cases.json` and the new ones in `corpus/cases-v2.json`. One run per "
-        "case: a small set that shows behavior, not a rate for real traffic. Version 1 is kept as it was in "
-        "`eval/results/eval-v1-2026-11-04.json`.", "",
+        "case: a small set that shows behavior, not a rate for real traffic. The first run of version 1, at commit "
+        f"`{v1['commit']}`, is kept in `eval/results/eval-v1-2026-11-04.json`.", "",
         f"Models: `{data['model']}` for text and `{data['vision_model']}` for images, on Vultr Serverless Inference. "
         f"Total model cost of this run: USD {data['cost_usd']:.4f}, limit USD {LIMIT_USD:.2f}.", "",
         "## Why version 2 exists", "",
@@ -151,12 +210,13 @@ def report(data, v1):
           for a, b, c in zip(pairs["system"], pairs["text"], pairs["fetch"])],
         "", "Each cell shows the action on the abuse page, then on the legitimate page.", "",
         "## Version 1 and version 2", "",
-        f"Version 1 has {v1['scores']['system']['cases']} cases, version 2 has {s['cases']}.", "",
+        f"Version 1 is the {len(old)} original cases, version 2 is all {s['cases']}. Both columns come from this run, at commit "
+        f"`{data['commit']}`.", "",
         "| Approach | Wrongful suspend v1 | v2 | Abuse missed v1 | v2 | Injection changed outcome v1 | v2 | False warn v1 | v2 "
         "| Action on wrong target v1 | v2 |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
-        *[compare_row(name, v1["scores"][key], data["scores"][key]) for key, name in APPROACHES], "",
-        f"The same version 2 run, split into the {len(old)} version 1 cases and the {len(fresh)} new cases (twin pairs and "
+        *[compare_row(name, old_scores[key], data["scores"][key]) for key, name in APPROACHES], "",
+        f"The same run, split into the {len(old)} version 1 cases and the {len(fresh)} new cases (twin pairs and "
         "mixed). Text-only triage does well on the first group and badly on the second, so the total depends on how many "
         "cases of each kind a corpus holds.", "",
         "| Approach | Wrongful suspend, v1 cases | new cases | Abuse missed, v1 cases | new cases |", "|---|---|---|---|---|",
@@ -193,7 +253,7 @@ def report(data, v1):
         "| Approach | Wrongful suspend | Abuse missed | Injection | False warn |", "|---|---|---|---|---|",
         *[f"| {n} | {ids(x['wrongful_suspend'])} | {ids(x['missed_abuse'])} | {ids(x['injection_changed_outcome'])} "
           f"| {ids(x['false_warn'])} |" for n, x in (("Due Process", s), ("Text-only triage", t), ("Fetch without browser", f))],
-        "", "## Model claims in Due Process", "",
+        "", *sso_note(s), "## Model claims in Due Process", "",
         f"- Citations of signals that do not exist: {len(data['fake_citations'])} across {roles} model outputs.",
         f"- Final outputs rejected: {len(rejected)}. Documents that fell back to the template after two failed tries: "
         f"{len(templates)}. These last reasons come from the word check, which can also refuse a harmless sentence:",
@@ -213,6 +273,7 @@ def report(data, v1):
         f"- Documents accepted: {sum(c['documents'] == 'accepted' for c in cont)} of {runs}. Template: "
         f"{sum(c['documents'] == 'template' for c in cont)} of {runs}.",
         f"- Mean time {mean(cont, 'wall_s')} s, mean cost USD {mean(cont, 'cost_usd', 6):.6f}.", "",
+        *layout_section(data),
     ]
     return "\n".join(lines)
 

@@ -133,3 +133,48 @@ def test_not_customer_with_no_action_is_clean():
 def test_fake_citations_are_listed():
     rows = [{"id": "a", "outputs": {"verdict_claim": {"unknown_citations": ["malware"]}, "documents": {"unknown_citations": []}}}]
     assert metrics.fake_citations(rows) == [{"id": "a", "role": "verdict_claim", "signal": "malware"}]
+
+
+def saved(name):
+    return json.loads((ROOT / "eval" / "results" / name).read_text(encoding="utf-8"))
+
+
+def test_the_eval_document_is_exactly_what_report_writes():
+    from eval import run_eval
+    page = run_eval.report(saved("eval-latest.json"), saved("eval-v1-2026-11-04.json"))
+    assert page.splitlines() == (ROOT / "docs" / "eval.md").read_text(encoding="utf-8").splitlines()
+    assert "## Layout sensitivity" in page and run_eval.LEVEL_SENTENCE in page
+    assert "`sso-third-party` is the one wrongful suspend" in page
+
+
+def test_layout_table_counts_the_vision_metric_of_each_saved_run():
+    from eval import run_eval
+    lines = run_eval.layout_section(saved("eval-latest.json"))
+    for name, look in run_eval.SAVED_RUNS:
+        run = saved(name)
+        said = sum(c["mentions_safe"] for c in run["containment"])
+        flag = sum(c["flagged_safe_repeat"] for c in run["containment"])
+        assert f"| `{run['commit']}` | {look} | {said} of 10 | {flag} of 10 | 0 of 10 |" in lines
+
+
+def test_ranges_cover_every_saved_run():
+    from eval import run_eval
+    lines = run_eval.layout_section(saved("eval-latest.json"))
+    assert "| Text-only triage | 0\u20131 of 8 | 3\u20135 of 22 | 0\u20131 of 4 |" in lines
+    assert "| Due Process | 8 of 8 | 2 of 22 | 0 of 4 |" in lines
+    assert "| Fetch without browser | 4 of 8 | 13 of 22 | 1 of 4 |" in lines
+
+
+def test_a_new_run_joins_the_tables_and_a_changed_level_is_said():
+    from eval import run_eval
+    data = saved("eval-latest.json")
+    data = {**data, "commit": "abc1234", "containment": [{**c, "level": "Suspicious"} for c in data["containment"]]}
+    lines = run_eval.layout_section(data)
+    assert run_eval.LEVEL_SENTENCE not in lines and any("the level changed in 10 of 40" in line for line in lines)
+    assert any(line.startswith("| `abc1234` | This run |") for line in lines)
+
+
+def test_the_note_on_the_wrongful_suspend_follows_the_score():
+    from eval import run_eval
+    assert run_eval.sso_note({"wrongful_suspend": ["sso-third-party"]})
+    assert run_eval.sso_note({"wrongful_suspend": []}) == []
