@@ -29,7 +29,6 @@
   </div>
   <div class="case-head">
     <div>
-      <p class="eyebrow">Decision record</p>
       <h1>{% if case.mode == 'test' %}Test any URL{% elif case.mode == 'twin' %}One report, two pages{% else %}Case #{{ case.id }}{% endif %}</h1>
       <p class="code case-url url-line" title="{{ case.url }}">{{ case.url }}</p>
     </div>
@@ -45,8 +44,10 @@
         {% if case.receipt %}<span class="code">container {{ (case.receipt.container_id or '')[:12] }}</span>{% endif %}
       </div>
       {% if case.level %}
-      <p class="badge badge-{{ case.level|replace(' ', '') }}">{{ case.level }}</p>
-      <p class="computed">Computed by code. No model output can change it.</p>
+      <div class="level-row">
+        <p class="badge badge-{{ case.level|replace(' ', '') }}">{{ case.level }}</p>
+        <p class="computed">Computed by code. No model output can change it.</p>
+      </div>
       {% if left_running %}<div class="notice"><p>Container still present</p><p class="next">The sandbox container <span class="code">{{ (case.receipt.container_id or '')[:12] }}</span> was not removed after this visit. An operator must remove it.</p></div>{% endif %}
       {% else %}
       <p class="why">Status: {{ case.status }}. The level appears when the browser has finished.</p>
@@ -231,12 +232,12 @@
       {% if a.status in ('drafting', 'ready', 'decided') %}
       <div id="visits-{{ a.id }}" data-level="{{ a.level or '' }}">
       <div class="visits in-card">
-        <div class="claim-box" data-tone="{{ case.level|replace(' ', '') }}">
-          <p class="label">Original visit</p>
-          <p class="visit-level"><span class="pill pill-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></p>
+        <div class="solid first" data-tone="{{ case.level|replace(' ', '') }}">
+          <p class="label">First visit</p>
+          <p class="visit-level"><span class="pill pill-on-navy pill-{{ case.level|replace(' ', '') }}">{{ case.level }}</span></p>
         </div>
         <div class="{{ 'solid' if a.level else 'claim-box' }}" data-tone="{{ (a.level or '')|replace(' ', '') }}">
-          <p class="label">Re-visit, in a new browser</p>
+          <p class="label">Re-check, in a new browser</p>
           <p class="visit-level">{% if a.level %}<span class="pill pill-on-navy pill-{{ a.level|replace(' ', '') }}">{{ a.level }}</span>{% else %}No result{% endif %}</p>
           {% if not a.level %}<p class="small">Nothing was reproduced.</p>{% endif %}
           {% if a.not_reproduced %}<p><strong>Re-visit did not reproduce the original evidence.</strong> A page can also show a clean version only to this browser.</p>{% endif %}

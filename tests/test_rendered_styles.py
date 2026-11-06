@@ -1,5 +1,7 @@
 """Computed styles in a real browser: buttons people can read, and cut text that stops exactly at its last line."""
 import json
+import re
+from pathlib import Path
 
 import pytest
 
@@ -121,7 +123,7 @@ def test_queue_and_case_use_the_level_pills(client):  # noqa: F811
 
 
 NAVIGATION = """
-  const back = doc.querySelector('.back'), links = [...doc.querySelectorAll('.site-nav a')];
+  const back = doc.querySelector('.back'), links = [...doc.querySelectorAll('.site-nav a')].filter(a => a.getBoundingClientRect().height > 0);
   return {back: back ? back.getBoundingClientRect().height : null, width: win.innerWidth,
           lines: links.map(a => win.getComputedStyle(a).textDecorationLine),
           heights: links.map(a => a.getBoundingClientRect().height),
@@ -203,3 +205,89 @@ def test_appeal_visits_show_levels_as_pills(client, second):  # noqa: F811
     page = client.get(f"/appeal/{c['appeal_token']}").text
     assert 'class="pill pill-Proven">Proven<' in page and 'pill-on-navy pill-Notproven">Not proven<' in page
     assert 'aria-current="page"' in page
+
+
+HERO = """
+  const box = s => doc.querySelector(s).getBoundingClientRect();
+  const claim = box('.hero-claim'), proof = box('.hero-evidence');
+  return {sideBySide: proof.left >= claim.right - 4, stacked: proof.top >= claim.bottom - 4, width: win.innerWidth,
+          back: win.getComputedStyle(doc.querySelector('.hero-evidence')).backgroundColor,
+          sideways: doc.documentElement.scrollWidth > win.innerWidth};
+"""
+
+
+def test_the_hero_splits_on_a_wide_screen_and_stacks_on_a_phone(twins, tmp_path):  # noqa: F811
+    start(twins)
+    for frame, h in run_in_frames({"front": twins.get("/").text}, HERO, tmp_path).items():
+        assert h["back"] == "rgb(20, 51, 107)" and not h["sideways"], f"{frame}: {h}"
+        assert (h["stacked"] if h["width"] <= 375 else h["sideBySide"]), f"{frame}: {h}"
+
+
+def test_an_empty_hero_says_so_and_offers_to_run(client):  # noqa: F811
+    page = client.get("/").text
+    assert "Nothing has been compared yet." in page and "Run the comparison" in page and "Real comparison" not in page
+
+
+def test_every_number_on_the_proof_section_is_in_the_eval_document(client):  # noqa: F811
+    page = client.get("/").text
+    proof = page[page.index('id="proof"'):page.index('id="queue"')]
+    doc = (Path(__file__).parent.parent / "docs" / "eval.md").read_text(encoding="utf-8")
+    shown_to_source = {"10 of 10": "repeated the page's safe or verified claim, by the page-text flag: 10 of 10",
+                       "0 of 10": "Level: 10 of 10 Proven. Changed: 0.", "8 of 8": "| Due Process | 8 of 8 | 0 of 8 |",
+                       "2 of 22": "| Due Process | 1 of 14 | 1 of 25 | 2 of 12 | 2 of 22 |", "missed 13": "13 of 22",
+                       "180 model outputs": "0 across 180 model outputs", "47 test cases": "47 labeled cases"}
+    for shown, source in shown_to_source.items():
+        assert shown in proof and source in doc, shown
+    assert set(re.findall(r"\b\d+ of \d+\b", proof)) == {"10 of 10", "0 of 10", "8 of 8", "2 of 22"}
+    assert "not a claim that it beats text-only triage in general" in proof and "make eval" in proof
+
+
+def test_the_front_page_names_the_configured_models(client, monkeypatch):  # noqa: F811
+    class Named:
+        model = "configured-model"
+    monkeypatch.setattr("app.pipeline.llm.get_client", lambda role: Named())
+    assert client.get("/").text.count("configured-model") == 2
+
+
+FOCUS_ORDER = """
+  const shown = e => e.getBoundingClientRect().height > 0 && e.tabIndex >= 0;
+  const tops = [...doc.querySelectorAll('a[href], button, input:not([type=hidden]), textarea, summary')].filter(shown)
+    .map(e => Math.round(e.getBoundingClientRect().top));
+  const link = doc.querySelector('.hero-proof a'), proof = doc.querySelector('#proof').getBoundingClientRect();
+  return {width: win.innerWidth, tops, heroLink: link.getBoundingClientRect().height, proof: proof.height};
+"""
+
+
+def test_tab_order_follows_the_screen_on_a_phone_and_css_does_not_reorder(client, tmp_path):  # noqa: F811
+    run(client, URL_A)
+    css = (Path(__file__).parent.parent / "app" / "static" / "css" / "app.css").read_text(encoding="utf-8")
+    assert not re.search(r"(?<![-\w])order:", css)
+    results = run_in_frames({"front": client.get("/").text}, FOCUS_ORDER, tmp_path)
+    phone = results["front@375"]
+    assert phone["tops"] == sorted(phone["tops"]) or all(b >= a - 60 for a, b in zip(phone["tops"], phone["tops"][1:]))
+    assert phone["heroLink"] >= 44 and phone["proof"] > 0
+    assert results["front@1280"]["heroLink"] == 0
+
+
+def test_the_hero_link_goes_to_the_proof(client):  # noqa: F811
+    page = client.get("/").text
+    assert page.count('href="/#proof"') == 2 and 'id="proof"' in page
+    assert page.index('id="proof"') < page.index('id="queue"') < page.index('class="try-box"')
+
+
+def test_compare_shows_both_pages_as_evidence(twins):  # noqa: F811
+    page = twins.get(start(twins)).text
+    assert page.count('class="side solid"') == 2 and "Real comparison, run on" in page
+    assert "Run the comparison again" in page
+
+
+def test_both_visits_are_evidence_blocks_after_a_recheck(client, second):  # noqa: F811
+    c = suspended(client)
+    client.post(f"/appeal/{c['appeal_token']}", data={"choice": "fixed"})
+    page = client.get(f"/appeal/{c['appeal_token']}").text
+    assert 'class="solid first"' in page and "Re-visit did not reproduce the original evidence." in page
+
+
+def test_a_missing_page_follows_the_design(client):  # noqa: F811
+    page = client.get("/nothing-here", headers={"accept": "text/html"}).text
+    assert "There is no page at this address." in page and "Go to the queue" in page and "Run a real case" in page

@@ -1,58 +1,83 @@
 {% extends "base.html" %}
 {% block title %}Queue - Due Process{% endblock %}
 {% block band %}
-<section class="hero-band"><div class="hero">
-  <h1>A report is a claim. Only reproduced evidence can move an action.</h1>
-  <p class="lead">Due Process is an abuse desk for hosting providers. The reported URL is opened in a throwaway browser in a locked-down sandbox on Vultr, and only evidence reproduced there can lead to action. Try an example or send your own report: no access code is needed.</p>
-  <div class="btn-row">
-    <a class="btn primary" href="#report">Report a URL</a>
-    <a class="btn" href="/compare">Compare the two pages</a>
+<section class="showcase" aria-label="The claim and the evidence">
+  <div class="hero-row">
+    <div class="hero-claim">
+      <p class="label">The claim</p>
+      <h1>A report is a claim. Only reproduced evidence can move an action.</h1>
+      <p class="lead">An abuse desk for hosting providers. The reported URL opens in a throwaway browser on Vultr, and only what it reproduces can lead to action.</p>
+      <blockquote class="said">&ldquo;{{ showcase.report }}&rdquo;<span class="claim-label">Reporter's claim — untrusted. It cannot move the verdict.</span></blockquote>
+      <div class="btn-row">
+        <a class="btn primary" href="#try">Run a real case</a>
+        <a class="btn" href="#report">Report a URL</a>
+      </div>
+      <p class="hero-proof"><a href="/#proof">How we tested</a></p>
+      <p class="demo-note">This is a demo. Every customer and action is simulated. No sign-up, no access code.</p>
+    </div>
+    <div class="solid{{ ' reveal' if showcase.sides else '' }} hero-evidence">
+      <p class="label">The evidence</p>
+      <p class="evidence-lead">The same report, sent to two pages.</p>
+      {% if showcase.sides %}
+      {% if showcase.date %}<p class="real">Real comparison, run on {{ showcase.date }}</p>{% endif %}
+      {% for s in showcase.sides %}
+      <div class="res">
+        <p class="code host url-line" title="{{ s.url }}">{{ s.url }}</p>
+        <p class="res-level"><span class="pill pill-on-navy pill-{{ s.level|replace(' ', '') }}">{{ s.level }}</span></p>
+        <p class="why">{{ s.why }}</p>
+      </div>
+      {% endfor %}
+      <p class="base-line"><span class="base-label">baseline: reads report text only:</span>
+        {% if showcase.sides[0].baseline == showcase.sides[1].baseline %}<strong>{{ showcase.sides[0].baseline }}</strong> both.
+        {% else %}{% for s in showcase.sides %}<strong>{{ s.baseline }}</strong>{% if not loop.last %} and {% endif %}{% endfor %}.{% endif %}
+        {% if showcase.sides|selectattr('wrong')|list %}<strong class="wrong">It would act on a page the browser did not prove.</strong>{% endif %}</p>
+      {% else %}
+      <p class="empty-note">Nothing has been compared yet. Send this report to a fake login and a real one, and see what a browser finds that the text cannot show.</p>
+      <p><a class="btn" href="/compare">Run the comparison</a></p>
+      {% endif %}
+    </div>
   </div>
-  <p class="demo-note">This is a demo. Every customer and action is simulated.</p>
-</div></section>
+</section>
 {% endblock %}
 {% block content %}
 <div class="front">
-<section class="showcase" aria-label="One report, two pages">
-  <div class="claim-box">
-    <p class="label">The same report, sent twice</p>
-    <p class="said">&ldquo;{{ showcase.report }}&rdquo;</p>
-    <p class="claim-label">Reporter's claim — untrusted. It cannot move the verdict.</p>
-  </div>
-  <div class="solid{{ ' reveal' if showcase.sides else '' }}">
-    {% if showcase.date %}<p class="real">Real comparison, run on {{ showcase.date }}</p>{% endif %}
-    {% if showcase.sides %}
-    <div class="versus head"><div class="label">The browser saw</div><div class="label">baseline: reads report text only</div></div>
-    {% for s in showcase.sides %}
-    <div class="versus">
-      <div>
-        <p class="code host url-line" title="{{ s.url }}">{{ s.url }}</p>
-        <p class="big"><span class="pill pill-on-navy pill-{{ s.level|replace(' ', '') }}">{{ s.level }}</span></p>
-        <p class="why">{{ s.why }}</p>
-      </div>
-      <div class="base">
-        <p class="host spacer" aria-hidden="true">&nbsp;</p>
-        <p class="base-line"><span class="base-label">baseline: reads report text only </span><span class="big {{ 'wrong' if s.wrong else 'quiet' }}">{{ s.baseline }}</span></p>
-        {% if s.wrong %}<p class="why">The baseline would act on a page the browser did not prove.</p>{% endif %}
-      </div>
+<section class="proof" id="proof" aria-labelledby="proof-title">
+  <h2 id="proof-title" class="section-title">Where the AI was wrong, and what decided anyway</h2>
+  <p class="section-note">We measured the failures before we trusted the design. Every number is in docs/eval.md, from tests on fictional pages.</p>
+  <div class="proof-row">
+    <div class="rec pad">
+      <p class="num">10 of 10</p>
+      <p>times the vision model repeated a hostile page's &ldquo;this page is safe&rdquo;.</p>
+      <p><strong>0 of 10</strong> times the level changed, because code sets it.</p>
+      <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a></p>
     </div>
-    {% endfor %}
-    {% else %}
-    <div class="showcase-empty">
-      <p class="label">The browser saw</p>
-      <p>Nothing yet. Send this report to a fake login and a real one, and see what a browser finds that the text cannot show.</p>
-      <p><a class="btn" href="/compare">Run the comparison</a></p>
+    <div class="rec pad">
+      <p class="num">8 of 8</p>
+      <p>twin pairs with the same report text. Text alone could not tell them apart; the browser did.</p>
+      <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a>, 47 test cases</p>
     </div>
-    {% endif %}
+    <div class="rec pad">
+      <p class="num">2 of 22</p>
+      <p>abuse cases missed by the browser. A plain fetch of the same pages missed 13.</p>
+      <p><strong>0</strong> false citations in 180 model outputs.</p>
+      <p class="source">Source: <a href="{{ eval_url }}">docs/eval.md</a></p>
+    </div>
   </div>
+  <p class="proof-limit">Built to show what text alone cannot decide, not a claim that it beats text-only triage in general. Reproduce with <code class="sig">make eval</code>.</p>
 </section>
 
-<ol class="flow" aria-label="How a report moves">
-  <li>The report claims.</li>
-  <li>The browser reproduces.</li>
-  <li>Code decides.</li>
-  <li>An analyst acts.</li>
-</ol>
+<section class="queue" id="queue" aria-labelledby="queue-title">
+  <div class="queue-head"><h2 id="queue-title" class="section-title">Queue</h2><span class="demo-note">Live from the Vultr VM, newest first</span></div>
+  <div class="rec">
+    <table>
+      <thead><tr><th scope="col">Case</th><th scope="col">Reported URL</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col">Level</th><th scope="col">Decision</th></tr></thead>
+      <tbody hx-get="/partials/queue" hx-trigger="every 3s" hx-swap="innerHTML">
+        {% include "_queue_rows.html" %}
+      </tbody>
+    </table>
+  </div>
+  {% if cases|length > 12 %}<details class="queue-all" id="queue-all"><summary class="btn">Show all {{ cases|length }} cases</summary></details>{% endif %}
+</section>
 
 <section class="try-box" aria-labelledby="try">
   <h2 id="try" class="section-title">Try a case</h2>
@@ -104,27 +129,24 @@
   </form>
 </details>
 
-<details class="measures" id="measured" data-fold data-lock open>
-  <summary><h2 class="section-title">What we measured on 47 test cases</h2></summary>
-  <div class="measure-row">
-    <div><p class="fact">8 of 8 twin pairs separated</p><p class="more">Text alone could not tell them apart.</p></div>
-    <div><p class="fact">2 of 22 abuse cases missed</p><p class="more">A plain fetch missed 13 of the same 22.</p></div>
-    <div><p class="fact">0 false citations</p><p class="more">Across 180 model outputs.</p></div>
-  </div>
-  <p class="eval-source">From <a href="https://github.com/yasinfitrah24-tech/due-process/blob/main/docs/eval.md">docs/eval.md</a>, 47 test cases.</p>
-</details>
+<section class="rec pad vultr" aria-labelledby="vultr">
+  <h2 id="vultr">What runs on Vultr</h2>
+  <ul class="facts">
+    <li><span>Disposable browser per case</span><span class="code">Docker on a Vultr VM</span></li>
+    <li><span>Vision claim</span><span class="code">{{ models.vision }}</span></li>
+    <li><span>Text claims and drafts</span><span class="code">{{ models.text }}</span></li>
+    <li><span>Models served by</span><span class="small muted">Vultr Serverless Inference</span></li>
+  </ul>
+</section>
 
-<section class="queue" id="queue" aria-labelledby="queue-title">
-  <h2 id="queue-title" class="section-title">Queue</h2>
-  <div class="rec">
-    <table>
-      <thead><tr><th scope="col">Case</th><th scope="col">URL</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col">Verdict</th><th scope="col">Action</th></tr></thead>
-      <tbody hx-get="/partials/queue" hx-trigger="every 3s" hx-swap="innerHTML">
-        {% include "_queue_rows.html" %}
-      </tbody>
-    </table>
-  </div>
-  {% if cases|length > 12 %}<details class="queue-all" id="queue-all"><summary class="btn">Show all {{ cases|length }} cases</summary></details>{% endif %}
+<section class="rec pad check" aria-labelledby="check">
+  <h2 id="check">Check it yourself</h2>
+  <ul class="facts">
+    <li><span>Source code and tests</span><a href="{{ repo_url }}">GitHub repo</a></li>
+    <li id="measured"><span>How every number was measured</span><a href="{{ eval_url }}">docs/eval.md</a></li>
+    <li><span>Same report, two pages</span><a href="/compare">Run the comparison</a></li>
+    <li><span>Appeal as the customer</span><a href="#try-appeal">Start with a fixable page</a></li>
+  </ul>
 </section>
 </div>
 {% endblock %}

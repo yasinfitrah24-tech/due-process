@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>D Front, phone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700;800&amp;family=Source+Code+Pro:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#14336B}
+.code{font-family:'Source Code Pro',ui-monospace,monospace}
+.tab{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border-radius:999px;font-size:14px;font-weight:600;color:#343B45;text-decoration:none}
+.tab[aria-current]{color:#14336B;background:#E8EEF8}
+.btn{display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;min-height:48px;border-radius:4px;text-decoration:none}
+.pill{display:inline-flex;align-items:center;font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px}
+</style>
+</helmet>
+<div style="width:390px;height:844px;overflow:hidden;font-family:'Source Sans 3',ui-sans-serif,system-ui,sans-serif;background:#F4F5F7;color:#111418">
+  <header style="background:#fff;border-bottom:1px solid #E3E7EE;padding:6px 16px;display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;align-items:center;gap:8px"><svg width="22" height="22" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="4" width="12" height="26" rx="1.5" fill="none" stroke="#14336B" stroke-width="2.6"></rect><rect x="19" y="4" width="12" height="26" rx="1.5" fill="#14336B"></rect></svg><span style="font-weight:800;font-size:17px">Due Process</span></div>
+    <nav aria-label="Main" style="display:flex"><a class="tab" href="#" aria-current="page">Queue</a><a class="tab" href="#">Compare</a></nav>
+  </header>
+  <section style="background:#fff;padding:24px 16px 20px;border-bottom:3px solid #14336B">
+    <p style="margin:0;font-size:13px;font-weight:700;color:#555E6B">The claim</p>
+    <h1 style="margin:8px 0 0;font-size:30px;line-height:1.08;font-weight:800;letter-spacing:-0.02em">A report is a claim. Only reproduced evidence can move an action.</h1>
+    <p style="margin:12px 0 0;font-size:15px;line-height:1.5;color:#343B45">An abuse desk for hosting providers. Each reported URL opens in a throwaway browser on Vultr.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+      <a class="btn" href="#" style="background:#14336B;color:#fff;border:2px solid #14336B">Run a real case</a>
+      <a class="btn" href="#" style="background:#fff;color:#14336B;border:2px solid #14336B">Report a URL</a>
+    </div>
+    <p style="margin:10px 0 0;font-size:13px;color:#555E6B">Demo. Every customer and action is simulated.</p>
+  </section>
+  <section style="background:#14336B;color:#fff;padding:20px 16px">
+    <p style="margin:0;font-size:13px;font-weight:700;color:#BCCBEA">The evidence, same report sent to two pages</p>
+    <p style="margin:8px 0 0;font-size:15px;font-weight:600">“This page asks for my bank password and it looks fake to me.”</p>
+    <div style="margin-top:14px;padding:12px 0;border-top:1px solid rgba(255,255,255,.18)"><p class="code" style="margin:0;font-size:12px;color:#BCCBEA">orchard-site.test/p/1042</p><div style="display:flex;gap:8px;align-items:center;margin-top:6px"><span class="pill" style="background:#B3261E;color:#fff">Proven</span><span style="font-size:13px;color:#DCE4F4">Baseline: Suspend</span></div></div>
+    <div style="padding:12px 0;border-top:1px solid rgba(255,255,255,.18)"><p class="code" style="margin:0;font-size:12px;color:#BCCBEA">birch-site.test/p/2291</p><div style="display:flex;gap:8px;align-items:center;margin-top:6px"><span class="pill" style="background:#4B5868;color:#fff">Not proven</span><span style="font-size:13px;color:#FFDD00;font-weight:700">Baseline: Suspend, a real page</span></div></div>
+  </section>
+  <section style="padding:20px 16px">
+    <h2 style="margin:0 0 10px;font-size:20px;font-weight:800">Where the AI was wrong</h2>
+    <div style="background:#fff;border:1px solid #E3E7EE;border-radius:10px;padding:14px 16px"><p style="margin:0;font-size:28px;font-weight:800;color:#14336B">10 of 10</p><p style="margin:4px 0 0;font-size:14px">times the vision model repeated “this page is safe”. 0 of 10 times the level changed.</p></div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

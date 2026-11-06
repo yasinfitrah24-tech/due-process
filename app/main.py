@@ -26,7 +26,8 @@ MAX_CLAIM_CHARS = 20000
 DOCUMENTS = {"statement_of_reasons": "Statement of reasons", "customer_notice": "Customer notice",
              "reporter_reply": "Reporter reply"}
 NEEDS_ENFORCEMENT = ("statement_of_reasons", "customer_notice")
-ACTION_LABELS = {"Suspend": "Suspend customer", "Warn": "Warn customer", "Close": "Close report"}
+ACTION_LABELS = {"Suspend": "Suspend customer", "Warn": "Warn", "Close": "Close"}
+REPO_URL = "https://github.com/yasinfitrah24-tech/due-process"
 SHOWCASE_TWIN = "login"
 
 templates = Jinja2Templates(directory=HERE / "templates")
@@ -83,7 +84,7 @@ FOUND_NOTHING = {"Not Found": "We could not find that page.", "case not found": 
                  "no such appeal link": "This appeal link does not exist.",
                  "no such comparison": "This comparison does not exist."}
 NEXT_STEP = {403: "Go back and choose one of the actions shown there.",
-             404: "Check the link, or go back and start from there.",
+             404: "The link may be old, or the case number may not exist. Cases in this demo are reset from time to time.",
              405: "Go back and use the buttons on the page.",
              409: "Go back: the page shows where this stands now.",
              422: "Go back, check what you entered and send it again.",
@@ -108,9 +109,12 @@ def error_page(request, status, what):
     else:
         back, label = "/", "Back to the queue"
     sentence = what[0].upper() + what[1:]
+    sentence = sentence if sentence.endswith(".") else f"{sentence}."
+    missing = status == 404
     return templates.TemplateResponse(request, "error.html", {
-        "status": status, "what": sentence if sentence.endswith(".") else f"{sentence}.",
-        "next_step": NEXT_STEP.get(status, NEXT_STEP[409]), "back": back, "back_label": label}, status_code=status)
+        "status": status, "what": sentence, "headline": "There is no page at this address." if missing else sentence,
+        "next_step": f"{sentence} {NEXT_STEP[404]}" if missing else NEXT_STEP.get(status, NEXT_STEP[409]),
+        "back": back, "back_label": "Go to the queue" if missing and back == "/" else label}, status_code=status)
 
 
 def once(nonce, work):
@@ -337,6 +341,9 @@ def front_page(request, error=None, status_code=200, form="report", values=None)
     return templates.TemplateResponse(request, "queue.html", {"cases": db.list_cases(), "error": error, "hosts": hosts,
                                                               "examples": EXAMPLES, "fixable": FIXABLE_EXAMPLE,
                                                               "showcase": showcase(), "form": form,
+                                                              "models": {"vision": pipeline.llm.get_client("vision_claim").model,
+                                                                         "text": pipeline.llm.get_client("verdict_claim").model},
+                                                              "repo_url": REPO_URL, "eval_url": f"{REPO_URL}/blob/main/docs/eval.md",
                                                               "values": values or {},
                                                               "error_next": rejected_next(error)},
                                       status_code=status_code)

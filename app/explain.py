@@ -118,7 +118,7 @@ def appeal_steps(case, appeals):
             {"title": "Appeal sent.", "text": "Your text is stored as a claim.", "done": bool(appeals)},
             {"title": "Re-visited.", "text": "A new disposable browser opens the page.", "done": visited},
             {"title": "Decided.", "text": "Reinstate only if the re-visit finds a lower level than before.",
-             "done": any(a["decision"] for a in appeals)}]
+             "done": any(a["decision"] for a in appeals), "reinstated": any(a["decision"] == "Reinstate" for a in appeals)}]
 
 
 def appeal_status(appeals):
