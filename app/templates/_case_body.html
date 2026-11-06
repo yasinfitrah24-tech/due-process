@@ -20,7 +20,7 @@
 <p class="code url-full url-line" title="{{ case.url }}">{{ case.url }}</p>
 <p>{{ status_line }}</p>
 {% if case.mode == 'demo' %}<p class="demo-note">Demo case. The customer is simulated.</p>{% endif %}
-{% if usage.calls %}<p class="demo-note">Status: {{ case.status }}. {{ usage.calls }} model calls, USD {{ '%.5f'|format(usage.cost_usd) }}.</p>{% endif %}
+{% if usage.calls %}<p class="demo-note">Status: {{ case.status }}. {{ usage.calls }} model calls, USD {{ '%.5f'|format(usage.cost_usd) }} {{ 'reserved' if usage.open_calls else 'spent' }}.</p>{% endif %}
 {% endmacro %}
 <div id="case" data-level="{{ case.level or '' }}" data-status="{{ live_line }}"{% if polling %} hx-get="/partials/cases/{{ case.ref }}" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
   <div class="case-nav">

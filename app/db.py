@@ -442,8 +442,9 @@ def role_calls(case_id, role):
 def case_usage(case_id):
     with connect() as c:
         row = c.execute("SELECT COUNT(*) AS calls, COALESCE(SUM(cost_usd), 0) AS cost_usd, "
-                        "COALESCE(SUM(latency_s), 0) AS latency_s FROM llm_usage WHERE case_id = ?",
-                        (case_id,)).fetchone()
+                        "COALESCE(SUM(latency_s), 0) AS latency_s, "
+                        "COALESCE(SUM(prompt_tokens = 0 AND completion_tokens = 0 AND latency_s = 0 AND cost_usd > 0), 0) "
+                        "AS open_calls FROM llm_usage WHERE case_id = ?", (case_id,)).fetchone()
     return dict(row)
 
 
