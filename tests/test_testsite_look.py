@@ -68,9 +68,13 @@ def test_twin_pages_look_the_same():
         assert split(PAGES[a])[0] == split(PAGES[b])[0] and split(PAGES[a])[2] == split(PAGES[b])[2]
 
 
-def test_brands_are_the_fictional_three():
-    login = PAGES["northwind-bank.test /login"]
-    assert "#0B5D57" in login and "Northwind Bank is a fictional brand.</footer>" in login
-    assert "Tailspin Offers is a fictional brand.</footer>" in PAGES["tailspin-offers.test /sso-login"]
-    assert "Harbor Lane Books is a fictional brand.</footer>" in PAGES["clean shop"]
-    assert "Sample Site is a fictional brand.</footer>" in PAGES["birch-site.test /p/1173"]
+def test_the_only_new_text_is_the_brand_name():
+    names = {"northwind-bank.test /login": "Northwind Bank", "tailspin-offers.test /sso-login": "Tailspin Offers",
+             "clean shop": "Harbor Lane Books", "birch-site.test /p/1173": "Sample Site"}
+    for key, name in names.items():
+        before, _, after = split(PAGES[key])
+        shown = re.sub(r"<[^>]+>", " ", re.sub(r"<(style|script|title|svg)\b.*?</\1>", " ", before + after, flags=re.S))
+        title = re.search(r"<h1>(.*?)</h1>", before).group(1)
+        banner = re.sub(r"<[^>]+>", "", SITE.BANNER)
+        assert shown.split() == (banner + " " + name + " " + title).split(), key
+    assert "#0B5D57" in PAGES["northwind-bank.test /login"] and "<footer" not in PAGES["northwind-bank.test /login"]
