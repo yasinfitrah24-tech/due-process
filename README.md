@@ -1,4 +1,20 @@
-# Due Process
+<p align="center"><img src="app/static/favicon.svg" width="96" alt="Due Process logo"></p>
+
+<h1 align="center">Due Process</h1>
+
+<p align="center"><strong>An abuse report in, a reproduced verdict out.</strong></p>
+
+## For judges: start here
+
+| What you want to see | Link |
+|---|---|
+| Live demo | <https://45-76-241-186.sslip.io> |
+| Same report, two pages (a real run) | <https://45-76-241-186.sslip.io/compare/GWelIxyo-2aFHWsGdz6rYg> |
+| The containment moment | <https://45-76-241-186.sslip.io/cases/5> |
+| Appeal to Reinstate | [Front page, "Start with a fixable page"](https://45-76-241-186.sslip.io/#try-appeal) |
+| How every number was measured | [docs/eval.md](docs/eval.md) |
+| Architecture | [docs/architecture.md](docs/architecture.md) |
+| Rerun the numbers | `make eval` (needs the local stack and a Vultr Serverless Inference key; one full run costs about USD 0.14. Without a key it runs a mock client, and those numbers are not the measured ones.) |
 
 **Every abuse report is reproduced in a throwaway browser before anyone gets suspended.**
 
@@ -59,6 +75,24 @@ report ──► app ──► launcher ──► disposable sandbox ──► e
    signals ► verdict ► model claims ► analyst ► simulated action and letters
                        (Vultr Serverless Inference)
 ```
+
+Which stages use a model:
+
+| Stage | What runs | Model involved? |
+|---|---|---|
+| Report received | `app` finds the customer from the URL's host in the hosting inventory | no |
+| Visit | `launcher` starts one sandbox; Chromium opens the URL through `egress`, fills in nothing, and the container is removed | no |
+| Evidence | Read from browser network events, the Chrome DevTools Protocol and an isolated world | no |
+| Signals and level | Code computes the signals and the level, and stores them before any model runs | **no** |
+| Reporter's claim | `claim_extraction` reads the report as quoted data and says what the reporter alleges | yes, text model |
+| Screenshot | `vision_claim` describes what the page shows | yes, vision model |
+| Evidence statement | `verdict_claim` writes the statement, citing signals | yes, text model |
+| Drafts | `documents` drafts the statement of reasons, customer notice and reporter reply; after two failed tries a template from code is used | yes, text model |
+| Claim checks | Code checks each output's schema and that every cited signal exists | no |
+| Decision | An analyst approves one of the actions the level allows | no |
+| Appeal re-visit | The same fixed visit in a new container, with signals and level from code. It is the only thing that can open Reinstate | no |
+| Appeal letter | `appeal_letter` drafts the letter; after two failed tries a template from code is used | yes, text model |
+| Comparison baseline | `text_triage` reads the report and URL for comparison only. It decides nothing | yes, text model |
 
 | Part | What it does |
 |---|---|
@@ -151,6 +185,15 @@ cannot do is tell two pages apart, or give evidence for its decision.
   sentence; then the documents fall back to a template from code.
 - **The demo is open.** Anyone can approve simulated actions there. The launcher is still root-equivalent on its host
   if compromised.
+
+## What Due Process does not claim
+
+- It makes no claim of compliance with the EU Digital Services Act (DSA).
+- The 47 cases run on fictional pages we wrote. They are not a public benchmark.
+- The twin pairs are built so report text cannot tell the pages apart.
+- Every customer and action in the demo is simulated.
+
+Details are in [docs/eval.md](docs/eval.md) and [Known limits](#known-limits).
 
 ## Prior work
 
