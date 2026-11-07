@@ -36,13 +36,13 @@ hostile page gets a browser inside your network. A report can also be written to
 
 ## Why this matters
 
-Hosting providers receive abuse reports at a scale no team can check by hand. One Dutch hosting provider received 1,309,540 abuse reports over nine years (Bijmans, van Eeten, van Wegberg, "Tickets to Hide", NDSS 2026). Providers still have to decide which reports are true, and most try to validate abuse themselves (Infoblox Threat Intel, 2026).
+Hosting providers receive abuse reports at a scale no team can check by hand. One hosting provider with its data center in the Netherlands received 1,309,540 abuse reports over nine years (Bijmans, van Eeten, van Wegberg, "Tickets to Hide", NDSS 2026). Providers still have to decide which reports are true, and most try to validate abuse themselves (Infoblox Threat Intel, 2026).
 
 Acting without verification punishes the wrong people. On 28 October 2026, an independent journalist's website was suspended by its hosting provider after an abuse report for "fraud/scam" that he says was fabricated, with no prior notice. It was restored on 2 November (The Wire, 2026).
 
 Waiting is costly too: a phishing site stays online for 2.25 days on average after it is detected (Lee et al., "7 Days Later", WWW 2025).
 
-Due Process verifies every report in a disposable browser in 7–25 seconds, and tells the customer exactly why an action was taken.
+In our eval, Due Process reproduced each report on a customer's page in a disposable browser in 11 to 21 seconds (mean 15.5 s), and tells the customer exactly why an action was taken.
 
 Sources:
 - https://www.ndss-symposium.org/wp-content/uploads/2026-f468-paper.pdf
